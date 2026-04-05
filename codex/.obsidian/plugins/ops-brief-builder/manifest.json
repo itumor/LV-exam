@@ -1,0 +1,9 @@
+{
+  "id": "ops-brief-builder",
+  "name": "Ops Brief Builder",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Generate an operations brief from recently updated meeting and incident notes.",
+  "author": "OpenAI Codex",
+  "isDesktopOnly": false
+}

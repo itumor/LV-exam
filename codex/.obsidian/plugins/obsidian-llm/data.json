@@ -1,0 +1,32 @@
+{
+  "defaultProvider": "codex",
+  "providers": {
+    "claude": {
+      "enabled": true,
+      "useAcp": true
+    },
+    "opencode": {
+      "enabled": false,
+      "useAcp": true
+    },
+    "codex": {
+      "enabled": true,
+      "useAcp": false,
+      "customCommand": "/opt/homebrew/bin/codex"
+    },
+    "gemini": {
+      "enabled": false,
+      "useAcp": true
+    }
+  },
+  "insertPosition": "cursor",
+  "streamOutput": true,
+  "systemPromptFile": "",
+  "defaultTimeout": 120,
+  "conversationHistory": {
+    "enabled": true,
+    "maxMessages": 10
+  },
+  "allowFileWrites": false,
+  "debugMode": false
+}
