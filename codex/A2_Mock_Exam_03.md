@@ -1,5 +1,7 @@
 # A2 Mock Exam 03
 
+> Audio attachments in this exam are generated locally with Piper using the Latvian voice `lv_LV-rudolfs-medium`.
+
 ## Student Version
 
 Klausīšanās – 15 punkti  
@@ -14,6 +16,13 @@ Lai nokārtotu: vismaz 9 punkti katrā prasmē (minimum 9 points in each skill)
 Laiks – 25 minūtes
 
 #### 1. uzdevums
+
+<audio controls preload="none">
+  <source src="Attachments/A2_Mock_Exam_03/klausisanas_1_uzdevums.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+[Audio failsafe link](Attachments/A2_Mock_Exam_03/klausisanas_1_uzdevums.mp3)
 
 Klausieties paziņojumus! Katrs paziņojums skanēs divas reizes.  
 Pēc katra paziņojuma atzīmējiet pareizo atbildi!
@@ -45,6 +54,13 @@ Pēc katra paziņojuma atzīmējiet pareizo atbildi!
 
 #### 2. uzdevums
 
+<audio controls preload="none">
+  <source src="Attachments/A2_Mock_Exam_03/klausisanas_2_uzdevums.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+[Audio failsafe link](Attachments/A2_Mock_Exam_03/klausisanas_2_uzdevums.mp3)
+
 Klausieties sarunu! Saruna skanēs divas reizes.  
 Atzīmējiet, vai apgalvojums ir pareizs (`Jā`) vai nepareizs (`Nē`)!
 
@@ -54,6 +70,13 @@ Atzīmējiet, vai apgalvojums ir pareizs (`Jā`) vai nepareizs (`Nē`)!
 4. Galdiņš rezervēts pulksten 19.30.
 
 #### 3. uzdevums
+
+<audio controls preload="none">
+  <source src="Attachments/A2_Mock_Exam_03/klausisanas_3_uzdevums.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+[Audio failsafe link](Attachments/A2_Mock_Exam_03/klausisanas_3_uzdevums.mp3)
 
 Klausieties sarunas! Sarunas skanēs divas reizes.  
 Ievelciet atbilstošo skaitli vai vārdu! Četras atbildes ir liekas.
@@ -164,6 +187,12 @@ Laiks – 35 minūtes
 
 Apskatiet attēlu aprakstus! Uzrakstiet par katru attēlu vienu teikumu. Katrā teikumā ne mazāk par 5 vārdiem.
 
+
+![Rakstīšana 1. attēls](Attachments/A2_Mock_Exam_03/rakstisana_1_attels_1.png)
+![Rakstīšana 2. attēls](Attachments/A2_Mock_Exam_03/rakstisana_1_attels_2.png)
+![Rakstīšana 3. attēls](Attachments/A2_Mock_Exam_03/rakstisana_1_attels_3.png)
+![Rakstīšana 4. attēls](Attachments/A2_Mock_Exam_03/rakstisana_1_attels_4.png)
+
 1. Draugi dzer kafiju mazā kafejnīcā.
 2. Sieviete tirgū izvēlas augļus.
 3. Pavārs gatavo zupu restorāna virtuvē.
@@ -196,6 +225,13 @@ Laiks – 10–15 minūtes
 
 #### 1. uzdevums
 
+<audio controls preload="none">
+  <source src="Attachments/A2_Mock_Exam_03/runasana_1_jautajumi.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+[Audio failsafe link](Attachments/A2_Mock_Exam_03/runasana_1_jautajumi.mp3)
+
 Atbildiet uz jautājumiem pilnos teikumos.
 
 1. Kur jūs parasti pērkat pārtiku?
@@ -211,7 +247,18 @@ Atbildiet uz jautājumiem pilnos teikumos.
 
 #### 2. uzdevums
 
+<audio controls preload="none">
+  <source src="Attachments/A2_Mock_Exam_03/runasana_2_jautajumi.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+[Audio failsafe link](Attachments/A2_Mock_Exam_03/runasana_2_jautajumi.mp3)
+
 Aplūkojiet attēlu aprakstus! Atbildiet uz jautājumiem par attēliem.
+
+
+![Runāšana 2. attēls A](Attachments/A2_Mock_Exam_03/runasana_2_attels_1.png)
+![Runāšana 2. attēls B](Attachments/A2_Mock_Exam_03/runasana_2_attels_2.png)
 
 **Attēls A.** Sieviete maiznīcā pērk maizi un kūkas.  
 Jautājumi: **Kas? Ko dara? Kur?**
@@ -222,6 +269,13 @@ Jautājumi: **Kas? Ko dara? Kur?**
 **Jautājums jums:** Ko jums patīk ēst vai dzert, kad ejat uz kafejnīcu?
 
 #### 3. uzdevums
+
+<audio controls preload="none">
+  <source src="Attachments/A2_Mock_Exam_03/runasana_3_jautajumi.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+[Audio failsafe link](Attachments/A2_Mock_Exam_03/runasana_3_jautajumi.mp3)
 
 Uzdodiet jautājumus! Jautājumus formulējiet pilnā teikumā.
 

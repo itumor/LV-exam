@@ -1,5 +1,7 @@
 # A2 Mock Exam 10
 
+> Audio attachments in this exam are generated locally with Piper using the Latvian voice `lv_LV-rudolfs-medium`.
+
 ## Student Version
 
 Klausīšanās – 15 punkti  
@@ -14,6 +16,13 @@ Lai nokārtotu: vismaz 9 punkti katrā prasmē (minimum 9 points in each skill)
 Laiks – 25 minūtes
 
 #### 1. uzdevums
+
+<audio controls preload="none">
+  <source src="Attachments/A2_Mock_Exam_10/klausisanas_1_uzdevums.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+[Audio failsafe link](Attachments/A2_Mock_Exam_10/klausisanas_1_uzdevums.mp3)
 
 Klausieties paziņojumus! Katrs paziņojums skanēs divas reizes.  
 Pēc katra paziņojuma atzīmējiet pareizo atbildi!
@@ -45,6 +54,13 @@ Pēc katra paziņojuma atzīmējiet pareizo atbildi!
 
 #### 2. uzdevums
 
+<audio controls preload="none">
+  <source src="Attachments/A2_Mock_Exam_10/klausisanas_2_uzdevums.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+[Audio failsafe link](Attachments/A2_Mock_Exam_10/klausisanas_2_uzdevums.mp3)
+
 Klausieties sarunu! Saruna skanēs divas reizes.  
 Atzīmējiet, vai apgalvojums ir pareizs (`Jā`) vai nepareizs (`Nē`)!
 
@@ -54,6 +70,13 @@ Atzīmējiet, vai apgalvojums ir pareizs (`Jā`) vai nepareizs (`Nē`)!
 4. Viņi sestdien grib aiziet uz koncertu.
 
 #### 3. uzdevums
+
+<audio controls preload="none">
+  <source src="Attachments/A2_Mock_Exam_10/klausisanas_3_uzdevums.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+[Audio failsafe link](Attachments/A2_Mock_Exam_10/klausisanas_3_uzdevums.mp3)
 
 Klausieties sarunas! Sarunas skanēs divas reizes.  
 Ievelciet atbilstošo skaitli vai vārdu! Četras atbildes ir liekas.
@@ -164,9 +187,18 @@ Laiks – 35 minūtes
 
 Apskatiet attēlu aprakstus! Uzrakstiet par katru attēlu vienu teikumu. Katrā teikumā ne mazāk par 5 vārdiem.
 
+
+![Rakstīšana 1. attēls](Attachments/A2_Mock_Exam_10/rakstisana_1_attels_1.png)
+![Rakstīšana 2. attēls](Attachments/A2_Mock_Exam_10/rakstisana_1_attels_2.png)
+![Rakstīšana 3. attēls](Attachments/A2_Mock_Exam_10/rakstisana_1_attels_3.png)
+![Rakstīšana 4. attēls](Attachments/A2_Mock_Exam_10/rakstisana_1_attels_4.png)
+
 1. Sieviete autobusā lasa telefonu.
+
 2. Vīrietis kafejnīcā ēd zupu.
+
 3. Ģimene stāv pie viesu nama.
+
 4. Students raksta burtnīcā klasē.
 
 #### 2. uzdevums
@@ -196,6 +228,13 @@ Laiks – 10–15 minūtes
 
 #### 1. uzdevums
 
+<audio controls preload="none">
+  <source src="Attachments/A2_Mock_Exam_10/runasana_1_jautajumi.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+[Audio failsafe link](Attachments/A2_Mock_Exam_10/runasana_1_jautajumi.mp3)
+
 Atbildiet uz jautājumiem pilnos teikumos.
 
 1. Kur jūs dzīvojat?
@@ -211,17 +250,37 @@ Atbildiet uz jautājumiem pilnos teikumos.
 
 #### 2. uzdevums
 
+<audio controls preload="none">
+  <source src="Attachments/A2_Mock_Exam_10/runasana_2_jautajumi.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+[Audio failsafe link](Attachments/A2_Mock_Exam_10/runasana_2_jautajumi.mp3)
+
 Aplūkojiet attēlu aprakstus! Atbildiet uz jautājumiem par attēliem.
 
+
+![Runāšana 2. attēls A](Attachments/A2_Mock_Exam_10/runasana_2_attels_1.png)
+![Runāšana 2. attēls B](Attachments/A2_Mock_Exam_10/runasana_2_attels_2.png)
+
 **Attēls A.** Jauns pāris autoostā gaida autobusu.  
+
 Jautājumi: **Kas? Ko dara? Kur?**
 
 **Attēls B.** Draugi sēž kafejnīcā un runā.  
+
 Jautājumi: **Kas? Ko dara? Kur?**
 
 **Jautājums jums:** Ko jūs labprāt darāt nedēļas nogalē?
 
 #### 3. uzdevums
+
+<audio controls preload="none">
+  <source src="Attachments/A2_Mock_Exam_10/runasana_3_jautajumi.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+[Audio failsafe link](Attachments/A2_Mock_Exam_10/runasana_3_jautajumi.mp3)
 
 Uzdodiet jautājumus! Jautājumus formulējiet pilnā teikumā.
 
