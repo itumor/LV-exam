@@ -30,8 +30,93 @@
               "icon": "lucide-file",
               "title": "A2_Mock_Exam_01"
             }
+          },
+          {
+            "id": "adae2fcfa5182232",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Universal full template.md",
+                "mode": "source",
+                "source": false,
+                "backlinks": true,
+                "backlinkOpts": {
+                  "collapseAll": false,
+                  "extraContext": false,
+                  "sortOrder": "alphabetical",
+                  "showSearch": false,
+                  "searchQuery": "",
+                  "backlinkCollapsed": false,
+                  "unlinkedCollapsed": true
+                }
+              },
+              "icon": "lucide-file",
+              "title": "Universal full template"
+            }
+          },
+          {
+            "id": "073905bfe5a3c0de",
+            "type": "leaf",
+            "state": {
+              "type": "pdf",
+              "state": {
+                "file": "Attachments/a_2_limenis (2).pdf"
+              },
+              "icon": "lucide-file-text",
+              "title": "a_2_limenis (2)"
+            }
+          },
+          {
+            "id": "0d38147493db5fb6",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "QQQ.md",
+                "mode": "source",
+                "source": false,
+                "backlinks": true,
+                "backlinkOpts": {
+                  "collapseAll": false,
+                  "extraContext": false,
+                  "sortOrder": "alphabetical",
+                  "showSearch": false,
+                  "searchQuery": "",
+                  "backlinkCollapsed": false,
+                  "unlinkedCollapsed": true
+                }
+              },
+              "icon": "lucide-file",
+              "title": "QQQ"
+            }
+          },
+          {
+            "id": "de35ba46bb4e17ca",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "A2_Mock_Exam_01.md",
+                "mode": "source",
+                "source": false,
+                "backlinks": true,
+                "backlinkOpts": {
+                  "collapseAll": false,
+                  "extraContext": false,
+                  "sortOrder": "alphabetical",
+                  "showSearch": false,
+                  "searchQuery": "",
+                  "backlinkCollapsed": false,
+                  "unlinkedCollapsed": true
+                }
+              },
+              "icon": "lucide-file",
+              "title": "A2_Mock_Exam_01"
+            }
           }
-        ]
+        ],
+        "currentTab": 4
       }
     ],
     "direction": "vertical"
@@ -88,7 +173,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 218.50043487548828
   },
   "right": {
     "id": "43f7119d93c99721",
@@ -211,54 +296,53 @@
       "random-note:Open random note": false
     }
   },
-  "active": "5c4e8451ae465692",
+  "active": "de35ba46bb4e17ca",
   "lastOpenFiles": [
-    "Attachments/A2_Mock_Exam_10/runasana_2_jautajumi.mp3",
-    "Attachments/A2_Mock_Exam_10/runasana_2_attels_2.png",
-    "Attachments/A2_Mock_Exam_10/runasana_2_attels_1.png",
-    "Attachments/A2_Mock_Exam_08/runasana_2_attels_2.png",
-    "Attachments/A2_Mock_Exam_10/runasana_2_attels_1.tmp.png",
-    "Attachments/A2_Mock_Exam_10/rakstisana_1_attels_4.tmp.png",
-    "Attachments/A2_Mock_Exam_10/rakstisana_1_attels_3.tmp.png",
-    "Attachments/A2_Mock_Exam_10/rakstisana_1_attels_2.tmp.png",
-    "Attachments/A2_Mock_Exam_10/rakstisana_1_attels_1.tmp.png",
-    "Attachments/A2_Mock_Exam_09/runasana_2_attels_2.tmp.png",
-    "Attachments/A2_Mock_Exam_09/runasana_2_attels_1.tmp.png",
-    "Attachments/A2_Mock_Exam_08/runasana_1_jautajumi.mp3",
-    "Attachments/A2_Mock_Exam_05/runasana_3_jautajumi.mp3",
-    "Attachments/A2_Mock_Exam_05/runasana_2_jautajumi.mp3",
-    "Attachments/A2_Mock_Exam_05/runasana_1_jautajumi.mp3",
-    "Attachments/A2_Mock_Exam_01/klausisanas_1_uzdevums.mp3",
-    "A2_Mock_Exam_02.md",
-    "A2_Mock_Exam_01.md",
-    "A2_Mock_Exam_04.md",
-    "ELEVENLABS_BATCH_RUN_STATUS.md",
-    "Attachments/A2_Mock_Exam_03/runasana_1_jautajumi_elevenlabs.mp3",
-    "Attachments/A2_Mock_Exam_03/klausisanas_3_uzdevums_elevenlabs.mp3",
-    "Attachments/A2_Mock_Exam_03/klausisanas_2_uzdevums_elevenlabs.mp3",
-    "Attachments/A2_Mock_Exam_03/klausisanas_1_uzdevums_elevenlabs.mp3",
-    "Attachments/A2_Mock_Exam_02/runasana_3_jautajumi_elevenlabs.mp3",
-    "REGENERATE_EXAM_AUDIO_ELEVENLABS_GUIDE.md",
-    "REGENERATE_EXAM_AUDIO_GUIDE.md",
-    "A2_Mock_Exam_10.md",
-    "A2_Mock_Exam_09.md",
-    "A2_Mock_Exam_06.md",
-    "A2_Mock_Exam_05.md",
-    "LOCAL_TTS_AUDIO.md",
-    "a_2_limenis (2).md",
-    "A2_Mock_Exam_07.md",
-    "A2_Mock_Exam_03.md",
-    "A2_Mock_Exam_08.md",
-    "Skill Test.md",
-    "Latviešu valoda A2 prakses eksāmens.md",
+    "2. uzdevums Aplūkojiet attēlus! Atbildiet uz jautājumiem par attēliem!.md",
+    "Attachments/2. uzdevums/Pasted image 20260407225826.png",
+    "1. uzdevums – jautājumi un atbildes par mani.md",
+    "Pasted image 20260407230908.png",
+    "Attachments/2. uzdevums/Pasted image 20260407230724.png",
+    "Attachments/2. uzdevums/Pasted image 20260407230908.png",
+    "Attachments/A2_Mock_Exam_01 1/runasana_3_jautajumi_elevenlabs.mp3",
+    "Attachments/A2_Mock_Exam_01 1/runasana_3_jautajumi.mp3",
+    "Attachments/A2_Mock_Exam_01 1/runasana_2_jautajumi_elevenlabs.mp3",
+    "Attachments/A2_Mock_Exam_01 1/runasana_2_jautajumi.mp3",
+    "Attachments/A2_Mock_Exam_01 1/runasana_2_attels_2.png",
+    "Attachments/A2_Mock_Exam_01 1/runasana_2_attels_1.png",
+    "Attachments/A2_Mock_Exam_01 1/runasana_1_jautajumi_elevenlabs.mp3",
+    "Attachments/A2_Mock_Exam_01 1/runasana_1_jautajumi.mp3",
+    "Attachments/A2_Mock_Exam_01 1/rakstisana_1_attels_4.png",
+    "Attachments/A2_Mock_Exam_01 1/rakstisana_1_attels_3.png",
+    "Attachments/A2_Mock_Exam_01 1/rakstisana_1_attels_2.png",
+    "Attachments/A2_Mock_Exam_01 1/rakstisana_1_attels_1.png",
+    "Attachments/A2_Mock_Exam_01 1/klausisanas_3_uzdevums_elevenlabs.mp3",
+    "Attachments/A2_Mock_Exam_01 1/klausisanas_3_uzdevums.mp3",
+    "Attachments/A2_Mock_Exam_01 1/klausisanas_2_uzdevums_elevenlabs.mp3",
+    "Attachments/A2_Mock_Exam_01 1/klausisanas_2_uzdevums.mp3",
+    "Universal full template.md",
     "Codex-Obsidian-Setup.md",
     "AGENTS.md",
+    "ELEVENLABS_BATCH_RUN_STATUS.md",
+    "Latviešu valoda A2 prakses eksāmens.md",
+    "LOCAL_TTS_AUDIO.md",
+    "QQQ.md",
+    "REGENERATE_EXAM_AUDIO_ELEVENLABS_GUIDE.md",
+    "REGENERATE_EXAM_AUDIO_GUIDE.md",
+    "Skill Test.md",
+    "A2_Mock_Exam_01.md",
+    "A2_Mock_Exam_02.md",
+    "A2_Mock_Exam_04.md",
+    "A2_Mock_Exam_05.md",
+    "A2_Mock_Exam_06.md",
+    "A2_Mock_Exam_07.md",
+    "A2_Mock_Exam_08.md",
+    "A2_Mock_Exam_09.md",
+    "A2_Mock_Exam_10.md",
+    "a_2_limenis (2).md",
+    "A2_Mock_Exam_03.md",
     "Operations/Ops Brief 2026-04-05.md",
     "Ops Brief Test/Meeting Example.md",
-    "Ops Brief Test/Incident Example.md",
-    "Operations/Ops Brief 2026-04-05 (2).md",
-    "Read/1.md",
-    "Untitled.md",
     "Untitled.canvas"
   ]
 }
