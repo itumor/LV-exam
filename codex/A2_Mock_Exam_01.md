@@ -297,7 +297,7 @@ Uzdodiet jautājumus! Jautājumus formulējiet pilnā teikumā.
 ### Lasīšana
 
 **1. uzdevums:** 1.a, 2.b, 3.b, 4.c  
-**2. uzdevums:** 1.A, 2.F, 3.B, 4.C, 5.D, 6.E  
+2.uzdevums 1.a,2.f,3.b,4.c,5.d,6.f
 **3. uzdevums:** 1.a, 2.a, 3.a, 4.a, 5.a
 
 ### Rakstīšana

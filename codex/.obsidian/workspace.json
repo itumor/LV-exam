@@ -116,7 +116,7 @@
             }
           }
         ],
-        "currentTab": 4
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -296,11 +296,27 @@
       "random-note:Open random note": false
     }
   },
-  "active": "de35ba46bb4e17ca",
+  "active": "adae2fcfa5182232",
   "lastOpenFiles": [
+    "Attachments/a_2_limenis (2).pdf",
+    "QQQ.md",
+    "A2_Mock_Exam_01.md",
+    "a_2_limenis (2).md",
     "2. uzdevums Aplūkojiet attēlus! Atbildiet uz jautājumiem par attēliem!.md",
-    "Attachments/2. uzdevums/Pasted image 20260407225826.png",
     "1. uzdevums – jautājumi un atbildes par mani.md",
+    "Latviešu valoda A2 prakses eksāmens.md",
+    "ELEVENLABS_BATCH_RUN_STATUS.md",
+    "LOCAL_TTS_AUDIO.md",
+    "REGENERATE_EXAM_AUDIO_ELEVENLABS_GUIDE.md",
+    "REGENERATE_EXAM_AUDIO_GUIDE.md",
+    "Skill Test.md",
+    "Universal full template.md",
+    "AGENTS.md",
+    "Codex-Obsidian-Setup.md",
+    "A2_Mock_Exam_09.md",
+    "A2_Mock_Exam_10.md",
+    "Attachments/a_2_limenis-diagram.md",
+    "Attachments/2. uzdevums/Pasted image 20260407225826.png",
     "Pasted image 20260407230908.png",
     "Attachments/2. uzdevums/Pasted image 20260407230724.png",
     "Attachments/2. uzdevums/Pasted image 20260407230908.png",
@@ -320,29 +336,14 @@
     "Attachments/A2_Mock_Exam_01 1/klausisanas_3_uzdevums.mp3",
     "Attachments/A2_Mock_Exam_01 1/klausisanas_2_uzdevums_elevenlabs.mp3",
     "Attachments/A2_Mock_Exam_01 1/klausisanas_2_uzdevums.mp3",
-    "Universal full template.md",
-    "Codex-Obsidian-Setup.md",
-    "AGENTS.md",
-    "ELEVENLABS_BATCH_RUN_STATUS.md",
-    "Latviešu valoda A2 prakses eksāmens.md",
-    "LOCAL_TTS_AUDIO.md",
-    "QQQ.md",
-    "REGENERATE_EXAM_AUDIO_ELEVENLABS_GUIDE.md",
-    "REGENERATE_EXAM_AUDIO_GUIDE.md",
-    "Skill Test.md",
-    "A2_Mock_Exam_01.md",
     "A2_Mock_Exam_02.md",
     "A2_Mock_Exam_04.md",
     "A2_Mock_Exam_05.md",
     "A2_Mock_Exam_06.md",
     "A2_Mock_Exam_07.md",
     "A2_Mock_Exam_08.md",
-    "A2_Mock_Exam_09.md",
-    "A2_Mock_Exam_10.md",
-    "a_2_limenis (2).md",
     "A2_Mock_Exam_03.md",
     "Operations/Ops Brief 2026-04-05.md",
-    "Ops Brief Test/Meeting Example.md",
     "Untitled.canvas"
   ]
 }
