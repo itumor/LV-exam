@@ -373,15 +373,23 @@ Skolotāja piezīme: pieņemami ir citi pilni un gramatiski pareizi jautājumi a
 
 ### Image prompts for writing task
 
-1. Simple realistic classroom-style image: a woman in a small Latvian pharmacy talks with a pharmacist at the counter, medicine shelves in the background.
-2. Simple realistic classroom-style image: two children swim in a small indoor pool, a parent watches nearby.
-3. Simple realistic classroom-style image: a man repairs a bicycle in an apartment courtyard, basic tools on the ground.
-4. Simple realistic classroom-style image: a family eats breakfast in a bright kitchen, bread and tea on the table.
+Use square realistic images with one clear everyday scene. Do not include text, signs with readable words, watermarks, speech bubbles, collages, or extra panels.
+
+| File | Prompt |
+|---|---|
+| `Attachments/A2_Mock_Exam_11/rakstisana_1_attels_1.png` | Create a single realistic square image for a Latvian A2 language exam. Show a woman in a small modern pharmacy speaking with a pharmacist at the counter. Medicine shelves are visible, but there is no readable text. The action is clear and easy to describe in one sentence. |
+| `Attachments/A2_Mock_Exam_11/rakstisana_1_attels_2.png` | Create a single realistic square image for a Latvian A2 language exam. Show two children swimming in a small indoor pool while one adult watches from the side. The scene is safe, simple, and bright. No readable text, no watermark, no collage. |
+| `Attachments/A2_Mock_Exam_11/rakstisana_1_attels_3.png` | Create a single realistic square image for a Latvian A2 language exam. Show a man repairing a city bicycle in an apartment courtyard. A few simple tools are on the ground, and the bicycle is the main object. No readable text, no watermark, no collage. |
+| `Attachments/A2_Mock_Exam_11/rakstisana_1_attels_4.png` | Create a single realistic square image for a Latvian A2 language exam. Show a family eating breakfast in a bright kitchen. Bread, tea, plates, and cups are on the table. The people look calm and natural. No readable text, no watermark, no collage. |
 
 ### Image prompts for speaking task
 
-1. Simple realistic classroom-style image: a woman buys vegetables from a seller at a Latvian market stand.
-2. Simple realistic classroom-style image: a young man runs on a treadmill in a modest sports gym.
+Use square realistic images that clearly answer the speaking prompts **Kas? Ko dara? Kur?** Keep each scene simple enough for A2 learners.
+
+| File | Prompt |
+|---|---|
+| `Attachments/A2_Mock_Exam_11/runasana_2_attels_1.png` | Create a single realistic square image for a Latvian A2 speaking exam. Show a woman buying vegetables from a seller at an outdoor market stand. Visible vegetables include tomatoes, cucumbers, and carrots. No readable text, no watermark, no collage. |
+| `Attachments/A2_Mock_Exam_11/runasana_2_attels_2.png` | Create a single realistic square image for a Latvian A2 speaking exam. Show a young man running on a treadmill in a modest sports gym. A few simple exercise machines are in the background. No readable text, no watermark, no collage. |
 
 ### Audio generation notes
 
