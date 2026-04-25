@@ -42,24 +42,24 @@ const PART_CONFIG = [
 
 const TASK_CONFIG = {
   listening: [
-    { taskKey: "task1", title: "1. uzdevums", heading: "#### 1. uzdevums", ends: ["#### 2. uzdevums"], split: "numbered", kind: "select", options: ["a", "b", "c"], expected: 6 },
-    { taskKey: "task2", title: "2. uzdevums", heading: "#### 2. uzdevums", ends: ["#### 3. uzdevums"], split: "numbered", kind: "radio", options: ["Jā", "Nē"], expected: 4 },
+    { taskKey: "task1", title: "1. uzdevums", heading: "#### 1. uzdevums", ends: ["#### 2. uzdevums"], split: "numbered", kind: "choice-list", options: ["a", "b", "c"], expected: 6 },
+    { taskKey: "task2", title: "2. uzdevums", heading: "#### 2. uzdevums", ends: ["#### 3. uzdevums"], split: "numbered", kind: "yes-no-table", options: ["Jā", "Nē"], expected: 4 },
     { taskKey: "task3", title: "3. uzdevums", heading: "#### 3. uzdevums", ends: ["###"], split: "numbered", referenceStarts: "Atbilžu varianti", kind: "drag-fill", expected: 5 }
   ],
   reading: [
-    { taskKey: "task1", title: "1. uzdevums", heading: "#### 1. uzdevums", ends: ["#### 2. uzdevums"], split: "readingTexts", kind: "select", options: ["a", "b", "c"], expected: 4 },
+    { taskKey: "task1", title: "1. uzdevums", heading: "#### 1. uzdevums", ends: ["#### 2. uzdevums"], split: "readingTexts", kind: "reading-choice", options: ["a", "b", "c"], expected: 4 },
     { taskKey: "task2", title: "2. uzdevums", heading: "#### 2. uzdevums", ends: ["#### 3. uzdevums"], split: "situations", kind: "ad-match", options: optionLetters.slice(0, 12), expected: 6 },
     { taskKey: "task3", title: "3. uzdevums", heading: "#### 3. uzdevums", ends: ["###"], split: "inlineGap", kind: "inline-select", expected: 5 }
   ],
   writing: [
-    { taskKey: "task1", title: "1. uzdevums", heading: "#### 1. uzdevums", ends: ["#### 2. uzdevums"], split: "numbered", kind: "textarea", rows: 3, placeholder: "Uzrakstiet 1 teikumu par attēlu.", expected: 4 },
-    { taskKey: "task2", title: "2. uzdevums", heading: "#### 2. uzdevums", ends: ["#### 3. uzdevums"], split: "numbered", kind: "text", placeholder: "Ierakstiet pareizo formu.", expected: 5 },
-    { taskKey: "task3", title: "3. uzdevums", heading: "#### 3. uzdevums", ends: ["###"], split: "single", kind: "textarea", rows: 7, placeholder: "Rakstiet atbildi šeit.", expected: 1 }
+    { taskKey: "task1", title: "1. uzdevums", heading: "#### 1. uzdevums", ends: ["#### 2. uzdevums"], split: "numbered", kind: "photo-sentences", rows: 3, placeholder: "Uzrakstiet 1 teikumu par attēlu.", expected: 4 },
+    { taskKey: "task2", title: "2. uzdevums", heading: "#### 2. uzdevums", ends: ["#### 3. uzdevums"], split: "numbered", kind: "word-form", placeholder: "Ierakstiet pareizo formu.", expected: 5 },
+    { taskKey: "task3", title: "3. uzdevums", heading: "#### 3. uzdevums", ends: ["###"], split: "single", kind: "writing-long", rows: 10, placeholder: "Rakstiet atbildi šeit.", expected: 1 }
   ],
   speaking: [
-    { taskKey: "task1", title: "1. uzdevums", heading: "#### 1. uzdevums", ends: ["#### 2. uzdevums"], split: "numbered", kind: "textarea", rows: 2, placeholder: "Atbildiet pilnā teikumā.", expected: 10 },
-    { taskKey: "task2", title: "2. uzdevums", heading: "#### 2. uzdevums", ends: ["#### 3. uzdevums"], split: "pictures", kind: "textarea", rows: 4, placeholder: "Aprakstiet attēlu.", expected: 3 },
-    { taskKey: "task3", title: "3. uzdevums", heading: "#### 3. uzdevums", ends: ["## Answer Key"], split: "numbered", kind: "text", placeholder: "Uzrakstiet pilnu jautājumu.", expected: 3 }
+    { taskKey: "task1", title: "1. uzdevums", heading: "#### 1. uzdevums", ends: ["#### 2. uzdevums"], split: "numbered", kind: "oral-interview", rows: 2, placeholder: "Atbildiet pilnā teikumā.", expected: 10 },
+    { taskKey: "task2", title: "2. uzdevums", heading: "#### 2. uzdevums", ends: ["#### 3. uzdevums"], split: "pictures", kind: "oral-pictures", rows: 4, placeholder: "Aprakstiet attēlu.", expected: 3 },
+    { taskKey: "task3", title: "3. uzdevums", heading: "#### 3. uzdevums", ends: ["## Answer Key"], split: "numbered", kind: "oral-questions", placeholder: "Uzrakstiet pilnu jautājumu.", expected: 3 }
   ]
 };
 
@@ -353,7 +353,7 @@ function renderSkillFlow(part, sectionLines) {
                 <h4>${task.title}</h4>
                 <span data-task-progress="${part.key}.${task.taskKey}">${formatTaskProgress(getTaskProgress(part.key, task.taskKey))}</span>
               </header>
-              ${view.intro.length ? `<div class="task-stimulus document compact">${renderMarkdown(view.intro.join("\n"), state.exam)}</div>` : ""}
+              ${view.intro.length && shouldRenderTaskIntro(task) ? `<div class="task-stimulus document compact">${renderMarkdown(view.intro.join("\n"), state.exam)}</div>` : ""}
               ${referenceHtml}
               <div class="question-stack">
                 ${renderTaskQuestions(part.key, task, view.questions, view)}
@@ -366,6 +366,10 @@ function renderSkillFlow(part, sectionLines) {
   `;
 }
 
+function shouldRenderTaskIntro(task) {
+  return !["photo-sentences", "word-form", "writing-long"].includes(task.kind);
+}
+
 function renderTaskReferencePanel(section, task, referenceLines) {
   if (!referenceLines.length || task.kind === "drag-fill") return "";
   if (task.kind === "ad-match") {
@@ -375,6 +379,15 @@ function renderTaskReferencePanel(section, task, referenceLines) {
 }
 
 function renderTaskQuestions(section, task, questions, view) {
+  if (task.kind === "choice-list") {
+    return renderChoiceListTask(section, task, questions, false);
+  }
+  if (task.kind === "reading-choice") {
+    return renderChoiceListTask(section, task, questions, true);
+  }
+  if (task.kind === "yes-no-table") {
+    return renderYesNoTable(section, task, questions);
+  }
   if (task.kind === "drag-fill") {
     return renderDragFillTask(section, task, questions, view.reference);
   }
@@ -383,6 +396,24 @@ function renderTaskQuestions(section, task, questions, view) {
   }
   if (task.kind === "inline-select") {
     return renderInlineSelectTask(section, task, view);
+  }
+  if (task.kind === "photo-sentences") {
+    return renderPhotoSentenceTask(section, task, questions, view.intro);
+  }
+  if (task.kind === "word-form") {
+    return renderWordFormTask(section, task, questions, view.intro);
+  }
+  if (task.kind === "writing-long") {
+    return renderWritingLongTask(section, task, view.intro);
+  }
+  if (task.kind === "oral-interview") {
+    return renderOralInterviewTask(section, task, questions);
+  }
+  if (task.kind === "oral-pictures") {
+    return renderOralPicturesTask(section, task, questions, view.intro);
+  }
+  if (task.kind === "oral-questions") {
+    return renderOralQuestionTask(section, task, questions);
   }
   const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
   return safeQuestions.map((question, index) => `
@@ -635,6 +666,73 @@ function renderPartTimer(part, label, minutes) {
   `;
 }
 
+function renderChoiceListTask(section, task, questions, useReadingBox) {
+  const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
+  return safeQuestions.map((question, index) => renderChoiceQuestion(section, task, question, index, useReadingBox)).join("");
+}
+
+function renderChoiceQuestion(section, task, question, index, useReadingBox) {
+  const parsed = parseChoiceQuestion(question.lines, task.options);
+  const name = `${section}.${task.taskKey}.${index}`;
+  ensureAnswerSlot(section, task.taskKey, index);
+  const value = state.answers[section][task.taskKey][index] || "";
+  return `
+    <article class="official-choice-question ${useReadingBox ? "reading-question" : ""}">
+      ${useReadingBox ? renderReadingStimulus(parsed, index) : `<h5>${index + 1}. ${escapeHtml(parsed.stem || `Jautājums ${index + 1}`)}</h5>`}
+      <div class="official-choice-list">
+        ${parsed.options.map(option => `
+          <label class="official-radio-row">
+            <input type="radio" name="${name}" value="${escapeHtml(option.value)}" ${value === option.value ? "checked" : ""}>
+            <span>${escapeHtml(option.label)}</span>
+          </label>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderReadingStimulus(parsed, index) {
+  return `
+    <div class="reading-stimulus-box">
+      ${parsed.title ? `<h5>${escapeHtml(parsed.title)}</h5>` : `<h5>Teksts ${index + 1}</h5>`}
+      ${parsed.body.map(line => `<p>${formatInline(line)}</p>`).join("")}
+    </div>
+  `;
+}
+
+function renderYesNoTable(section, task, questions) {
+  const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
+  return `
+    <table class="yes-no-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Apgalvojums</th>
+          <th>Jā / Nē</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${safeQuestions.map((question, index) => {
+          const name = `${section}.${task.taskKey}.${index}`;
+          ensureAnswerSlot(section, task.taskKey, index);
+          const value = state.answers[section][task.taskKey][index] || "";
+          return `
+            <tr>
+              <td>${index + 1}.</td>
+              <td>${escapeHtml(stripLeadingNumber(question.lines.join(" ")))}</td>
+              <td>
+                <div class="table-radio-pair">
+                  ${task.options.map(option => radioChoice(name, option, value === option)).join("")}
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
 function renderDragFillTask(section, task, questions, referenceLines) {
   const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
   const options = parseBacktickOptions(referenceLines);
@@ -787,8 +885,187 @@ function renderInlineGapText(section, taskKey, lines, optionGroups) {
   return html.split(/\n{2,}/).map(paragraph => `<p>${paragraph.replace(/\n/g, "<br>")}</p>`).join("");
 }
 
+function renderPhotoSentenceTask(section, task, questions, introLines) {
+  const images = extractMarkdownImages(introLines);
+  const instructionLines = removeMarkdownImageLines(introLines);
+  const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
+  return `
+    <article class="photo-writing-task">
+      ${instructionLines.length ? `<div class="writing-task-instructions">${renderMarkdown(instructionLines.join("\n"), state.exam)}</div>` : ""}
+      <div class="photo-answer-list">
+        ${safeQuestions.map((question, index) => {
+          const name = `${section}.${task.taskKey}.${index}`;
+          ensureAnswerSlot(section, task.taskKey, index);
+          const value = state.answers[section][task.taskKey][index] || "";
+          const image = images[index];
+          return `
+            <section class="photo-answer-row">
+              <div class="photo-prompt">
+                ${image ? `<img src="${toAssetUrl(image.src)}" alt="${escapeHtml(image.alt)}" loading="lazy">` : `<div class="photo-fallback">${renderMarkdown(question.lines.join("\n"), state.exam)}</div>`}
+              </div>
+              <label class="ruled-answer">
+                <span>${index + 1}.</span>
+                <textarea data-answer="${name}" rows="${task.rows || 3}" placeholder="${escapeHtml(task.placeholder || "Rakstiet teikumu")}">${escapeHtml(value)}</textarea>
+              </label>
+            </section>
+          `;
+        }).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderWordFormTask(section, task, questions, introLines) {
+  const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
+  return `
+    <article class="word-form-task">
+      ${introLines.length ? `<div class="writing-task-instructions">${renderMarkdown(introLines.join("\n"), state.exam)}</div>` : ""}
+      <div class="word-form-paper">
+        <strong>PARAUGS</strong>
+        <p>Pirmajā <b>ceļojumā</b> (ceļojums) dodas pasaulē lielākais kruīza kuģis.</p>
+        ${safeQuestions.map((question, index) => renderWordFormLine(section, task, question, index)).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderWordFormLine(section, task, question, index) {
+  const name = `${section}.${task.taskKey}.${index}`;
+  ensureAnswerSlot(section, task.taskKey, index);
+  const value = state.answers[section][task.taskKey][index] || "";
+  const raw = stripLeadingNumber(question.lines.join(" "));
+  const input = `<input class="inline-text-blank" type="text" data-answer="${name}" value="${escapeHtml(value)}" aria-label="Atbilde ${index + 1}">`;
+  const line = escapeHtml(raw).replace(/`?_{3,}`?/g, input);
+  return `<p class="word-form-line"><span>${index + 1}.</span> ${line}</p>`;
+}
+
+function renderWritingLongTask(section, task, introLines) {
+  const name = `${section}.${task.taskKey}.0`;
+  ensureAnswerSlot(section, task.taskKey, 0);
+  const value = state.answers[section][task.taskKey][0] || "";
+  return `
+    <article class="long-writing-task">
+      ${introLines.length ? `<div class="writing-task-instructions">${renderMarkdown(introLines.join("\n"), state.exam)}</div>` : ""}
+      <label class="long-writing-paper">
+        <textarea data-answer="${name}" rows="${task.rows || 10}" placeholder="${escapeHtml(task.placeholder || "Rakstiet tekstu")}">${escapeHtml(value)}</textarea>
+      </label>
+    </article>
+  `;
+}
+
+function renderOralInterviewTask(section, task, questions) {
+  const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
+  return `
+    <div class="oral-interview-list">
+      ${safeQuestions.map((question, index) => {
+        const name = `${section}.${task.taskKey}.${index}`;
+        ensureAnswerSlot(section, task.taskKey, index);
+        const value = state.answers[section][task.taskKey][index] || "";
+        return `
+          <label class="oral-response-row">
+            <span>${index + 1}. ${escapeHtml(stripLeadingNumber(question.lines.join(" ")))}</span>
+            <textarea data-answer="${name}" rows="${task.rows || 2}" placeholder="${escapeHtml(task.placeholder || "Atbildiet")}">${escapeHtml(value)}</textarea>
+          </label>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderOralPicturesTask(section, task, questions, introLines) {
+  const images = extractMarkdownImages(introLines);
+  const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
+  return `
+    <div class="oral-picture-grid">
+      ${safeQuestions.map((question, index) => {
+        const name = `${section}.${task.taskKey}.${index}`;
+        ensureAnswerSlot(section, task.taskKey, index);
+        const value = state.answers[section][task.taskKey][index] || "";
+        const image = images[index];
+        return `
+          <label class="oral-picture-card">
+            ${image ? `<img src="${toAssetUrl(image.src)}" alt="${escapeHtml(image.alt)}" loading="lazy">` : ""}
+            <span>${renderMarkdown(question.lines.join("\n"), state.exam)}</span>
+            <textarea data-answer="${name}" rows="${task.rows || 4}" placeholder="${escapeHtml(task.placeholder || "Aprakstiet attēlu")}">${escapeHtml(value)}</textarea>
+          </label>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderOralQuestionTask(section, task, questions) {
+  const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
+  return `
+    <div class="oral-question-list">
+      ${safeQuestions.map((question, index) => {
+        const name = `${section}.${task.taskKey}.${index}`;
+        ensureAnswerSlot(section, task.taskKey, index);
+        const value = state.answers[section][task.taskKey][index] || "";
+        return `
+          <label class="oral-question-row">
+            <span>${renderMarkdown(question.lines.join("\n"), state.exam)}</span>
+            <input type="text" data-answer="${name}" value="${escapeHtml(value)}" placeholder="${escapeHtml(task.placeholder || "Uzdodiet jautājumu")}">
+          </label>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
 function fallbackInlineGapText(count) {
   return Array.from({ length: count }, (_, index) => `**(${index + 1})**`).join(" ");
+}
+
+function parseChoiceQuestion(lines, fallbackOptions) {
+  const parsed = {
+    title: "",
+    stem: "",
+    body: [],
+    options: []
+  };
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const title = /^\*\*(.+)\*\*$/.exec(trimmed);
+    if (title && !parsed.title) {
+      parsed.title = title[1];
+      continue;
+    }
+    const option = /^-\s+(?:([a-l])\)\s*)?(.+)$/i.exec(trimmed);
+    if (option) {
+      const fallbackValue = fallbackOptions[parsed.options.length] || optionLetters[parsed.options.length] || "";
+      parsed.options.push({
+        value: (option[1] || fallbackValue).toLowerCase(),
+        label: option[2].trim()
+      });
+      continue;
+    }
+    const numbered = /^(\d+)\.\s+(.+)$/.exec(trimmed);
+    if (numbered && !parsed.stem) {
+      parsed.stem = numbered[2].trim();
+      continue;
+    }
+    parsed.body.push(trimmed);
+  }
+  if (!parsed.options.length) {
+    parsed.options = fallbackOptions.map(option => ({ value: option, label: option }));
+  }
+  return parsed;
+}
+
+function stripLeadingNumber(value) {
+  return String(value || "").replace(/^\s*\d+\.\s*/, "").trim();
+}
+
+function extractMarkdownImages(lines) {
+  return lines.map(line => /!\[([^\]]*)\]\(([^)]+)\)/.exec(line))
+    .filter(Boolean)
+    .map(match => ({ alt: match[1] || "Attēls", src: match[2] }));
+}
+
+function removeMarkdownImageLines(lines) {
+  return lines.filter(line => !/!\[([^\]]*)\]\(([^)]+)\)/.test(line));
 }
 
 function parseBacktickOptions(lines) {
