@@ -20,6 +20,8 @@ const state = {
   },
   runner: {
     activePart: "listening",
+    selectedDragValue: "",
+    activeAdGroups: {},
     timers: {
       listening: { total: 25 * 60, remaining: 25 * 60, running: false, startedAt: null },
       reading: { total: 30 * 60, remaining: 30 * 60, running: false, startedAt: null },
@@ -27,7 +29,8 @@ const state = {
       speaking: { total: 15 * 60, remaining: 15 * 60, running: false, startedAt: null }
     }
   },
-  answers: {}
+  answers: {},
+  submission: null
 };
 
 const PART_CONFIG = [
@@ -41,12 +44,12 @@ const TASK_CONFIG = {
   listening: [
     { taskKey: "task1", title: "1. uzdevums", heading: "#### 1. uzdevums", ends: ["#### 2. uzdevums"], split: "numbered", kind: "select", options: ["a", "b", "c"], expected: 6 },
     { taskKey: "task2", title: "2. uzdevums", heading: "#### 2. uzdevums", ends: ["#### 3. uzdevums"], split: "numbered", kind: "radio", options: ["Jā", "Nē"], expected: 4 },
-    { taskKey: "task3", title: "3. uzdevums", heading: "#### 3. uzdevums", ends: ["###"], split: "numbered", referenceStarts: "Atbilžu varianti", kind: "text", placeholder: "Ierakstiet atbildi", expected: 5 }
+    { taskKey: "task3", title: "3. uzdevums", heading: "#### 3. uzdevums", ends: ["###"], split: "numbered", referenceStarts: "Atbilžu varianti", kind: "drag-fill", expected: 5 }
   ],
   reading: [
     { taskKey: "task1", title: "1. uzdevums", heading: "#### 1. uzdevums", ends: ["#### 2. uzdevums"], split: "readingTexts", kind: "select", options: ["a", "b", "c"], expected: 4 },
-    { taskKey: "task2", title: "2. uzdevums", heading: "#### 2. uzdevums", ends: ["#### 3. uzdevums"], split: "situations", kind: "select", options: optionLetters.slice(0, 12), expected: 6 },
-    { taskKey: "task3", title: "3. uzdevums", heading: "#### 3. uzdevums", ends: ["###"], split: "numbered", kind: "select", options: ["a", "b", "c"], expected: 5 }
+    { taskKey: "task2", title: "2. uzdevums", heading: "#### 2. uzdevums", ends: ["#### 3. uzdevums"], split: "situations", kind: "ad-match", options: optionLetters.slice(0, 12), expected: 6 },
+    { taskKey: "task3", title: "3. uzdevums", heading: "#### 3. uzdevums", ends: ["###"], split: "inlineGap", kind: "inline-select", expected: 5 }
   ],
   writing: [
     { taskKey: "task1", title: "1. uzdevums", heading: "#### 1. uzdevums", ends: ["#### 2. uzdevums"], split: "numbered", kind: "textarea", rows: 3, placeholder: "Uzrakstiet 1 teikumu par attēlu.", expected: 4 },
@@ -67,6 +70,7 @@ const els = {
   runnerOutput: document.querySelector("#runner-output"),
   markdownOutput: document.querySelector("#markdown-output"),
   jsonOutput: document.querySelector("#json-output"),
+  submissionOutput: document.querySelector("#submission-output"),
   ttsOutput: document.querySelector("#tts-output"),
   promptOutput: document.querySelector("#prompt-output"),
   qualityOutput: document.querySelector("#quality-output"),
@@ -80,6 +84,14 @@ function init() {
   els.examSelect.addEventListener("change", () => loadExam(els.examSelect.value));
 
   document.querySelector("#reload-exam").addEventListener("click", () => loadExam(state.exam.id));
+  document.querySelector("#submit-exam").addEventListener("click", () => submitAnswers());
+  document.querySelector("#copy-submission").addEventListener("click", () => {
+    copyText(JSON.stringify(ensureSubmission("draft"), null, 2), "Submission copied");
+  });
+  document.querySelector("#download-submission").addEventListener("click", () => {
+    const submission = ensureSubmission("draft");
+    downloadFile(`${submission.submission_id}.json`, JSON.stringify(submission, null, 2), "application/json");
+  });
   document.querySelector("#copy-markdown").addEventListener("click", () => copyText(state.markdown, "Markdown copied"));
   document.querySelector("#copy-json").addEventListener("click", () => {
     copyText(JSON.stringify(buildExportJson(), null, 2), "JSON copied");
@@ -104,7 +116,6 @@ async function loadExam(examId) {
   const exam = EXAMS.find(item => item.id === examId) || EXAMS[0];
   state.exam = exam;
   els.examSelect.value = exam.id;
-  window.history.replaceState(null, "", `?exam=${exam.id}`);
   els.sourcePath.value = exam.sourcePath;
   els.workspaceTitle.textContent = exam.title;
   els.examOutput.innerHTML = `<div class="loading">Loading ${escapeHtml(exam.sourcePath)}...</div>`;
@@ -118,6 +129,12 @@ async function loadExam(examId) {
     state.assets = extractAssets(state.markdown, exam);
     resetAnswers();
     resetTimers();
+    state.submission = null;
+    const requestedPart = new URLSearchParams(window.location.search).get("part");
+    if (PART_CONFIG.some(part => part.key === requestedPart)) {
+      state.runner.activePart = requestedPart;
+    }
+    updateExamUrl();
     renderAll();
     showToast(`${exam.title} loaded`);
   } catch (error) {
@@ -130,6 +147,7 @@ function renderAll() {
   els.examOutput.innerHTML = renderMarkdown(state.markdown, state.exam);
   els.markdownOutput.textContent = state.markdown;
   els.jsonOutput.textContent = JSON.stringify(buildExportJson(), null, 2);
+  renderSubmission();
   renderTts();
   renderImages();
   renderQuality();
@@ -187,6 +205,8 @@ function sectionBetween(lines, startHeading, endHeadingPrefixes) {
 }
 
 function resetAnswers() {
+  state.runner.selectedDragValue = "";
+  state.runner.activeAdGroups = {};
   state.answers = {
     listening: {
       task1: Array.from({ length: 6 }, () => ""),
@@ -221,6 +241,13 @@ function resetTimers() {
   state.runner.activePart = "listening";
 }
 
+function updateExamUrl() {
+  const params = new URLSearchParams(window.location.search);
+  params.set("exam", state.exam.id);
+  params.set("part", state.runner.activePart);
+  window.history.replaceState(null, "", `?${params.toString()}`);
+}
+
 function durationForPart(part) {
   return { listening: 25, reading: 30, writing: 35, speaking: 15 }[part] * 60;
 }
@@ -241,7 +268,24 @@ function renderRunner() {
   const activePart = getPartConfig(state.runner.activePart);
   const activeSectionLines = sections[activePart.key] || [];
   const progress = getPartProgress(activePart.key);
+  const totalProgress = getExamProgress();
   els.runnerOutput.innerHTML = `
+    <section class="official-header">
+      <div>
+        <strong>VALSTS VALODAS PRASMES PĀRBAUDE</strong>
+        <span>Pamata (A2) līmenis</span>
+      </div>
+      <div class="candidate-code">Kods: PRAKSE-${state.exam.id}</div>
+    </section>
+
+    <div class="command-strip" aria-label="Exam command words">
+      <span>Klausieties!</span>
+      <span>Lasiet!</span>
+      <span>Rakstiet!</span>
+      <span>Atbildiet!</span>
+      <span>Izvēlieties atbilstošo!</span>
+    </div>
+
     <section class="exam-top">
       <div class="exam-title-group">
         <p class="eyebrow">A2 practice exam</p>
@@ -270,6 +314,17 @@ function renderRunner() {
       ${renderPartMoveButton("previous")}
       ${renderPartMoveButton("next")}
     </div>
+
+    <section class="submit-panel">
+      <div>
+        <h3>Submit answers</h3>
+        <p><span data-exam-progress>${totalProgress.answered}/${totalProgress.total}</span> response fields completed. Objective answers can be checked now; writing and speaking text stays in the validation queue.</p>
+      </div>
+      <div class="submit-actions">
+        <button type="button" data-action="submit-exam">Submit answers</button>
+        <button type="button" data-action="open-submission">Review submission</button>
+      </div>
+    </section>
   `;
   bindRunnerEvents();
   renderTimersOnly();
@@ -291,6 +346,7 @@ function renderSkillFlow(part, sectionLines) {
         ${tasks.map(task => {
           const taskLines = getTaskSection(safeSectionLines, task.heading, task.ends);
           const view = buildTaskView(taskLines, task);
+          const referenceHtml = renderTaskReferencePanel(part.key, task, view.reference);
           return `
             <article class="task-block">
               <header class="task-header">
@@ -298,9 +354,9 @@ function renderSkillFlow(part, sectionLines) {
                 <span data-task-progress="${part.key}.${task.taskKey}">${formatTaskProgress(getTaskProgress(part.key, task.taskKey))}</span>
               </header>
               ${view.intro.length ? `<div class="task-stimulus document compact">${renderMarkdown(view.intro.join("\n"), state.exam)}</div>` : ""}
-              ${view.reference.length ? `<aside class="task-reference-panel document compact">${renderMarkdown(view.reference.join("\n"), state.exam)}</aside>` : ""}
+              ${referenceHtml}
               <div class="question-stack">
-                ${renderTaskQuestions(part.key, task, view.questions)}
+                ${renderTaskQuestions(part.key, task, view.questions, view)}
               </div>
             </article>
           `;
@@ -310,7 +366,24 @@ function renderSkillFlow(part, sectionLines) {
   `;
 }
 
-function renderTaskQuestions(section, task, questions) {
+function renderTaskReferencePanel(section, task, referenceLines) {
+  if (!referenceLines.length || task.kind === "drag-fill") return "";
+  if (task.kind === "ad-match") {
+    return renderAdReferencePanel(section, task.taskKey, referenceLines);
+  }
+  return `<aside class="task-reference-panel document compact">${renderMarkdown(referenceLines.join("\n"), state.exam)}</aside>`;
+}
+
+function renderTaskQuestions(section, task, questions, view) {
+  if (task.kind === "drag-fill") {
+    return renderDragFillTask(section, task, questions, view.reference);
+  }
+  if (task.kind === "ad-match") {
+    return renderAdMatchQuestions(section, task, questions, view.reference);
+  }
+  if (task.kind === "inline-select") {
+    return renderInlineSelectTask(section, task, view);
+  }
   const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
   return safeQuestions.map((question, index) => `
     <article class="question-item">
@@ -335,6 +408,9 @@ function buildTaskView(taskLines, task) {
   }
   if (task.split === "situations") {
     return splitSituationsTask(lines);
+  }
+  if (task.split === "inlineGap") {
+    return splitInlineGapTask(lines);
   }
   return splitNumberedTask(lines, task.referenceStarts);
 }
@@ -374,6 +450,44 @@ function splitSituationsTask(lines) {
     reference: trimOuterLines(lines.slice(adsIndex)),
     questions: splitNumberedBlocks(lines.slice(situationsIndex + 1, adsIndex))
   };
+}
+
+function splitInlineGapTask(lines) {
+  const optionStart = lines.findIndex(line => /^\d+\.\s+-\s+[a-z]\)/i.test(line.trim()));
+  if (optionStart === -1) {
+    return { intro: lines, reference: [], questions: [] };
+  }
+  const beforeOptions = trimOuterLines(lines.slice(0, optionStart));
+  const instructionEnd = beforeOptions.findIndex(line => /\*\*\(\d+\)\*\*/.test(line));
+  const intro = instructionEnd > 0 ? beforeOptions.slice(0, instructionEnd) : beforeOptions.slice(0, 1);
+  const textLines = instructionEnd > 0 ? beforeOptions.slice(instructionEnd) : beforeOptions.slice(1);
+  return {
+    intro: trimOuterLines(intro),
+    reference: [],
+    questions: [{
+      lines: trimOuterLines(textLines),
+      options: parseInlineGapOptions(lines.slice(optionStart))
+    }]
+  };
+}
+
+function parseInlineGapOptions(lines) {
+  const groups = [];
+  let current = null;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const numbered = /^(\d+)\.\s+-\s+([a-z])\)\s*(.+)$/i.exec(trimmed);
+    const option = /^-\s+([a-z])\)\s*(.+)$/i.exec(trimmed);
+    if (numbered) {
+      current = { number: Number(numbered[1]), options: [{ value: numbered[2].toLowerCase(), label: numbered[3].trim() }] };
+      groups.push(current);
+      continue;
+    }
+    if (option && current) {
+      current.options.push({ value: option[1].toLowerCase(), label: option[2].trim() });
+    }
+  }
+  return groups;
 }
 
 function splitNumberedTask(lines, referenceStarts) {
@@ -435,6 +549,14 @@ function getPartProgress(partKey) {
   };
 }
 
+function getExamProgress() {
+  const values = Object.values(state.answers).flatMap(skill => Object.values(skill).flat());
+  return {
+    answered: values.filter(Boolean).length,
+    total: values.length
+  };
+}
+
 function getTaskProgress(partKey, taskKey) {
   const values = state.answers[partKey]?.[taskKey] || [];
   return {
@@ -483,7 +605,12 @@ function renderProgressOnly() {
     const progress = getTaskProgress(partKey, taskKey);
     node.textContent = formatTaskProgress(progress);
   });
+  document.querySelectorAll("[data-exam-progress]").forEach(node => {
+    const progress = getExamProgress();
+    node.textContent = `${progress.answered}/${progress.total}`;
+  });
   els.jsonOutput.textContent = JSON.stringify(buildExportJson(), null, 2);
+  renderSubmission();
 }
 
 function formatTaskProgress(progress) {
@@ -506,6 +633,184 @@ function renderPartTimer(part, label, minutes) {
       </div>
     </article>
   `;
+}
+
+function renderDragFillTask(section, task, questions, referenceLines) {
+  const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
+  const options = parseBacktickOptions(referenceLines);
+  const values = state.answers[section]?.[task.taskKey] || [];
+  const usedValues = new Set(values.filter(Boolean));
+  return `
+    <article class="pdf-drop-task" data-drop-task="${section}.${task.taskKey}">
+      <div class="pdf-drop-lines">
+        ${safeQuestions.map((question, index) => renderDragFillLine(section, task.taskKey, question, index)).join("")}
+      </div>
+      <div class="drag-choice-bank" aria-label="Atbilžu varianti">
+        ${options.map(option => {
+          const used = usedValues.has(option);
+          const selected = state.runner.selectedDragValue === option;
+          return `
+            <button type="button"
+              class="drag-choice ${used ? "used" : ""} ${selected ? "selected" : ""}"
+              data-drag-chip="${section}.${task.taskKey}"
+              data-drag-value="${escapeHtml(option)}"
+              draggable="${used ? "false" : "true"}"
+              ${used ? "disabled" : ""}>
+              ${escapeHtml(option)}
+            </button>
+          `;
+        }).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderDragFillLine(section, taskKey, question, index) {
+  const name = `${section}.${taskKey}.${index}`;
+  ensureAnswerSlot(section, taskKey, index);
+  const value = state.answers[section][taskKey][index] || "";
+  const dropZone = `
+    <button type="button"
+      class="drop-zone ${value ? "filled" : ""}"
+      data-drop-target="${name}"
+      aria-label="Atbilde ${index + 1}">
+      ${value ? escapeHtml(value) : ""}
+    </button>
+  `;
+  const raw = question.lines.join(" ");
+  const escaped = escapeHtml(raw);
+  const withBlank = escaped.replace(/`_{3,}`|_{3,}/, dropZone);
+  return `<p class="pdf-drop-line">${withBlank}</p>`;
+}
+
+function renderAdReferencePanel(section, taskKey, referenceLines) {
+  const ads = parseAdvertisements(referenceLines);
+  if (!ads.length) {
+    return `<aside class="task-reference-panel document compact">${renderMarkdown(referenceLines.join("\n"), state.exam)}</aside>`;
+  }
+  const groups = chunkArray(ads, 4);
+  const groupStateKey = `${state.exam.id}.${section}.${taskKey}`;
+  const activeGroup = Math.min(Number(state.runner.activeAdGroups[groupStateKey] || 0), groups.length - 1);
+  const group = groups[activeGroup] || groups[0];
+  return `
+    <aside class="ad-reference-panel" aria-label="Sludinājumi">
+      ${groups.length > 1 ? `
+        <div class="ad-group-tabs" aria-label="Sludinājumu grupas">
+          ${groups.map((item, index) => `
+            <button type="button"
+              data-action="show-ad-group"
+              data-part="${section}"
+              data-task="${taskKey}"
+              data-group-index="${index}"
+              class="${index === activeGroup ? "active" : ""}">
+              ${item[0].letter}–${item[item.length - 1].letter}
+            </button>
+          `).join("")}
+        </div>
+      ` : ""}
+      <section class="ad-choice-group">
+        <h5>${group[0].letter}–${group[group.length - 1].letter}</h5>
+        <div class="ad-card-grid">
+          ${group.map(ad => `
+            <article class="ad-card">
+              <strong>${ad.letter}</strong>
+              <p>${escapeHtml(ad.text)}</p>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+    </aside>
+  `;
+}
+
+function renderAdMatchQuestions(section, task, questions, referenceLines) {
+  const ads = parseAdvertisements(referenceLines);
+  const options = ads.length ? ads.map(ad => ad.letter) : task.options.map(option => option.toUpperCase());
+  const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
+  return `
+    <div class="ad-match-list">
+      ${safeQuestions.map((question, index) => {
+        const name = `${section}.${task.taskKey}.${index}`;
+        ensureAnswerSlot(section, task.taskKey, index);
+        const value = state.answers[section][task.taskKey][index] || "";
+        return `
+          <article class="ad-match-row">
+            <div class="ad-match-text document compact">${renderMarkdown(question.lines.join("\n"), state.exam)}</div>
+            <label class="ad-match-answer">
+              <span>${index + 1}</span>
+              <select data-answer="${name}">
+                <option value=""></option>
+                ${options.map(option => `<option value="${option}" ${value.toUpperCase() === option ? "selected" : ""}>${option}</option>`).join("")}
+              </select>
+            </label>
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderInlineSelectTask(section, task, view) {
+  const question = view.questions[0] || { lines: [], options: [] };
+  const optionGroups = question.options || [];
+  const count = optionGroups.length || task.expected || 1;
+  for (let index = 0; index < count; index += 1) {
+    ensureAnswerSlot(section, task.taskKey, index);
+  }
+  return `
+    <article class="inline-gap-card">
+      <div class="inline-gap-paper">
+        ${renderInlineGapText(section, task.taskKey, question.lines, optionGroups)}
+      </div>
+    </article>
+  `;
+}
+
+function renderInlineGapText(section, taskKey, lines, optionGroups) {
+  const source = lines.length ? lines.join("\n\n") : fallbackInlineGapText(optionGroups.length || 1);
+  const html = escapeHtml(source).replace(/\*\*\((\d+)\)\*\*/g, (_, number) => {
+    const index = Number(number) - 1;
+    const name = `${section}.${taskKey}.${index}`;
+    const value = state.answers[section]?.[taskKey]?.[index] || "";
+    const options = optionGroups[index]?.options || [
+      { value: "a", label: "a" },
+      { value: "b", label: "b" },
+      { value: "c", label: "c" }
+    ];
+    return `
+      <select class="inline-gap-select" data-answer="${name}" aria-label="Atbilde ${number}">
+        <option value="">...</option>
+        ${options.map(option => `<option value="${escapeHtml(option.value)}" ${value === option.value ? "selected" : ""}>${escapeHtml(`${option.value}) ${option.label}`)}</option>`).join("")}
+      </select>
+    `;
+  });
+  return html.split(/\n{2,}/).map(paragraph => `<p>${paragraph.replace(/\n/g, "<br>")}</p>`).join("");
+}
+
+function fallbackInlineGapText(count) {
+  return Array.from({ length: count }, (_, index) => `**(${index + 1})**`).join(" ");
+}
+
+function parseBacktickOptions(lines) {
+  const text = lines.join(" ");
+  const matches = [...text.matchAll(/`([^`]+)`/g)].map(match => match[1].trim()).filter(Boolean);
+  if (matches.length) return matches;
+  const afterColon = text.split(":").slice(1).join(":");
+  return afterColon.split(",").map(item => item.trim()).filter(Boolean);
+}
+
+function parseAdvertisements(lines) {
+  return lines.map(line => /^-\s+([A-L])\.\s+(.+)$/i.exec(line.trim()))
+    .filter(Boolean)
+    .map(match => ({ letter: match[1].toUpperCase(), text: match[2].trim() }));
+}
+
+function chunkArray(items, size) {
+  const chunks = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
 }
 
 function renderAnswerControl(section, taskKey, task, index) {
@@ -558,7 +863,7 @@ function radioChoice(name, value, checked) {
 
 function bindRunnerEvents() {
   document.querySelectorAll("[data-action]").forEach(button => {
-    button.addEventListener("click", () => handleRunnerAction(button.dataset.action, button.dataset.part));
+    button.addEventListener("click", () => handleRunnerAction(button.dataset));
   });
   document.querySelectorAll("[data-answer]").forEach(field => {
     field.addEventListener("input", handleAnswerInput);
@@ -567,13 +872,40 @@ function bindRunnerEvents() {
   document.querySelectorAll("input[type='radio']").forEach(field => {
     field.addEventListener("change", handleAnswerInput);
   });
+  document.querySelectorAll("[data-drag-value]").forEach(chip => {
+    chip.addEventListener("click", handleDragChipClick);
+    chip.addEventListener("dragstart", handleDragStart);
+  });
+  document.querySelectorAll("[data-drop-target]").forEach(target => {
+    target.addEventListener("click", handleDropTargetClick);
+    target.addEventListener("dragover", handleDropDragOver);
+    target.addEventListener("dragleave", handleDropDragLeave);
+    target.addEventListener("drop", handleDrop);
+  });
 }
 
-function handleRunnerAction(action, part) {
+function handleRunnerAction(dataset) {
+  const { action, part } = dataset;
   if (action === "switch-part") {
     state.runner.activePart = part;
+    updateExamUrl();
     renderRunner();
     window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+  if (action === "show-ad-group") {
+    const groupStateKey = `${state.exam.id}.${part}.${dataset.task}`;
+    state.runner.activeAdGroups[groupStateKey] = Number(dataset.groupIndex || 0);
+    renderRunner();
+    return;
+  }
+  if (action === "submit-exam") {
+    submitAnswers();
+    return;
+  }
+  if (action === "open-submission") {
+    renderSubmission();
+    setView("submission");
     return;
   }
   handleTimerAction(action, part);
@@ -582,6 +914,7 @@ function handleRunnerAction(action, part) {
 function handleTimerAction(action, part) {
   const timer = state.runner.timers[part];
   state.runner.activePart = part;
+  updateExamUrl();
   if (action === "start") {
     for (const key of Object.keys(state.runner.timers)) {
       state.runner.timers[key].running = key === part;
@@ -605,13 +938,106 @@ function handleAnswerInput(event) {
     const [section, task, index] = target.name.split(".");
     ensureAnswerSlot(section, task, Number(index));
     state.answers[section][task][Number(index)] = target.value;
+    state.submission = null;
     renderProgressOnly();
     return;
   }
   const [section, task, index] = key.split(".");
   ensureAnswerSlot(section, task, Number(index));
   state.answers[section][task][Number(index)] = target.value;
+  state.submission = null;
   renderProgressOnly();
+}
+
+function handleDragChipClick(event) {
+  const value = event.currentTarget.dataset.dragValue;
+  if (!value) return;
+  state.runner.selectedDragValue = state.runner.selectedDragValue === value ? "" : value;
+  refreshDragSelectionUi();
+}
+
+function handleDragStart(event) {
+  const value = event.currentTarget.dataset.dragValue;
+  if (!value || event.currentTarget.disabled) {
+    event.preventDefault();
+    return;
+  }
+  state.runner.selectedDragValue = value;
+  event.dataTransfer.setData("text/plain", value);
+  event.dataTransfer.effectAllowed = "move";
+  refreshDragSelectionUi();
+}
+
+function handleDropTargetClick(event) {
+  const key = event.currentTarget.dataset.dropTarget;
+  const [section, task, index] = key.split(".");
+  const currentValue = state.answers[section]?.[task]?.[Number(index)] || "";
+  if (state.runner.selectedDragValue) {
+    setDragFillAnswer(key, state.runner.selectedDragValue);
+    return;
+  }
+  if (currentValue) {
+    setDragFillAnswer(key, "");
+  }
+}
+
+function handleDropDragOver(event) {
+  event.preventDefault();
+  event.currentTarget.classList.add("drop-hover");
+}
+
+function handleDropDragLeave(event) {
+  event.currentTarget.classList.remove("drop-hover");
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  event.currentTarget.classList.remove("drop-hover");
+  const value = event.dataTransfer.getData("text/plain") || state.runner.selectedDragValue;
+  if (value) {
+    setDragFillAnswer(event.currentTarget.dataset.dropTarget, value);
+  }
+}
+
+function setDragFillAnswer(key, value) {
+  const [section, task, index] = key.split(".");
+  const targetIndex = Number(index);
+  ensureAnswerSlot(section, task, targetIndex);
+  if (value) {
+    state.answers[section][task] = state.answers[section][task].map((item, itemIndex) => (
+      itemIndex !== targetIndex && item === value ? "" : item
+    ));
+  }
+  state.answers[section][task][targetIndex] = value;
+  state.runner.selectedDragValue = "";
+  state.submission = null;
+  refreshDragFillUi(section, task);
+  renderProgressOnly();
+}
+
+function refreshDragFillUi(section, task) {
+  const values = state.answers[section]?.[task] || [];
+  const usedValues = new Set(values.filter(Boolean));
+  document.querySelectorAll(`[data-drop-target^="${section}.${task}."]`).forEach(target => {
+    const [, , index] = target.dataset.dropTarget.split(".");
+    const value = values[Number(index)] || "";
+    target.textContent = value;
+    target.classList.toggle("filled", Boolean(value));
+    target.classList.remove("drop-hover");
+  });
+  document.querySelectorAll(`[data-drag-chip="${section}.${task}"]`).forEach(chip => {
+    const used = usedValues.has(chip.dataset.dragValue);
+    chip.disabled = used;
+    chip.draggable = !used;
+    chip.classList.toggle("used", used);
+    chip.classList.remove("selected");
+  });
+}
+
+function refreshDragSelectionUi() {
+  document.querySelectorAll("[data-drag-value]").forEach(chip => {
+    chip.classList.toggle("selected", chip.dataset.dragValue === state.runner.selectedDragValue);
+  });
 }
 
 function ensureAnswerSlot(section, task, index) {
@@ -899,7 +1325,243 @@ function buildQualityChecks() {
   ];
 }
 
+function submitAnswers() {
+  for (const timer of Object.values(state.runner.timers)) {
+    timer.running = false;
+  }
+  state.submission = buildSubmission("submitted");
+  persistSubmission(state.submission);
+  renderRunner();
+  renderSubmission();
+  setView("submission");
+  showToast("Answers submitted locally");
+}
+
+function ensureSubmission(status) {
+  if (state.submission && state.submission.status === "submitted") {
+    return state.submission;
+  }
+  return buildSubmission(status);
+}
+
+function buildSubmission(status = "draft") {
+  const answerKey = extractAnswerKey(state.markdown);
+  const scoring = scoreAnswers(answerKey, state.answers);
+  const now = new Date().toISOString();
+  return {
+    submission_id: `a2-${state.exam.id}-${Date.now()}`,
+    status,
+    exam_id: `a2_mock_exam_${state.exam.id}`,
+    exam_title: state.exam.title,
+    level: "A2",
+    language: "lv",
+    source_path: state.exam.sourcePath,
+    exam_url: window.location.href,
+    created_at: now,
+    submitted_at: status === "submitted" ? now : null,
+    pass_rule: {
+      total_max: 60,
+      skill_max: 15,
+      minimum_per_skill: 9,
+      note: "A final pass decision requires at least 9/15 in each skill."
+    },
+    progress: getExamProgress(),
+    timers: snapshotTimers(),
+    answers: cloneJson(state.answers),
+    answer_key: answerKey,
+    scoring,
+    validation_queue: buildValidationQueue(answerKey)
+  };
+}
+
+function extractAnswerKey(markdown) {
+  const answerLines = sectionBetween(markdown.split(/\r?\n/), "## Answer Key", ["## Listening Transcripts", "## TTS Export", "## JSON Export"]);
+  const key = {};
+  let currentSkill = "";
+  for (const line of answerLines) {
+    const heading = /^###\s+(.+)$/.exec(line.trim());
+    if (heading) {
+      currentSkill = skillKeyFromHeading(heading[1]);
+      if (currentSkill) key[currentSkill] ||= {};
+      continue;
+    }
+    const taskLine = /^\*\*(\d+)\.\s*uzdevums:\*\*\s*(.+)$/i.exec(line.trim());
+    if (!taskLine || !currentSkill) continue;
+    key[currentSkill][`task${taskLine[1]}`] = parseAnswerValues(taskLine[2]);
+  }
+  return key;
+}
+
+function skillKeyFromHeading(value) {
+  const normalized = value.toLowerCase();
+  if (normalized.includes("klaus")) return "listening";
+  if (normalized.includes("las")) return "reading";
+  if (normalized.includes("rakst")) return "writing";
+  if (normalized.includes("run")) return "speaking";
+  return "";
+}
+
+function parseAnswerValues(value) {
+  return [...value.matchAll(/(\d+)\.\s*([^,;\n]+)/g)].map(match => cleanAnswerValue(match[2]));
+}
+
+function cleanAnswerValue(value) {
+  return String(value).replace(/\s{2,}/g, " ").trim().replace(/\.$/, "");
+}
+
+function scoreAnswers(answerKey, answers) {
+  const bySkill = {};
+  const items = [];
+  for (const part of PART_CONFIG) {
+    const skillKey = part.key;
+    bySkill[skillKey] = {
+      objective_correct: 0,
+      objective_possible: 0,
+      manual_review_possible: 15,
+      max_points: 15,
+      minimum_to_pass: 9
+    };
+    const skillKeyData = answerKey[skillKey] || {};
+    for (const [taskKey, expectedAnswers] of Object.entries(skillKeyData)) {
+      expectedAnswers.forEach((expected, index) => {
+        const actual = answers[skillKey]?.[taskKey]?.[index] || "";
+        const correct = normalizeAnswer(actual) === normalizeAnswer(expected);
+        bySkill[skillKey].objective_possible += 1;
+        bySkill[skillKey].objective_correct += correct ? 1 : 0;
+        items.push({
+          skill: skillKey,
+          task: taskKey,
+          item: index + 1,
+          expected,
+          actual,
+          correct,
+          scoring: "objective"
+        });
+      });
+    }
+    bySkill[skillKey].manual_review_possible = Math.max(0, 15 - bySkill[skillKey].objective_possible);
+  }
+  const objectiveCorrect = Object.values(bySkill).reduce((total, skill) => total + skill.objective_correct, 0);
+  const objectivePossible = Object.values(bySkill).reduce((total, skill) => total + skill.objective_possible, 0);
+  const manualPossible = Object.values(bySkill).reduce((total, skill) => total + skill.manual_review_possible, 0);
+  return {
+    mode: "mixed",
+    objective_correct: objectiveCorrect,
+    objective_possible: objectivePossible,
+    manual_review_possible: manualPossible,
+    estimated_minimum_points: objectiveCorrect,
+    estimated_maximum_points_after_review: objectiveCorrect + manualPossible,
+    by_skill: bySkill,
+    items
+  };
+}
+
+function normalizeAnswer(value) {
+  return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function buildValidationQueue(answerKey) {
+  const queue = [];
+  for (const part of PART_CONFIG) {
+    const tasks = state.answers[part.key] || {};
+    for (const [taskKey, values] of Object.entries(tasks)) {
+      if (answerKey[part.key]?.[taskKey]) continue;
+      values.forEach((value, index) => {
+        queue.push({
+          skill: part.key,
+          task: taskKey,
+          item: index + 1,
+          response: value,
+          review_type: "manual_or_ai_scoring"
+        });
+      });
+    }
+  }
+  return queue;
+}
+
+function snapshotTimers() {
+  return Object.fromEntries(Object.entries(state.runner.timers).map(([part, timer]) => [
+    part,
+    {
+      total_seconds: timer.total,
+      remaining_seconds: timer.remaining,
+      elapsed_seconds: timer.total - timer.remaining,
+      remaining_display: formatTime(timer.remaining)
+    }
+  ]));
+}
+
+function persistSubmission(submission) {
+  try {
+    const key = "latvian_a2_exam_submissions";
+    const submissions = JSON.parse(localStorage.getItem(key) || "[]");
+    submissions.unshift(submission);
+    localStorage.setItem(key, JSON.stringify(submissions.slice(0, 25)));
+  } catch {
+    // Local storage can be unavailable in private or restricted browser contexts.
+  }
+}
+
+function renderSubmission() {
+  const submission = state.submission || buildSubmission("draft");
+  const score = submission.scoring;
+  els.submissionOutput.innerHTML = `
+    <section class="submission-hero">
+      <div>
+        <p class="eyebrow">${submission.status === "submitted" ? "Submitted" : "Draft submission"}</p>
+        <h2>${escapeHtml(submission.exam_title)}</h2>
+        <p>${submission.progress.answered}/${submission.progress.total} response fields completed. Objective score: ${score.objective_correct}/${score.objective_possible}. Manual review fields: ${score.manual_review_possible} points.</p>
+      </div>
+      <div class="submission-id">${escapeHtml(submission.submission_id)}</div>
+    </section>
+    <div class="score-summary">
+      ${PART_CONFIG.map(part => renderSkillScore(part, score.by_skill[part.key])).join("")}
+    </div>
+    <div class="submission-actions">
+      <button type="button" data-submission-action="submit">${submission.status === "submitted" ? "Resubmit answers" : "Submit answers"}</button>
+      <button type="button" data-submission-action="copy">Copy JSON</button>
+      <button type="button" data-submission-action="download">Download JSON</button>
+    </div>
+    <pre class="code-panel submission-json">${escapeHtml(JSON.stringify(submission, null, 2))}</pre>
+  `;
+  els.submissionOutput.querySelectorAll("[data-submission-action]").forEach(button => {
+    button.addEventListener("click", () => handleSubmissionAction(button.dataset.submissionAction));
+  });
+}
+
+function renderSkillScore(part, score) {
+  return `
+    <article class="score-summary-card">
+      <h3>${part.title}</h3>
+      <strong>${score.objective_correct}/${score.objective_possible}</strong>
+      <p>Objective now</p>
+      <span>${score.manual_review_possible} pts for later review</span>
+    </article>
+  `;
+}
+
+function handleSubmissionAction(action) {
+  if (action === "submit") {
+    submitAnswers();
+    return;
+  }
+  const submission = ensureSubmission("draft");
+  if (action === "copy") {
+    copyText(JSON.stringify(submission, null, 2), "Submission copied");
+    return;
+  }
+  if (action === "download") {
+    downloadFile(`${submission.submission_id}.json`, JSON.stringify(submission, null, 2), "application/json");
+  }
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 function buildExportJson() {
+  const answerKey = extractAnswerKey(state.markdown);
   return {
     exam_id: `a2_mock_exam_${state.exam.id}`,
     title: state.exam.title,
@@ -915,6 +1577,13 @@ function buildExportJson() {
     },
     assets: state.assets,
     answers: state.answers,
+    answer_key: answerKey,
+    latest_submission: state.submission,
+    submission_schema: {
+      storage: "localStorage:latvian_a2_exam_submissions",
+      status_values: ["draft", "submitted"],
+      scoring_note: "Objective items are auto-scored from the Markdown answer key; writing and speaking free text remain in validation_queue."
+    },
     markdown: state.markdown,
     generation: {
       tts_command: `python3 scripts/regenerate_exam_audio.py --exam A2_Mock_Exam_${state.exam.id}.md`,
@@ -933,6 +1602,7 @@ function setView(viewName) {
   });
   const titles = {
     runner: "Exam Runner",
+    submission: "Submission",
     exam: state.exam.title,
     markdown: "Raw Markdown",
     json: "Structured JSON",
