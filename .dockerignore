@@ -1,0 +1,10 @@
+.git
+.DS_Store
+**/.DS_Store
+.env
+.env-*
+.playwright-mcp
+codex/.obsidian/workspace.json
+codex/.obsidian/cache
+scripts/__pycache__
+**/__pycache__

@@ -1,0 +1,8 @@
+services:
+  latvian-a2-exam-app:
+    build:
+      context: .
+    image: lvcodex/latvian-a2-exam-app:local
+    ports:
+      - "4173:80"
+    restart: unless-stopped

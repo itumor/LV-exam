@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Latvian A2 Exam Studio</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23146b63'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-size='24' font-family='Georgia' font-weight='700' fill='white'%3EA2%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">A2</div>
+          <div>
+            <h1>Latvian A2 Exam Studio</h1>
+            <p>Practice exam runner</p>
+          </div>
+        </div>
+
+        <form id="exam-form" class="control-stack">
+          <label>
+            Exam
+            <select id="exam-select" name="exam"></select>
+          </label>
+          <label>
+            Source Markdown
+            <input id="source-path" name="source-path" readonly>
+          </label>
+        </form>
+
+        <div class="score-card">
+          <div>
+            <span>Total</span>
+            <strong id="total-points">60</strong>
+          </div>
+          <div>
+            <span>Pass</span>
+            <strong>9/15 each</strong>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="Exam sections">
+          <button data-view="runner" class="active">Runner</button>
+          <button data-view="markdown">Markdown</button>
+          <button data-view="json">JSON</button>
+          <button data-view="tts">TTS</button>
+          <button data-view="prompts">Images</button>
+          <button data-view="quality">Quality</button>
+        </nav>
+
+        <div class="button-grid">
+          <button id="reload-exam" type="button">Reload</button>
+          <button id="copy-markdown" type="button">Copy Markdown</button>
+          <button id="copy-json" type="button">Copy JSON</button>
+          <button id="download-markdown" type="button">Save .md</button>
+          <button id="download-json" type="button">Save .json</button>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="workspace-bar">
+          <div>
+            <span class="eyebrow">Practice exam runner</span>
+            <h2 id="workspace-title">Generated Exam</h2>
+          </div>
+          <div id="validation-pill" class="validation-pill">Validated</div>
+        </header>
+
+        <section id="runner-view" class="view active">
+          <div id="runner-output" class="exam-runner"></div>
+        </section>
+
+        <section id="exam-view" class="view">
+          <div id="exam-output" class="document"></div>
+        </section>
+
+        <section id="markdown-view" class="view">
+          <pre id="markdown-output" class="code-panel"></pre>
+        </section>
+
+        <section id="json-view" class="view">
+          <pre id="json-output" class="code-panel"></pre>
+        </section>
+
+        <section id="tts-view" class="view">
+          <div id="tts-output" class="document compact"></div>
+        </section>
+
+        <section id="prompts-view" class="view">
+          <div id="prompt-output" class="prompt-grid"></div>
+        </section>
+
+        <section id="quality-view" class="view">
+          <div id="quality-output" class="quality-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

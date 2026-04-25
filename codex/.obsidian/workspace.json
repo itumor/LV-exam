@@ -37,7 +37,7 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Universal full template.md",
+                "file": "A2_Mock_Exam_06.md",
                 "mode": "source",
                 "source": false,
                 "backlinks": true,
@@ -52,7 +52,7 @@
                 }
               },
               "icon": "lucide-file",
-              "title": "Universal full template"
+              "title": "A2_Mock_Exam_06"
             }
           },
           {
@@ -173,7 +173,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 218.50043487548828
+    "width": 409.5041847229004
   },
   "right": {
     "id": "43f7119d93c99721",
@@ -298,23 +298,28 @@
   },
   "active": "adae2fcfa5182232",
   "lastOpenFiles": [
+    "A2_Mock_Exam_10.md",
+    "Latviešu valoda A2 prakses eksāmens.md",
+    "Pasted image 20260410093913.png",
+    "Links.md",
+    "A2_Mock_Exam_06.md",
+    "latvian_a2_30_day_mock_exam.md",
+    "Universal full template.md",
+    "latvian_a2_mock_exam_master_prompt.md",
     "Attachments/a_2_limenis (2).pdf",
     "QQQ.md",
     "A2_Mock_Exam_01.md",
     "a_2_limenis (2).md",
     "2. uzdevums Aplūkojiet attēlus! Atbildiet uz jautājumiem par attēliem!.md",
     "1. uzdevums – jautājumi un atbildes par mani.md",
-    "Latviešu valoda A2 prakses eksāmens.md",
     "ELEVENLABS_BATCH_RUN_STATUS.md",
     "LOCAL_TTS_AUDIO.md",
     "REGENERATE_EXAM_AUDIO_ELEVENLABS_GUIDE.md",
     "REGENERATE_EXAM_AUDIO_GUIDE.md",
     "Skill Test.md",
-    "Universal full template.md",
     "AGENTS.md",
     "Codex-Obsidian-Setup.md",
     "A2_Mock_Exam_09.md",
-    "A2_Mock_Exam_10.md",
     "Attachments/a_2_limenis-diagram.md",
     "Attachments/2. uzdevums/Pasted image 20260407225826.png",
     "Pasted image 20260407230908.png",
@@ -331,19 +336,13 @@
     "Attachments/A2_Mock_Exam_01 1/rakstisana_1_attels_4.png",
     "Attachments/A2_Mock_Exam_01 1/rakstisana_1_attels_3.png",
     "Attachments/A2_Mock_Exam_01 1/rakstisana_1_attels_2.png",
-    "Attachments/A2_Mock_Exam_01 1/rakstisana_1_attels_1.png",
     "Attachments/A2_Mock_Exam_01 1/klausisanas_3_uzdevums_elevenlabs.mp3",
     "Attachments/A2_Mock_Exam_01 1/klausisanas_3_uzdevums.mp3",
     "Attachments/A2_Mock_Exam_01 1/klausisanas_2_uzdevums_elevenlabs.mp3",
-    "Attachments/A2_Mock_Exam_01 1/klausisanas_2_uzdevums.mp3",
     "A2_Mock_Exam_02.md",
     "A2_Mock_Exam_04.md",
     "A2_Mock_Exam_05.md",
-    "A2_Mock_Exam_06.md",
     "A2_Mock_Exam_07.md",
-    "A2_Mock_Exam_08.md",
-    "A2_Mock_Exam_03.md",
-    "Operations/Ops Brief 2026-04-05.md",
     "Untitled.canvas"
   ]
 }
