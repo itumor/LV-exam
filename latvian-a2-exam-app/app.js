@@ -353,7 +353,7 @@ function renderSkillFlow(part, sectionLines) {
                 <h4>${task.title}</h4>
                 <span data-task-progress="${part.key}.${task.taskKey}">${formatTaskProgress(getTaskProgress(part.key, task.taskKey))}</span>
               </header>
-              ${view.intro.length && shouldRenderTaskIntro(task) ? `<div class="task-stimulus document compact">${renderMarkdown(view.intro.join("\n"), state.exam)}</div>` : ""}
+              ${view.intro.length && shouldRenderTaskIntro(task) ? `<div class="task-stimulus document compact">${renderTaskIntro(task, view)}</div>` : ""}
               ${referenceHtml}
               <div class="question-stack">
                 ${renderTaskQuestions(part.key, task, view.questions, view)}
@@ -370,10 +370,18 @@ function shouldRenderTaskIntro(task) {
   return !["photo-sentences", "word-form", "writing-long"].includes(task.kind);
 }
 
+function renderTaskIntro(task, view) {
+  const intro = view.intro.join("\n");
+  if (task.kind === "ad-match" && parseAdvertisements(view.reference).length > 4) {
+    return renderMarkdown(intro.replace(/\(A\s*[–-]\s*L\)/gi, "(A-D)"), state.exam);
+  }
+  return renderMarkdown(intro, state.exam);
+}
+
 function renderTaskReferencePanel(section, task, referenceLines) {
   if (!referenceLines.length || task.kind === "drag-fill") return "";
   if (task.kind === "ad-match") {
-    return renderAdReferencePanel(section, task.taskKey, referenceLines);
+    return "";
   }
   return `<aside class="task-reference-panel document compact">${renderMarkdown(referenceLines.join("\n"), state.exam)}</aside>`;
 }
@@ -823,8 +831,18 @@ function renderAdReferencePanel(section, taskKey, referenceLines) {
 
 function renderAdMatchQuestions(section, task, questions, referenceLines) {
   const ads = parseAdvertisements(referenceLines);
-  const options = ads.length ? ads.map(ad => ad.letter) : task.options.map(option => option.toUpperCase());
   const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
+  if (ads.length) {
+    const adGroups = chunkArray(ads, 4);
+    const questionsPerGroup = Math.ceil(safeQuestions.length / adGroups.length);
+    const questionGroups = chunkArray(safeQuestions, questionsPerGroup);
+    return `
+      <div class="ad-match-official">
+        ${adGroups.map((group, groupIndex) => renderAdMatchGroup(section, task, group, questionGroups[groupIndex] || [], groupIndex * questionsPerGroup)).join("")}
+      </div>
+    `;
+  }
+  const options = task.options.map(option => option.toUpperCase());
   return `
     <div class="ad-match-list">
       ${safeQuestions.map((question, index) => {
@@ -845,6 +863,50 @@ function renderAdMatchQuestions(section, task, questions, referenceLines) {
         `;
       }).join("")}
     </div>
+  `;
+}
+
+function renderAdMatchGroup(section, task, ads, questions, baseIndex) {
+  const localLetters = optionLetters.slice(0, ads.length).map(letter => letter.toUpperCase());
+  return `
+    <section class="ad-match-group">
+      ${renderAdChoiceGroup(ads, localLetters)}
+      <div class="ad-match-list">
+        ${questions.map((question, questionOffset) => {
+          const index = baseIndex + questionOffset;
+          const name = `${section}.${task.taskKey}.${index}`;
+          ensureAnswerSlot(section, task.taskKey, index);
+          const value = state.answers[section][task.taskKey][index] || "";
+          return `
+            <article class="ad-match-row">
+              <div class="ad-match-text document compact">${renderMarkdown(question.lines.join("\n"), state.exam)}</div>
+              <label class="ad-match-answer">
+                <span>${index + 1}</span>
+                <select data-answer="${name}">
+                  <option value=""></option>
+                  ${ads.map((ad, adIndex) => `<option value="${ad.letter}" ${value.toUpperCase() === ad.letter ? "selected" : ""}>${localLetters[adIndex]}</option>`).join("")}
+                </select>
+              </label>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderAdChoiceGroup(ads, localLetters = ads.map(ad => ad.letter)) {
+  return `
+    <section class="ad-choice-group">
+      <div class="ad-card-grid">
+        ${ads.map((ad, index) => `
+          <article class="ad-card">
+            <strong>${localLetters[index]}</strong>
+            <p>${escapeHtml(ad.text)}</p>
+          </article>
+        `).join("")}
+      </div>
+    </section>
   `;
 }
 

@@ -1105,8 +1105,19 @@ input[readonly] {
   margin: 8px 0 30px;
 }
 
+.ad-match-official {
+  display: grid;
+  gap: 42px;
+}
+
+.ad-match-group {
+  display: grid;
+  gap: 18px;
+}
+
 .ad-choice-group {
   border-width: 10px;
+  margin: 0;
 }
 
 .ad-card {
