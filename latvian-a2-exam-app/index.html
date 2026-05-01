@@ -56,6 +56,8 @@
         </div>
 
         <nav class="nav-list" aria-label="Exam sections">
+          <button data-view="dashboard">Dashboard</button>
+          <button data-view="auth">Account</button>
           <button data-view="runner" class="active">Runner</button>
           <button data-view="submission">Submission</button>
           <button data-view="markdown">Markdown</button>
@@ -86,6 +88,14 @@
           </div>
           <div id="validation-pill" class="validation-pill">Validated</div>
         </header>
+
+        <section id="auth-view" class="view">
+          <div id="auth-output"></div>
+        </section>
+
+        <section id="dashboard-view" class="view">
+          <div id="dashboard-output"></div>
+        </section>
 
         <section id="runner-view" class="view active">
           <div id="runner-output" class="exam-runner"></div>
