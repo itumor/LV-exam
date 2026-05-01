@@ -29,8 +29,19 @@ const state = {
       speaking: { total: 15 * 60, remaining: 15 * 60, running: false, startedAt: null }
     }
   },
+  flow: {
+    screen: "home",
+    mode: "exam",
+    candidate: {
+      code: "",
+      firstName: "",
+      lastName: ""
+    }
+  },
   answers: {},
-  submission: null
+  submission: null,
+  evaluation: null,
+  evaluating: false
 };
 
 const PART_CONFIG = [
@@ -39,6 +50,8 @@ const PART_CONFIG = [
   { key: "writing", title: "Rakstīšana", english: "Writing", heading: "### Rakstītprasmes pārbaude", minutes: 35 },
   { key: "speaking", title: "Runāšana", english: "Speaking", heading: "### Runātprasmes pārbaude", minutes: 15 }
 ];
+
+const FLOW_SCREENS = new Set(["home", "register", "instructions", "exam", "results"]);
 
 const TASK_CONFIG = {
   listening: [
@@ -76,6 +89,9 @@ const els = {
   qualityOutput: document.querySelector("#quality-output"),
   workspaceTitle: document.querySelector("#workspace-title"),
   validationPill: document.querySelector("#validation-pill"),
+  globalPartNav: document.querySelector("#global-part-nav"),
+  topbarTimer: document.querySelector("#topbar-timer"),
+  progressFill: document.querySelector("#exam-progress-fill"),
   toast: document.querySelector("#toast")
 };
 
@@ -85,6 +101,7 @@ function init() {
 
   document.querySelector("#reload-exam").addEventListener("click", () => loadExam(state.exam.id));
   document.querySelector("#submit-exam").addEventListener("click", () => submitAnswers());
+  document.querySelector("#evaluate-submission").addEventListener("click", () => evaluateSubmissionWithAi());
   document.querySelector("#copy-submission").addEventListener("click", () => {
     copyText(JSON.stringify(ensureSubmission("draft"), null, 2), "Submission copied");
   });
@@ -106,8 +123,17 @@ function init() {
   document.querySelectorAll(".nav-list button").forEach(button => {
     button.addEventListener("click", () => setView(button.dataset.view));
   });
+  els.globalPartNav.addEventListener("click", event => {
+    const button = event.target.closest("[data-global-part]");
+    if (!button) return;
+    switchPart(button.dataset.globalPart);
+  });
 
-  const requestedExam = new URLSearchParams(window.location.search).get("exam");
+  const params = new URLSearchParams(window.location.search);
+  const requestedScreen = params.get("screen");
+  const requestedPart = params.get("part");
+  state.flow.screen = FLOW_SCREENS.has(requestedScreen) ? requestedScreen : (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
+  const requestedExam = params.get("exam");
   loadExam(String(requestedExam || "01").padStart(2, "0"));
   setInterval(tickTimers, 1000);
 }
@@ -130,6 +156,8 @@ async function loadExam(examId) {
     resetAnswers();
     resetTimers();
     state.submission = null;
+    state.evaluation = null;
+    state.evaluating = false;
     const requestedPart = new URLSearchParams(window.location.search).get("part");
     if (PART_CONFIG.some(part => part.key === requestedPart)) {
       state.runner.activePart = requestedPart;
@@ -143,6 +171,7 @@ async function loadExam(examId) {
 }
 
 function renderAll() {
+  renderTopChrome();
   renderRunner();
   els.examOutput.innerHTML = renderMarkdown(state.markdown, state.exam);
   els.markdownOutput.textContent = state.markdown;
@@ -151,6 +180,7 @@ function renderAll() {
   renderTts();
   renderImages();
   renderQuality();
+  syncEvaluationButtons();
 }
 
 function renderLoadError(error) {
@@ -245,6 +275,7 @@ function updateExamUrl() {
   const params = new URLSearchParams(window.location.search);
   params.set("exam", state.exam.id);
   params.set("part", state.runner.activePart);
+  params.set("screen", state.flow.screen);
   window.history.replaceState(null, "", `?${params.toString()}`);
 }
 
@@ -264,44 +295,17 @@ function tickTimers() {
 }
 
 function renderRunner() {
+  if (state.flow.screen !== "exam") {
+    els.runnerOutput.innerHTML = renderFlowScreen();
+    bindFlowEvents();
+    renderTopChrome();
+    return;
+  }
   const sections = getStudentSections(state.markdown);
   const activePart = getPartConfig(state.runner.activePart);
   const activeSectionLines = sections[activePart.key] || [];
-  const progress = getPartProgress(activePart.key);
   const totalProgress = getExamProgress();
   els.runnerOutput.innerHTML = `
-    <section class="official-header">
-      <div>
-        <strong>VALSTS VALODAS PRASMES PĀRBAUDE</strong>
-        <span>Pamata (A2) līmenis</span>
-      </div>
-      <div class="candidate-code">Kods: PRAKSE-${state.exam.id}</div>
-    </section>
-
-    <div class="command-strip" aria-label="Exam command words">
-      <span>Klausieties!</span>
-      <span>Lasiet!</span>
-      <span>Rakstiet!</span>
-      <span>Atbildiet!</span>
-      <span>Izvēlieties atbilstošo!</span>
-    </div>
-
-    <section class="exam-top">
-      <div class="exam-title-group">
-        <p class="eyebrow">A2 practice exam</p>
-        <h3>${activePart.title} / ${activePart.english}</h3>
-        <p>Maximum 15 points. Pass minimum: 9/15 in this skill.</p>
-      </div>
-      <div class="exam-status">
-        <strong data-active-progress>${progress.answered}</strong>
-        <span>responses</span>
-      </div>
-    </section>
-
-    <nav class="part-tabs" aria-label="Exam parts">
-      ${PART_CONFIG.map(part => renderPartTab(part)).join("")}
-    </nav>
-
     <div class="runner-shell runner-shell-sticky">
       ${renderPartTimer(activePart.key, `${activePart.title} / ${activePart.english}`, activePart.minutes)}
     </div>
@@ -322,38 +326,175 @@ function renderRunner() {
       </div>
       <div class="submit-actions">
         <button type="button" data-action="submit-exam">Submit answers</button>
+        <button type="button" data-action="evaluate-exam">AI score</button>
         <button type="button" data-action="open-submission">Review submission</button>
       </div>
     </section>
   `;
   bindRunnerEvents();
   renderTimersOnly();
+  renderTopChrome();
+}
+
+function renderFlowScreen() {
+  if (state.flow.screen === "register") return renderRegistrationScreen();
+  if (state.flow.screen === "instructions") return renderInstructionsScreen();
+  if (state.flow.screen === "results") return renderResultsScreen();
+  return renderHomeScreen();
+}
+
+function renderHomeScreen() {
+  return `
+    <section class="flow-card flow-home">
+      <div class="flow-emblem" aria-hidden="true"></div>
+      <h1>Valsts valodas prasmes pārbaude - A2 līmenis</h1>
+      <p>Oficiāls valsts valodas prasmes pārbaudes simulators, kas sagatavots atbilstoši izglītības un satura standartiem.</p>
+      ${renderFlowExamPicker()}
+      <div class="mode-switch" role="group" aria-label="Režīms">
+        <button type="button" data-flow-action="set-mode" data-mode="exam" class="${state.flow.mode === "exam" ? "active" : ""}">Eksāmena režīms</button>
+        <button type="button" data-flow-action="set-mode" data-mode="practice" class="${state.flow.mode === "practice" ? "active" : ""}">Treniņa režīms</button>
+      </div>
+      <div class="flow-primary-stack">
+        <button type="button" class="flow-primary-button" data-flow-action="register">Sākt pilnu eksāmenu</button>
+        <button type="button" class="flow-secondary-button" data-flow-action="start-practice">Trenēties pa daļām</button>
+      </div>
+      <div class="flow-home-links">
+        <button type="button" data-flow-action="results">Skatīt rezultātus</button>
+        <button type="button" data-flow-action="instructions">Norādījumi</button>
+      </div>
+      <p class="flow-version">Sistēmas versija 1.2.0 • Oficiālais simulators</p>
+    </section>
+  `;
+}
+
+function renderRegistrationScreen() {
+  const candidate = state.flow.candidate;
+  return `
+    <section class="flow-card flow-register">
+      <div class="flow-emblem" aria-hidden="true"></div>
+      <h1>Kandidāta reģistrācija</h1>
+      <p>A2 Valsts valodas pārbaudes simulators</p>
+      ${renderFlowExamPicker("Izvēlētais eksāmens")}
+      <form class="candidate-form" data-candidate-form>
+        <label>
+          Kandidāta kods
+          <input name="code" value="${escapeHtml(candidate.code)}" autocomplete="off" required>
+        </label>
+        <label>
+          Vārds
+          <input name="firstName" value="${escapeHtml(candidate.firstName)}" autocomplete="given-name" required>
+        </label>
+        <label>
+          Uzvārds
+          <input name="lastName" value="${escapeHtml(candidate.lastName)}" autocomplete="family-name" required>
+        </label>
+        <button type="submit" class="flow-success-button">Sākt pārbaudi</button>
+      </form>
+      <p class="form-note">Lūdzu, ievadiet datus tieši tā, kā norādīts jūsu eksāmena lapā.</p>
+    </section>
+  `;
+}
+
+function renderInstructionsScreen() {
+  const commands = [
+    ["headphones", "Klausieties!"],
+    ["book", "Lasiet!"],
+    ["pencil", "Rakstiet!"],
+    ["message", "Atbildiet!"],
+    ["check", "Atzīmējiet pareizo atbildi!"],
+    ["input", "Izvēlieties atbilstošo!"],
+    ["blank", "Ierakstiet tukšajā vietā!"],
+    ["question", "Uzdodiet jautājumu!"]
+  ];
+  return `
+    <section class="flow-card flow-instructions">
+      <h1>Pārbaudes norādījumi</h1>
+      <p>Lūdzu, uzmanīgi iepazīstieties ar biežāk sastopamajām norādēm un darbībām, kas būs jāveic eksāmena laikā.</p>
+      ${renderFlowExamPicker("Eksāmens")}
+      <div class="instruction-panel">
+        ${commands.map(([icon, label]) => `
+          <div class="instruction-row">
+            <span class="instruction-icon instruction-icon-${icon}" aria-hidden="true"></span>
+            <strong>${label}</strong>
+          </div>
+        `).join("")}
+      </div>
+      <button type="button" class="flow-primary-button compact" data-flow-action="begin-exam">Saprasts / Atpakaļ</button>
+    </section>
+  `;
+}
+
+function renderFlowExamPicker(label = "Izvēlieties eksāmenu") {
+  return `
+    <label class="flow-exam-picker">
+      <span>${label}</span>
+      <select data-flow-exam-select aria-label="${label}">
+        ${EXAMS.map(exam => `<option value="${exam.id}" ${exam.id === state.exam.id ? "selected" : ""}>${exam.title}</option>`).join("")}
+      </select>
+    </label>
+  `;
+}
+
+function renderResultsScreen() {
+  const submission = ensureSubmission("draft");
+  const skills = PART_CONFIG.map(part => {
+    const score = submission.scoring.by_skill[part.key] || { correct: 0, possible: 15 };
+    const points = Math.min(15, Math.round((Number(score.correct || 0) / Math.max(1, Number(score.possible || 15))) * 15));
+    return {
+      part,
+      points,
+      percent: Math.round((points / 15) * 100),
+      passed: points >= 9
+    };
+  });
+  const passed = skills.every(item => item.passed);
+  return `
+    <section class="results-flow">
+      <h1>Eksāmena Rezultāti</h1>
+      <p>Jūsu snieguma kopsavilkums pa pārbaudījuma daļām.</p>
+      <div class="results-table" role="table" aria-label="Eksāmena rezultāti">
+        <div class="results-row results-head" role="row">
+          <span>Sadaļa</span><span>Punkti</span><span>Procenti</span><span>Statuss</span>
+        </div>
+        ${skills.map(({ part, points, percent, passed }) => `
+          <div class="results-row" role="row">
+            <span>${part.title}</span>
+            <span>${points} / 15</span>
+            <span><b>${percent}%</b><i style="--value:${percent}%"></i></span>
+            <span class="${passed ? "status-pass" : "status-fail"}">${passed ? "Nokārtots" : "Jātrenējas"}</span>
+          </div>
+        `).join("")}
+      </div>
+      <div class="final-status ${passed ? "passed" : "failed"}">
+        <p>Noslēguma statuss</p>
+        <h2>Kopējais rezultāts: ${passed ? "nokārtots" : "nav nokārtots"}</h2>
+        <span>Minimums ir 9 punkti katrā prasmē. Šis pārskats izmanto lokālo objektīvo vērtējumu un saglabā rakstīšanas/runāšanas darbus pārbaudei.</span>
+      </div>
+      <button type="button" class="flow-primary-button results-action" data-flow-action="open-submission">Skatīt detalizētu pārskatu</button>
+    </section>
+  `;
 }
 
 function renderSkillFlow(part, sectionLines) {
   const safeSectionLines = Array.isArray(sectionLines) ? sectionLines : [];
   const tasks = TASK_CONFIG[part.key] || [];
   return `
-    <section class="flow-part" data-part="${part.key}">
-      <div class="flow-part-head">
-        <div>
-          <h3>${part.title} prasmes pārbaude</h3>
-          <p>Izlasiet uzdevumu un atbildiet tieši zem jautājuma.</p>
-        </div>
-        <div class="flow-part-badge">${part.english}</div>
-      </div>
-      <div class="task-stack">
-        ${tasks.map(task => {
+    <div class="task-stack official-task-stack" data-part="${part.key}">
+      ${tasks.map((task, taskIndex) => {
           const taskLines = getTaskSection(safeSectionLines, task.heading, task.ends);
           const view = buildTaskView(taskLines, task);
           const referenceHtml = renderTaskReferencePanel(part.key, task, view.reference);
+          const taskProgress = getTaskProgress(part.key, task.taskKey);
           return `
-            <article class="task-block">
-              <header class="task-header">
-                <h4>${task.title}</h4>
-                <span data-task-progress="${part.key}.${task.taskKey}">${formatTaskProgress(getTaskProgress(part.key, task.taskKey))}</span>
+            <article class="stitch-task-panel">
+              <header class="stitch-section-head">
+                <div>
+                  <h3>${taskIndex + 1}. daļa: ${part.title} prasme</h3>
+                  <p>Uzdevums ${taskIndex + 1} no ${tasks.length}: ${taskInstructionTitle(task, view)}</p>
+                </div>
+                <span data-task-progress="${part.key}.${task.taskKey}">Punkti: ${taskProgress.answered} / ${taskProgress.total}</span>
               </header>
-              ${view.intro.length && shouldRenderTaskIntro(task) ? `<div class="task-stimulus document compact">${renderTaskIntro(task, view)}</div>` : ""}
+              ${view.intro.length && shouldRenderTaskIntro(task) ? `<div class="stitch-instructions">${renderTaskIntro(task, view)}</div>` : ""}
               ${referenceHtml}
               <div class="question-stack">
                 ${renderTaskQuestions(part.key, task, view.questions, view)}
@@ -361,8 +502,7 @@ function renderSkillFlow(part, sectionLines) {
             </article>
           `;
         }).join("")}
-      </div>
-    </section>
+    </div>
   `;
 }
 
@@ -371,11 +511,53 @@ function shouldRenderTaskIntro(task) {
 }
 
 function renderTaskIntro(task, view) {
-  const intro = view.intro.join("\n");
+  const intro = stripTaskMediaLines(view.intro).join("\n");
   if (task.kind === "ad-match" && parseAdvertisements(view.reference).length > 4) {
     return renderMarkdown(intro.replace(/\(A\s*[–-]\s*L\)/gi, "(A-D)"), state.exam);
   }
   return renderMarkdown(intro, state.exam);
+}
+
+function taskInstructionTitle(task, view) {
+  const text = stripTaskMediaLines(view.intro || [])
+    .map(line => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .find(line => !/audio failsafe link/i.test(line));
+  if (text) {
+    return text.replace(/[.!?]+$/, "");
+  }
+  return task.title;
+}
+
+function stripTaskMediaLines(lines) {
+  const result = [];
+  let inAudio = false;
+  for (const line of lines || []) {
+    const trimmed = line.trim();
+    if (/^<audio\b/i.test(trimmed)) {
+      inAudio = true;
+      continue;
+    }
+    if (inAudio) {
+      if (/^<\/audio>/i.test(trimmed)) {
+        inAudio = false;
+      }
+      continue;
+    }
+    if (/^<source\b/i.test(trimmed) || /audio failsafe link/i.test(trimmed)) {
+      continue;
+    }
+    result.push(line);
+  }
+  return trimOuterLines(result);
+}
+
+function firstAudioSource(lines) {
+  for (const line of lines || []) {
+    const match = /<source\s+src="([^"]+\.mp3)"/i.exec(line);
+    if (match) return match[1];
+  }
+  return "";
 }
 
 function renderTaskReferencePanel(section, task, referenceLines) {
@@ -388,10 +570,10 @@ function renderTaskReferencePanel(section, task, referenceLines) {
 
 function renderTaskQuestions(section, task, questions, view) {
   if (task.kind === "choice-list") {
-    return renderChoiceListTask(section, task, questions, false);
+    return renderChoiceListTask(section, task, questions, false, view);
   }
   if (task.kind === "reading-choice") {
-    return renderChoiceListTask(section, task, questions, true);
+    return renderChoiceListTask(section, task, questions, true, view);
   }
   if (task.kind === "yes-no-table") {
     return renderYesNoTable(section, task, questions);
@@ -579,6 +761,33 @@ function getPartConfig(partKey) {
   return PART_CONFIG.find(part => part.key === partKey) || PART_CONFIG[0];
 }
 
+function switchPart(partKey) {
+  if (!PART_CONFIG.some(part => part.key === partKey)) return;
+  const keepTimerRunning = state.flow.screen === "exam" && state.flow.mode === "exam" && isAnyTimerRunning();
+  state.runner.activePart = partKey;
+  if (keepTimerRunning) {
+    startOnlyTimer(partKey);
+  }
+  state.flow.screen = "exam";
+  updateExamUrl();
+  renderRunner();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function setFlowScreen(screen, options = {}) {
+  if (!FLOW_SCREENS.has(screen)) return;
+  state.flow.screen = screen;
+  if (screen === "exam") {
+    setView("runner");
+    if (options.startTimer) {
+      startOnlyTimer(state.runner.activePart);
+    }
+  }
+  updateExamUrl();
+  renderRunner();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 function getPartProgress(partKey) {
   const tasks = state.answers[partKey] || {};
   const values = Object.values(tasks).flat();
@@ -614,10 +823,33 @@ function renderPartTab(part) {
   `;
 }
 
+function renderTopChrome() {
+  const examProgress = getExamProgress();
+  const activePart = getPartConfig(state.runner.activePart);
+  document.body.dataset.flowScreen = state.flow.screen;
+  els.globalPartNav.innerHTML = ["home", "register", "results"].includes(state.flow.screen) ? "" : PART_CONFIG.map(part => `
+    <button type="button" data-global-part="${part.key}" class="${part.key === state.runner.activePart ? "active" : ""}">
+      ${part.title}
+    </button>
+  `).join("");
+  if (els.topbarTimer) {
+    els.topbarTimer.textContent = state.flow.screen === "exam"
+      ? formatTime(state.runner.timers[activePart.key].remaining)
+      : formatLongTime(45 * 60);
+  }
+  if (els.progressFill) {
+    const percent = examProgress.total ? Math.round((examProgress.answered / examProgress.total) * 100) : 0;
+    els.progressFill.style.width = `${percent}%`;
+  }
+}
+
 function renderPartMoveButton(direction) {
   const currentIndex = PART_CONFIG.findIndex(part => part.key === state.runner.activePart);
   const nextIndex = direction === "next" ? currentIndex + 1 : currentIndex - 1;
   const part = PART_CONFIG[nextIndex];
+  if (!part && direction === "next") {
+    return `<button type="button" data-action="show-results">Pabeigt</button>`;
+  }
   if (!part) return "<span></span>";
   const label = direction === "next" ? `Next: ${part.title}` : `Previous: ${part.title}`;
   return `<button type="button" data-action="switch-part" data-part="${part.key}">${label}</button>`;
@@ -628,6 +860,7 @@ function renderTimersOnly() {
     const part = node.dataset.timer;
     node.textContent = formatTime(state.runner.timers[part].remaining);
   });
+  renderTopChrome();
 }
 
 function renderProgressOnly() {
@@ -642,14 +875,81 @@ function renderProgressOnly() {
   document.querySelectorAll("[data-task-progress]").forEach(node => {
     const [partKey, taskKey] = node.dataset.taskProgress.split(".");
     const progress = getTaskProgress(partKey, taskKey);
-    node.textContent = formatTaskProgress(progress);
+    node.textContent = `Punkti: ${progress.answered} / ${progress.total}`;
   });
   document.querySelectorAll("[data-exam-progress]").forEach(node => {
     const progress = getExamProgress();
     node.textContent = `${progress.answered}/${progress.total}`;
   });
   els.jsonOutput.textContent = JSON.stringify(buildExportJson(), null, 2);
+  renderTopChrome();
   renderSubmission();
+}
+
+function bindFlowEvents() {
+  document.querySelectorAll("[data-flow-action]").forEach(button => {
+    button.addEventListener("click", () => handleFlowAction(button.dataset));
+  });
+  document.querySelectorAll("[data-flow-exam-select]").forEach(select => {
+    select.addEventListener("change", event => {
+      loadExam(event.target.value);
+    });
+  });
+  const form = document.querySelector("[data-candidate-form]");
+  if (form) {
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      state.flow.candidate = {
+        code: String(formData.get("code") || "").trim(),
+        firstName: String(formData.get("firstName") || "").trim(),
+        lastName: String(formData.get("lastName") || "").trim()
+      };
+      setFlowScreen("instructions");
+    });
+  }
+}
+
+function handleFlowAction(dataset) {
+  const { flowAction } = dataset;
+  if (flowAction === "set-mode") {
+    state.flow.mode = dataset.mode || "exam";
+    renderRunner();
+    return;
+  }
+  if (flowAction === "register") {
+    setFlowScreen("register");
+    return;
+  }
+  if (flowAction === "start-practice") {
+    state.flow.mode = "practice";
+    setFlowScreen("instructions");
+    return;
+  }
+  if (flowAction === "instructions") {
+    setFlowScreen("instructions");
+    return;
+  }
+  if (flowAction === "begin-exam") {
+    setFlowScreen("exam", { startTimer: state.flow.mode === "exam" });
+    return;
+  }
+  if (flowAction === "results") {
+    setFlowScreen("results");
+    return;
+  }
+  if (flowAction === "open-submission") {
+    renderSubmission();
+    setView("submission");
+  }
+}
+
+function formatLongTime(seconds) {
+  const safeSeconds = Math.max(0, Number(seconds) || 0);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const secs = safeSeconds % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
 function formatTaskProgress(progress) {
@@ -658,6 +958,7 @@ function formatTaskProgress(progress) {
 
 function renderPartTimer(part, label, minutes) {
   const timer = state.runner.timers[part];
+  const startLabel = timer.running ? "Running" : (timer.remaining < timer.total ? "Resume" : "Start");
   return `
     <article class="timer-card ${state.runner.activePart === part ? "active" : ""}">
       <div>
@@ -666,7 +967,7 @@ function renderPartTimer(part, label, minutes) {
       </div>
       <div class="timer-display" data-timer="${part}">${formatTime(timer.remaining)}</div>
       <div class="timer-actions">
-        <button type="button" data-action="start" data-part="${part}">${timer.running ? "Running" : "Start"}</button>
+        <button type="button" data-action="start" data-part="${part}" ${timer.running ? "disabled" : ""}>${startLabel}</button>
         <button type="button" data-action="pause" data-part="${part}">Pause</button>
         <button type="button" data-action="reset" data-part="${part}">Reset</button>
       </div>
@@ -674,19 +975,22 @@ function renderPartTimer(part, label, minutes) {
   `;
 }
 
-function renderChoiceListTask(section, task, questions, useReadingBox) {
+function renderChoiceListTask(section, task, questions, useReadingBox, view = {}) {
   const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
-  return safeQuestions.map((question, index) => renderChoiceQuestion(section, task, question, index, useReadingBox)).join("");
+  const audioSrc = section === "listening" ? firstAudioSource(view.intro || []) : "";
+  return safeQuestions.map((question, index) => renderChoiceQuestion(section, task, question, index, useReadingBox, audioSrc)).join("");
 }
 
-function renderChoiceQuestion(section, task, question, index, useReadingBox) {
+function renderChoiceQuestion(section, task, question, index, useReadingBox, audioSrc = "") {
   const parsed = parseChoiceQuestion(question.lines, task.options);
   const name = `${section}.${task.taskKey}.${index}`;
   ensureAnswerSlot(section, task.taskKey, index);
   const value = state.answers[section][task.taskKey][index] || "";
   return `
     <article class="official-choice-question ${useReadingBox ? "reading-question" : ""}">
-      ${useReadingBox ? renderReadingStimulus(parsed, index) : `<h5>${index + 1}. ${escapeHtml(parsed.stem || `Jautājums ${index + 1}`)}</h5>`}
+      <span class="question-number">${index + 1}.</span>
+      ${useReadingBox ? renderReadingStimulus(parsed, index) : `<h5>${escapeHtml(parsed.stem || `Jautājums ${index + 1}`)}</h5>`}
+      ${audioSrc ? renderCardAudio(audioSrc, index) : ""}
       <div class="official-choice-list">
         ${parsed.options.map(option => `
           <label class="official-radio-row">
@@ -696,6 +1000,15 @@ function renderChoiceQuestion(section, task, question, index, useReadingBox) {
         `).join("")}
       </div>
     </article>
+  `;
+}
+
+function renderCardAudio(audioSrc, index) {
+  return `
+    <div class="stitch-audio-card">
+      <audio controls preload="none" src="${escapeHtml(toAssetUrl(audioSrc))}" aria-label="Audio ${index + 1}"></audio>
+      <span>${index < 4 ? "1. reize" : "0. reize"}</span>
+    </div>
   `;
 }
 
@@ -1226,10 +1539,7 @@ function bindRunnerEvents() {
 function handleRunnerAction(dataset) {
   const { action, part } = dataset;
   if (action === "switch-part") {
-    state.runner.activePart = part;
-    updateExamUrl();
-    renderRunner();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    switchPart(part);
     return;
   }
   if (action === "show-ad-group") {
@@ -1242,6 +1552,14 @@ function handleRunnerAction(dataset) {
     submitAnswers();
     return;
   }
+  if (action === "evaluate-exam") {
+    evaluateSubmissionWithAi();
+    return;
+  }
+  if (action === "show-results") {
+    setFlowScreen("results");
+    return;
+  }
   if (action === "open-submission") {
     renderSubmission();
     setView("submission");
@@ -1252,13 +1570,11 @@ function handleRunnerAction(dataset) {
 
 function handleTimerAction(action, part) {
   const timer = state.runner.timers[part];
+  if (!timer) return;
   state.runner.activePart = part;
   updateExamUrl();
   if (action === "start") {
-    for (const key of Object.keys(state.runner.timers)) {
-      state.runner.timers[key].running = key === part;
-    }
-    timer.running = true;
+    startOnlyTimer(part);
   }
   if (action === "pause") {
     timer.running = false;
@@ -1270,6 +1586,16 @@ function handleTimerAction(action, part) {
   renderRunner();
 }
 
+function startOnlyTimer(part) {
+  for (const key of Object.keys(state.runner.timers)) {
+    state.runner.timers[key].running = key === part && state.runner.timers[key].remaining > 0;
+  }
+}
+
+function isAnyTimerRunning() {
+  return Object.values(state.runner.timers).some(timer => timer.running);
+}
+
 function handleAnswerInput(event) {
   const target = event.target;
   const key = target.dataset.answer;
@@ -1278,6 +1604,7 @@ function handleAnswerInput(event) {
     ensureAnswerSlot(section, task, Number(index));
     state.answers[section][task][Number(index)] = target.value;
     state.submission = null;
+    state.evaluation = null;
     renderProgressOnly();
     return;
   }
@@ -1285,6 +1612,7 @@ function handleAnswerInput(event) {
   ensureAnswerSlot(section, task, Number(index));
   state.answers[section][task][Number(index)] = target.value;
   state.submission = null;
+  state.evaluation = null;
   renderProgressOnly();
 }
 
@@ -1350,6 +1678,7 @@ function setDragFillAnswer(key, value) {
   state.answers[section][task][targetIndex] = value;
   state.runner.selectedDragValue = "";
   state.submission = null;
+  state.evaluation = null;
   refreshDragFillUi(section, task);
   renderProgressOnly();
 }
@@ -1670,10 +1999,55 @@ function submitAnswers() {
   }
   state.submission = buildSubmission("submitted");
   persistSubmission(state.submission);
+  state.evaluation = null;
   renderRunner();
   renderSubmission();
   setView("submission");
   showToast("Answers submitted locally");
+}
+
+async function evaluateSubmissionWithAi() {
+  if (state.evaluating) return;
+  for (const timer of Object.values(state.runner.timers)) {
+    timer.running = false;
+  }
+  state.submission = buildSubmission("submitted");
+  state.evaluating = true;
+  state.evaluation = null;
+  persistSubmission(state.submission);
+  renderRunner();
+  renderSubmission();
+  setView("submission");
+  showToast("Sending answers for AI scoring...");
+
+  try {
+    const response = await fetch("/api/evaluate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        submission: buildEvaluationSubmission(state.submission),
+        exam_markdown: state.markdown
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || payload.detail || `Evaluation failed with HTTP ${response.status}`);
+    }
+    state.evaluation = payload;
+    state.submission.ai_evaluation = payload;
+    persistSubmission(state.submission);
+    showToast("AI score complete");
+  } catch (error) {
+    state.evaluation = {
+      error: error.message,
+      hint: evaluationErrorHint(error.message)
+    };
+    showToast("AI scoring failed");
+  } finally {
+    state.evaluating = false;
+    renderSubmission();
+    syncEvaluationButtons();
+  }
 }
 
 function ensureSubmission(status) {
@@ -1709,8 +2083,42 @@ function buildSubmission(status = "draft") {
     answers: cloneJson(state.answers),
     answer_key: answerKey,
     scoring,
-    validation_queue: buildValidationQueue(answerKey)
+    validation_queue: buildValidationQueue(answerKey),
+    ai_evaluation: state.evaluation
   };
+}
+
+function buildEvaluationSubmission(submission) {
+  return {
+    submission_id: submission.submission_id,
+    exam_id: submission.exam_id,
+    exam_title: submission.exam_title,
+    level: submission.level,
+    language: submission.language,
+    pass_rule: submission.pass_rule,
+    progress: submission.progress,
+    answers: submission.answers,
+    answer_key: submission.answer_key,
+    scoring: {
+      objective_correct: submission.scoring.objective_correct,
+      objective_possible: submission.scoring.objective_possible,
+      manual_review_possible: submission.scoring.manual_review_possible,
+      by_skill: submission.scoring.by_skill,
+      items: submission.scoring.items
+    },
+    validation_queue: submission.validation_queue
+  };
+}
+
+function evaluationErrorHint(message) {
+  const lower = String(message || "").toLowerCase();
+  if (lower.includes("rate limit") || lower.includes("429")) {
+    return "Groq is rate limiting this key. Wait a little and click AI Score once.";
+  }
+  if (lower.includes("too large") || lower.includes("413")) {
+    return "The evaluator reduced the request size. Refresh the page and try AI Score again.";
+  }
+  return "Check that server.py is running and .env has either GROQ_API_KEY for Groq, local Codex CLI access, or CODEX_REMOTE_URL for Docker-to-host Codex scoring.";
 }
 
 function extractAnswerKey(markdown) {
@@ -1859,14 +2267,17 @@ function renderSubmission() {
     </div>
     <div class="submission-actions">
       <button type="button" data-submission-action="submit">${submission.status === "submitted" ? "Resubmit answers" : "Submit answers"}</button>
+      <button type="button" data-submission-action="evaluate" ${state.evaluating ? "disabled" : ""}>${state.evaluating ? "Scoring..." : "AI score and corrections"}</button>
       <button type="button" data-submission-action="copy">Copy JSON</button>
       <button type="button" data-submission-action="download">Download JSON</button>
     </div>
+    ${renderAiEvaluationPanel()}
     <pre class="code-panel submission-json">${escapeHtml(JSON.stringify(submission, null, 2))}</pre>
   `;
   els.submissionOutput.querySelectorAll("[data-submission-action]").forEach(button => {
     button.addEventListener("click", () => handleSubmissionAction(button.dataset.submissionAction));
   });
+  syncEvaluationButtons();
 }
 
 function renderSkillScore(part, score) {
@@ -1880,9 +2291,100 @@ function renderSkillScore(part, score) {
   `;
 }
 
+function renderAiEvaluationPanel() {
+  if (state.evaluating) {
+    return `
+      <section class="ai-evaluation-panel pending">
+        <h3>AI scoring</h3>
+        <p>Reviewing the submitted answers with the configured LLM provider. This can take a minute.</p>
+      </section>
+    `;
+  }
+  if (!state.evaluation) {
+    return `
+      <section class="ai-evaluation-panel">
+        <h3>AI scoring</h3>
+        <p>Submit the answers, then use AI score and corrections to validate writing and speaking responses.</p>
+      </section>
+    `;
+  }
+  if (state.evaluation.error) {
+    return `
+      <section class="ai-evaluation-panel error">
+        <h3>AI scoring failed</h3>
+        <p>${escapeHtml(state.evaluation.error)}</p>
+        <p>${escapeHtml(state.evaluation.hint || "")}</p>
+      </section>
+    `;
+  }
+
+  const evaluation = state.evaluation.evaluation || {};
+  const scores = evaluation.scores || {};
+  const feedback = evaluation.feedback || {};
+  const corrections = Array.isArray(evaluation.corrections) ? evaluation.corrections : [];
+  return `
+    <section class="ai-evaluation-panel">
+      <div class="ai-evaluation-head">
+        <div>
+          <p class="eyebrow">${escapeHtml(state.evaluation.provider || "LLM")} ${escapeHtml(state.evaluation.model || "")}</p>
+          <h3>AI score: ${escapeHtml(scores.total ?? "—")}/60</h3>
+          <p>${scores.passed ? "Pass rule met" : "Pass rule not met yet"} · minimum is 9/15 in every skill.</p>
+        </div>
+      </div>
+      <div class="ai-score-grid">
+        ${PART_CONFIG.map(part => renderAiSkillScore(part, scores[part.key])).join("")}
+      </div>
+      ${feedback.summary ? `<p class="ai-summary">${escapeHtml(feedback.summary)}</p>` : ""}
+      ${renderFeedbackList("Strengths", feedback.strengths)}
+      ${renderFeedbackList("Improve next", feedback.improvements)}
+      ${corrections.length ? `
+        <div class="correction-list">
+          <h4>Corrections</h4>
+          ${corrections.slice(0, 12).map(item => `
+            <article class="correction-item">
+              <strong>${escapeHtml(item.skill || "")} ${escapeHtml(item.task || "")}${item.item ? ` #${escapeHtml(item.item)}` : ""}</strong>
+              <p><span>Answer:</span> ${escapeHtml(item.candidate_answer || "")}</p>
+              <p><span>Better:</span> ${escapeHtml(item.suggested_answer || "")}</p>
+              <p>${escapeHtml(item.comment || "")}</p>
+            </article>
+          `).join("")}
+        </div>
+      ` : ""}
+    </section>
+  `;
+}
+
+function renderAiSkillScore(part, score = {}) {
+  const safeScore = score || {};
+  return `
+    <article class="ai-skill-card">
+      <h4>${part.title}</h4>
+      <strong>${escapeHtml(safeScore.points ?? "—")}/15</strong>
+      <p>${safeScore.passed ? "Passed" : "Needs work"}</p>
+      <span>${escapeHtml(safeScore.reason || "")}</span>
+    </article>
+  `;
+}
+
+function renderFeedbackList(title, items) {
+  if (!Array.isArray(items) || !items.length) return "";
+  return `
+    <div class="feedback-list">
+      <h4>${escapeHtml(title)}</h4>
+      <ul>
+        ${items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}
+      </ul>
+    </div>
+  `;
+}
+
 function handleSubmissionAction(action) {
   if (action === "submit") {
     submitAnswers();
+    return;
+  }
+  if (action === "evaluate") {
+    evaluateSubmissionWithAi();
     return;
   }
   const submission = ensureSubmission("draft");
@@ -1893,6 +2395,13 @@ function handleSubmissionAction(action) {
   if (action === "download") {
     downloadFile(`${submission.submission_id}.json`, JSON.stringify(submission, null, 2), "application/json");
   }
+}
+
+function syncEvaluationButtons() {
+  const sidebarButton = document.querySelector("#evaluate-submission");
+  if (!sidebarButton) return;
+  sidebarButton.disabled = state.evaluating;
+  sidebarButton.textContent = state.evaluating ? "Scoring..." : "AI Score";
 }
 
 function cloneJson(value) {
@@ -1918,10 +2427,12 @@ function buildExportJson() {
     answers: state.answers,
     answer_key: answerKey,
     latest_submission: state.submission,
+    latest_ai_evaluation: state.evaluation,
     submission_schema: {
       storage: "localStorage:latvian_a2_exam_submissions",
       status_values: ["draft", "submitted"],
-      scoring_note: "Objective items are auto-scored from the Markdown answer key; writing and speaking free text remain in validation_queue."
+      evaluation_endpoint: "/api/evaluate",
+      scoring_note: "Objective items are auto-scored from the Markdown answer key; writing and speaking free text are scored through the configured LLM evaluator."
     },
     markdown: state.markdown,
     generation: {

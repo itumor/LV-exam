@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+
+<html lang="lv"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Kandidāta reģistrācija - A2 Valsts valodas pārbaudes simulators</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#d2dbe4",
+                        "outline-variant": "#c3c6d1",
+                        "tertiary-container": "#313435",
+                        "on-tertiary-fixed": "#191c1d",
+                        "on-primary": "#ffffff",
+                        "outline": "#737780",
+                        "on-secondary-fixed": "#1b1c1c",
+                        "inverse-on-surface": "#e9f2fb",
+                        "tertiary": "#1c1f20",
+                        "on-tertiary-container": "#9a9c9d",
+                        "secondary-fixed-dim": "#c8c6c6",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "surface": "#f6faff",
+                        "error": "#ba1a1a",
+                        "surface-bright": "#f6faff",
+                        "on-primary-container": "#799dd6",
+                        "primary": "#001e40",
+                        "surface-tint": "#3a5f94",
+                        "inverse-surface": "#293138",
+                        "surface-container-highest": "#dbe4ed",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed-variant": "#474747",
+                        "on-primary-fixed-variant": "#1f477b",
+                        "surface-container": "#e6eff8",
+                        "on-secondary-container": "#656464",
+                        "secondary": "#5f5e5e",
+                        "on-error": "#ffffff",
+                        "secondary-container": "#e4e2e1",
+                        "on-primary-fixed": "#001b3c",
+                        "primary-container": "#003366",
+                        "surface-variant": "#dbe4ed",
+                        "surface-container-high": "#e0e9f2",
+                        "inverse-primary": "#a7c8ff",
+                        "tertiary-fixed-dim": "#c5c7c8",
+                        "on-background": "#141d23",
+                        "on-error-container": "#93000a",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#d5e3ff",
+                        "on-tertiary-fixed-variant": "#454748",
+                        "on-surface": "#141d23",
+                        "secondary-fixed": "#e4e2e1",
+                        "on-surface-variant": "#43474f",
+                        "surface-container-low": "#ecf5fe",
+                        "background": "#f6faff",
+                        "tertiary-fixed": "#e1e3e4",
+                        "surface-container-lowest": "#ffffff",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "container-max-width": "1024px",
+                        "stack-xl": "64px",
+                        "unit": "4px",
+                        "margin-page": "48px",
+                        "gutter": "24px",
+                        "stack-md": "16px",
+                        "stack-sm": "8px",
+                        "stack-lg": "32px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Public Sans"],
+                        "body-md": ["Public Sans"],
+                        "label-sm": ["Public Sans"],
+                        "headline-md": ["Public Sans"],
+                        "display-lg": ["Public Sans"],
+                        "label-bold": ["Public Sans"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "1.2", "letterSpacing": "0", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "display-lg": ["36px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "label-bold": ["14px", { "lineHeight": "1.2", "letterSpacing": "0.02em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col justify-center items-center p-gutter">
+<!-- Top Navigation Omitted for Transactional/Login Screen as per guidelines -->
+<!-- Main Content Container -->
+<main class="w-full max-w-[480px] mx-auto">
+<!-- Login Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded p-stack-lg flex flex-col gap-stack-lg">
+<!-- Header / Authority Identity -->
+<div class="flex flex-col items-center text-center gap-stack-md">
+<span class="material-symbols-outlined text-primary text-[48px]" style="font-variation-settings: 'FILL' 1;">
+                    account_balance
+                </span>
+<div>
+<h1 class="font-headline-md text-headline-md text-primary mb-stack-sm">Kandidāta reģistrācija</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">A2 Valsts valodas pārbaudes simulators</p>
+</div>
+</div>
+<hr class="border-outline-variant w-full"/>
+<!-- Form -->
+<form class="flex flex-col gap-stack-md">
+<!-- Kandidāta kods -->
+<div class="flex flex-col gap-stack-sm">
+<label class="font-label-bold text-label-bold text-on-surface" for="candidate-code">Kandidāta kods</label>
+<input aria-required="true" class="w-full bg-surface-container-lowest border border-outline rounded px-4 py-3 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:border-[2px] transition-all" id="candidate-code" name="candidate-code" required="" type="text"/>
+</div>
+<!-- Vārds -->
+<div class="flex flex-col gap-stack-sm">
+<label class="font-label-bold text-label-bold text-on-surface" for="first-name">Vārds</label>
+<input aria-required="true" class="w-full bg-surface-container-lowest border border-outline rounded px-4 py-3 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:border-[2px] transition-all" id="first-name" name="first-name" required="" type="text"/>
+</div>
+<!-- Uzvārds -->
+<div class="flex flex-col gap-stack-sm">
+<label class="font-label-bold text-label-bold text-on-surface" for="last-name">Uzvārds</label>
+<input aria-required="true" class="w-full bg-surface-container-lowest border border-outline rounded px-4 py-3 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:border-[2px] transition-all" id="last-name" name="last-name" required="" type="text"/>
+</div>
+<!-- Action Area -->
+<div class="mt-stack-md">
+<button class="w-full bg-[#16a34a] hover:bg-[#15803d] text-on-primary font-label-bold text-label-bold rounded py-4 px-6 flex justify-center items-center gap-2 transition-colors" type="submit">
+<span>Sākt pārbaudi</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">
+                            arrow_forward
+                        </span>
+</button>
+</div>
+</form>
+</div>
+<!-- Footer / Help Text -->
+<div class="mt-stack-md text-center">
+<p class="font-label-sm text-label-sm text-on-surface-variant">
+                Lūdzu, ievadiet datus tieši tā, kā norādīts jūsu eksāmena lapā.
+            </p>
+</div>
+</main>
+</body></html>

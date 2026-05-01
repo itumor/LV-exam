@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+
+<html lang="lv"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pārbaudes norādījumi</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#d2dbe4",
+                        "outline-variant": "#c3c6d1",
+                        "tertiary-container": "#313435",
+                        "on-tertiary-fixed": "#191c1d",
+                        "on-primary": "#ffffff",
+                        "outline": "#737780",
+                        "on-secondary-fixed": "#1b1c1c",
+                        "inverse-on-surface": "#e9f2fb",
+                        "tertiary": "#1c1f20",
+                        "on-tertiary-container": "#9a9c9d",
+                        "secondary-fixed-dim": "#c8c6c6",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "surface": "#f6faff",
+                        "error": "#ba1a1a",
+                        "surface-bright": "#f6faff",
+                        "on-primary-container": "#799dd6",
+                        "primary": "#001e40",
+                        "surface-tint": "#3a5f94",
+                        "inverse-surface": "#293138",
+                        "surface-container-highest": "#dbe4ed",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed-variant": "#474747",
+                        "on-primary-fixed-variant": "#1f477b",
+                        "surface-container": "#e6eff8",
+                        "on-secondary-container": "#656464",
+                        "secondary": "#5f5e5e",
+                        "on-error": "#ffffff",
+                        "secondary-container": "#e4e2e1",
+                        "on-primary-fixed": "#001b3c",
+                        "primary-container": "#003366",
+                        "surface-variant": "#dbe4ed",
+                        "surface-container-high": "#e0e9f2",
+                        "inverse-primary": "#a7c8ff",
+                        "tertiary-fixed-dim": "#c5c7c8",
+                        "on-background": "#141d23",
+                        "on-error-container": "#93000a",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#d5e3ff",
+                        "on-tertiary-fixed-variant": "#454748",
+                        "on-surface": "#141d23",
+                        "secondary-fixed": "#e4e2e1",
+                        "on-surface-variant": "#43474f",
+                        "surface-container-low": "#ecf5fe",
+                        "background": "#f6faff",
+                        "tertiary-fixed": "#e1e3e4",
+                        "surface-container-lowest": "#ffffff",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "container-max-width": "1024px",
+                        "stack-xl": "64px",
+                        "unit": "4px",
+                        "margin-page": "48px",
+                        "gutter": "24px",
+                        "stack-md": "16px",
+                        "stack-sm": "8px",
+                        "stack-lg": "32px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Public Sans"],
+                        "body-md": ["Public Sans"],
+                        "label-sm": ["Public Sans"],
+                        "headline-md": ["Public Sans"],
+                        "display-lg": ["Public Sans"],
+                        "label-bold": ["Public Sans"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400"}],
+                        "body-md": ["16px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "1.2", "letterSpacing": "0", "fontWeight": "500"}],
+                        "headline-md": ["24px", {"lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "display-lg": ["36px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-bold": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.02em", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col font-body-md antialiased">
+<!-- TopAppBar -->
+<header class="sticky top-0 w-full z-50 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800 shadow-none">
+<div class="flex justify-between items-center w-full px-6 py-4 max-w-[1024px] mx-auto">
+<!-- Brand -->
+<div class="text-lg font-black text-blue-900 dark:text-slate-50 uppercase tracking-wide">
+                A2 Valsts valodas pārbaudes simulators
+            </div>
+<!-- Navigation Links -->
+<nav class="hidden md:flex gap-8">
+<a class="font-['Public_Sans'] text-sm tracking-tight font-medium text-gray-500 dark:text-gray-400 hover:text-blue-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors px-2 py-1 rounded" href="#">Klausīšanās</a>
+<a class="font-['Public_Sans'] text-sm tracking-tight font-medium text-gray-500 dark:text-gray-400 hover:text-blue-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors px-2 py-1 rounded" href="#">Lasīšana</a>
+<a class="font-['Public_Sans'] text-sm tracking-tight font-medium text-gray-500 dark:text-gray-400 hover:text-blue-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors px-2 py-1 rounded" href="#">Rakstīšana</a>
+<a class="font-['Public_Sans'] text-sm tracking-tight font-medium text-gray-500 dark:text-gray-400 hover:text-blue-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors px-2 py-1 rounded" href="#">Runāšana</a>
+</nav>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-4">
+<div class="text-blue-900 dark:text-blue-400 font-['Public_Sans'] text-sm tracking-tight font-medium font-mono bg-surface-container py-1 px-3 rounded-DEFAULT border border-outline-variant">
+                    00:45:00
+                </div>
+<div class="flex gap-2 text-blue-900 dark:text-blue-400">
+<button class="hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors p-1 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="timer">timer</span>
+</button>
+<button class="hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors p-1 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col items-center justify-center p-margin-page w-full">
+<div class="w-full max-w-[800px] bg-surface-container-lowest border border-outline-variant rounded-lg p-stack-xl shadow-sm">
+<div class="text-center mb-stack-xl">
+<h1 class="font-display-lg text-display-lg text-on-surface">Pārbaudes norādījumi</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-stack-sm max-w-2xl mx-auto">
+                    Lūdzu, uzmanīgi iepazīstieties ar biežāk sastopamajām norādēm un darbībām, kas būs jāveic eksāmena laikā.
+                </p>
+</div>
+<!-- Commands List -->
+<div class="bg-surface-container-low border border-outline-variant rounded-lg p-stack-lg mb-stack-xl">
+<ul class="flex flex-col gap-stack-lg">
+<li class="flex items-center gap-6 p-4 hover:bg-surface-container-highest transition-colors rounded-DEFAULT">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="headphones">headphones</span>
+<span class="font-headline-md text-headline-md text-on-surface">Klausieties!</span>
+</li>
+<li class="flex items-center gap-6 p-4 hover:bg-surface-container-highest transition-colors rounded-DEFAULT">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="menu_book">menu_book</span>
+<span class="font-headline-md text-headline-md text-on-surface">Lasiet!</span>
+</li>
+<li class="flex items-center gap-6 p-4 hover:bg-surface-container-highest transition-colors rounded-DEFAULT">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="edit">edit</span>
+<span class="font-headline-md text-headline-md text-on-surface">Rakstiet!</span>
+</li>
+<li class="flex items-center gap-6 p-4 hover:bg-surface-container-highest transition-colors rounded-DEFAULT">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="forum">forum</span>
+<span class="font-headline-md text-headline-md text-on-surface">Atbildiet!</span>
+</li>
+<li class="flex items-center gap-6 p-4 hover:bg-surface-container-highest transition-colors rounded-DEFAULT">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="fact_check">fact_check</span>
+<span class="font-headline-md text-headline-md text-on-surface">Atzīmējiet pareizo atbildi!</span>
+</li>
+<li class="flex items-center gap-6 p-4 hover:bg-surface-container-highest transition-colors rounded-DEFAULT">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="touch_app">touch_app</span>
+<span class="font-headline-md text-headline-md text-on-surface">Izvēlieties atbilstošo!</span>
+</li>
+<li class="flex items-center gap-6 p-4 hover:bg-surface-container-highest transition-colors rounded-DEFAULT">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="input">input</span>
+<span class="font-headline-md text-headline-md text-on-surface">Ierakstiet tukšajā vietā!</span>
+</li>
+<li class="flex items-center gap-6 p-4 hover:bg-surface-container-highest transition-colors rounded-DEFAULT">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="help_center">help_center</span>
+<span class="font-headline-md text-headline-md text-on-surface">Uzdodiet jautājumu!</span>
+</li>
+</ul>
+</div>
+<!-- Action Area -->
+<div class="flex justify-center mt-stack-xl pt-stack-md border-t border-outline-variant">
+<button class="bg-primary text-on-primary font-label-bold text-label-bold px-12 py-4 rounded-DEFAULT hover:bg-primary-container transition-colors shadow-sm uppercase tracking-wider flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="done_all" data-weight="fill" style="font-variation-settings: 'FILL' 1;">done_all</span>
+                    Saprasts / Atpakaļ
+                </button>
+</div>
+</div>
+</main>
+</body></html>

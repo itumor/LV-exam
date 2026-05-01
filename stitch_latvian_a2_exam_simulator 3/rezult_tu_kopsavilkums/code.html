@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+
+<html lang="lv"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Eksāmena Rezultāti</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#191c1d",
+                        "surface-dim": "#d2dbe4",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed-dim": "#c5c7c8",
+                        "surface": "#f6faff",
+                        "error": "#ba1a1a",
+                        "surface-container": "#e6eff8",
+                        "secondary-fixed-dim": "#c8c6c6",
+                        "on-surface": "#141d23",
+                        "on-primary-fixed": "#001b3c",
+                        "surface-tint": "#3a5f94",
+                        "surface-container-high": "#e0e9f2",
+                        "on-primary-container": "#799dd6",
+                        "surface-container-highest": "#dbe4ed",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#474747",
+                        "secondary-container": "#e4e2e1",
+                        "tertiary-container": "#313435",
+                        "outline": "#737780",
+                        "surface-variant": "#dbe4ed",
+                        "on-secondary-container": "#656464",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#f6faff",
+                        "outline-variant": "#c3c6d1",
+                        "on-background": "#141d23",
+                        "tertiary-fixed": "#e1e3e4",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#293138",
+                        "on-tertiary-fixed-variant": "#454748",
+                        "on-surface-variant": "#43474f",
+                        "on-secondary-fixed": "#1b1c1c",
+                        "background": "#f6faff",
+                        "on-error": "#ffffff",
+                        "secondary": "#5f5e5e",
+                        "tertiary": "#1c1f20",
+                        "on-primary-fixed-variant": "#1f477b",
+                        "inverse-primary": "#a7c8ff",
+                        "inverse-on-surface": "#e9f2fb",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#9a9c9d",
+                        "primary": "#001e40",
+                        "secondary-fixed": "#e4e2e1",
+                        "primary-container": "#003366",
+                        "primary-fixed": "#d5e3ff",
+                        "surface-container-low": "#ecf5fe"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "stack-sm": "8px",
+                        "stack-lg": "32px",
+                        "container-max-width": "1024px",
+                        "stack-xl": "64px",
+                        "margin-page": "48px",
+                        "stack-md": "16px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Public Sans"],
+                        "headline-md": ["Public Sans"],
+                        "body-md": ["Public Sans"],
+                        "label-sm": ["Public Sans"],
+                        "label-bold": ["Public Sans"],
+                        "display-lg": ["Public Sans"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "1.2", "letterSpacing": "0", "fontWeight": "500"}],
+                        "label-bold": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.02em", "fontWeight": "600"}],
+                        "display-lg": ["36px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .material-symbols-outlined {
+                font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen">
+<!-- TopNavBar (Rendered exactly from JSON styles mapping) -->
+<nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-8 h-16 max-w-[1024px] mx-auto bg-white border-b-2 border-b border-gray-200">
+<div class="text-lg font-black uppercase text-blue-900">Valsts eksāmens</div>
+<button class="flex items-center gap-2 text-blue-900 font-['Public_Sans'] text-sm tracking-tight font-medium hover:bg-gray-50 transition-colors duration-150 ease-in-out px-3 py-2 rounded-DEFAULT">
+            Beigt darbu
+            <span class="material-symbols-outlined">timer</span>
+</button>
+</nav>
+<!-- Main Content Area -->
+<main class="max-w-container-max-width mx-auto px-margin-page pt-[120px] pb-stack-xl flex flex-col gap-stack-lg">
+<!-- Header -->
+<header>
+<h1 class="font-display-lg text-display-lg text-on-surface">Eksāmena Rezultāti</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-stack-sm">Jūsu snieguma kopsavilkums pa pārbaudījuma daļām.</p>
+</header>
+<!-- Results Table Card -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse min-w-[600px]">
+<thead class="bg-surface-container border-b border-outline-variant">
+<tr>
+<th class="py-stack-md px-gutter font-label-bold text-label-bold text-on-surface w-[25%]">Sadaļa</th>
+<th class="py-stack-md px-gutter font-label-bold text-label-bold text-on-surface w-[20%]">Punkti</th>
+<th class="py-stack-md px-gutter font-label-bold text-label-bold text-on-surface w-[35%]">Procenti</th>
+<th class="py-stack-md px-gutter font-label-bold text-label-bold text-on-surface w-[20%]">Statuss</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md text-on-surface divide-y divide-outline-variant/40">
+<!-- Klausīšanās -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-stack-md px-gutter font-label-bold text-label-bold text-on-surface">Klausīšanās</td>
+<td class="py-stack-md px-gutter">14 / 15</td>
+<td class="py-stack-md px-gutter">
+<div class="flex items-center gap-4 pr-8">
+<span class="w-10 text-right font-label-bold text-label-bold text-on-surface-variant">93%</span>
+<div class="flex-1 h-2 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 93%"></div>
+</div>
+</div>
+</td>
+<td class="py-stack-md px-gutter">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-container text-primary font-label-sm text-label-sm rounded-DEFAULT border border-primary/20">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                                    Nokārtots
+                                </span>
+</td>
+</tr>
+<!-- Lasīšana -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-stack-md px-gutter font-label-bold text-label-bold text-on-surface">Lasīšana</td>
+<td class="py-stack-md px-gutter">15 / 15</td>
+<td class="py-stack-md px-gutter">
+<div class="flex items-center gap-4 pr-8">
+<span class="w-10 text-right font-label-bold text-label-bold text-on-surface-variant">100%</span>
+<div class="flex-1 h-2 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 100%"></div>
+</div>
+</div>
+</td>
+<td class="py-stack-md px-gutter">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-container text-primary font-label-sm text-label-sm rounded-DEFAULT border border-primary/20">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                                    Nokārtots
+                                </span>
+</td>
+</tr>
+<!-- Rakstīšana -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-stack-md px-gutter font-label-bold text-label-bold text-on-surface">Rakstīšana</td>
+<td class="py-stack-md px-gutter">11 / 15</td>
+<td class="py-stack-md px-gutter">
+<div class="flex items-center gap-4 pr-8">
+<span class="w-10 text-right font-label-bold text-label-bold text-on-surface-variant">73%</span>
+<div class="flex-1 h-2 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-surface-tint" style="width: 73%"></div>
+</div>
+</div>
+</td>
+<td class="py-stack-md px-gutter">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-container text-primary font-label-sm text-label-sm rounded-DEFAULT border border-primary/20">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                                    Nokārtots
+                                </span>
+</td>
+</tr>
+<!-- Runāšana -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-stack-md px-gutter font-label-bold text-label-bold text-on-surface">Runāšana</td>
+<td class="py-stack-md px-gutter">13 / 15</td>
+<td class="py-stack-md px-gutter">
+<div class="flex items-center gap-4 pr-8">
+<span class="w-10 text-right font-label-bold text-label-bold text-on-surface-variant">86%</span>
+<div class="flex-1 h-2 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 86%"></div>
+</div>
+</div>
+</td>
+<td class="py-stack-md px-gutter">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-container text-primary font-label-sm text-label-sm rounded-DEFAULT border border-primary/20">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                                    Nokārtots
+                                </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Final Status Banner -->
+<section class="bg-primary-container rounded-xl p-stack-lg flex flex-col md:flex-row items-center justify-between gap-stack-lg border border-primary/20 shadow-sm mt-stack-sm relative overflow-hidden">
+<!-- Decorative background element for institutional feel -->
+<div class="absolute right-0 top-0 w-64 h-full bg-primary-fixed/5 -skew-x-12 transform translate-x-16"></div>
+<div class="text-center md:text-left z-10">
+<p class="font-label-bold text-label-bold text-on-primary-container/80 uppercase tracking-[0.1em] mb-2">Noslēguma Statuss</p>
+<h2 class="font-display-lg text-display-lg text-surface-container-lowest">KOPĒJAIS REZULTĀTS: NOKĀRTOTS</h2>
+<p class="font-body-md text-body-md text-on-primary-container mt-2 max-w-2xl">Jūs esat veiksmīgi pārvarējis minimālo punktu slieksni visās eksāmena daļās. Valsts pārbaudījuma sertifikāts tiks sagatavots atbilstoši normatīvajiem aktiem.</p>
+</div>
+<div class="w-24 h-24 rounded-full bg-surface-container-lowest flex items-center justify-center shrink-0 shadow-sm border border-outline-variant/30 z-10">
+<span class="material-symbols-outlined text-[48px] text-primary" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+</section>
+<!-- Action Area -->
+<section class="flex justify-end pt-stack-sm">
+<button class="bg-primary text-on-primary font-label-bold text-label-bold px-8 py-4 rounded-DEFAULT hover:bg-primary-container hover:text-surface-container-lowest transition-colors flex items-center gap-2 border border-transparent shadow-sm">
+                Skatīt detalizētu pārskatu
+                <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+</section>
+</main>
+</body></html>

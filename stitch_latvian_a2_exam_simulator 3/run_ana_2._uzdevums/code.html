@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+
+<html lang="lv"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Valsts eksāmens - Runāšanas prasme</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#191c1d",
+                        "surface-dim": "#d2dbe4",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed-dim": "#c5c7c8",
+                        "surface": "#f6faff",
+                        "error": "#ba1a1a",
+                        "surface-container": "#e6eff8",
+                        "secondary-fixed-dim": "#c8c6c6",
+                        "on-surface": "#141d23",
+                        "on-primary-fixed": "#001b3c",
+                        "surface-tint": "#3a5f94",
+                        "surface-container-high": "#e0e9f2",
+                        "on-primary-container": "#799dd6",
+                        "surface-container-highest": "#dbe4ed",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#474747",
+                        "secondary-container": "#e4e2e1",
+                        "tertiary-container": "#313435",
+                        "outline": "#737780",
+                        "surface-variant": "#dbe4ed",
+                        "on-secondary-container": "#656464",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#f6faff",
+                        "outline-variant": "#c3c6d1",
+                        "on-background": "#141d23",
+                        "tertiary-fixed": "#e1e3e4",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#293138",
+                        "on-tertiary-fixed-variant": "#454748",
+                        "on-surface-variant": "#43474f",
+                        "on-secondary-fixed": "#1b1c1c",
+                        "background": "#f6faff",
+                        "on-error": "#ffffff",
+                        "secondary": "#5f5e5e",
+                        "tertiary": "#1c1f20",
+                        "on-primary-fixed-variant": "#1f477b",
+                        "inverse-primary": "#a7c8ff",
+                        "inverse-on-surface": "#e9f2fb",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#9a9c9d",
+                        "primary": "#001e40",
+                        "secondary-fixed": "#e4e2e1",
+                        "primary-container": "#003366",
+                        "primary-fixed": "#d5e3ff",
+                        "surface-container-low": "#ecf5fe"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "stack-sm": "8px",
+                        "stack-lg": "32px",
+                        "container-max-width": "1024px",
+                        "stack-xl": "64px",
+                        "margin-page": "48px",
+                        "stack-md": "16px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Public Sans"],
+                        "headline-md": ["Public Sans"],
+                        "body-md": ["Public Sans"],
+                        "label-sm": ["Public Sans"],
+                        "label-bold": ["Public Sans"],
+                        "display-lg": ["Public Sans"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "1.2", "letterSpacing": "0", "fontWeight": "500"}],
+                        "label-bold": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.02em", "fontWeight": "600"}],
+                        "display-lg": ["36px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #f6faff; } /* background token fallback */
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md antialiased min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="bg-white text-blue-900 border-b border-gray-200 fixed top-0 left-0 w-full z-50 flex justify-between items-center px-8 h-16 max-w-[1024px] mx-auto left-1/2 -translate-x-1/2">
+<div class="flex items-center gap-stack-sm">
+<span class="text-lg font-black uppercase text-blue-900 font-['Public_Sans']">Valsts eksāmens</span>
+</div>
+<div class="flex items-center gap-gutter">
+<div class="flex items-center gap-unit text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">timer</span>
+<span class="font-label-bold text-label-bold tabular-nums">00:10:00</span>
+</div>
+<button class="bg-primary text-on-primary font-label-bold text-label-bold px-4 py-2 rounded">
+                Beigt darbu
+            </button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-[104px] pb-[104px] px-margin-page max-w-container-max-width mx-auto w-full">
+<div class="mb-stack-lg">
+<div class="inline-flex items-center gap-stack-sm mb-unit">
+<span class="bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm px-2 py-1 rounded">2. uzdevums</span>
+</div>
+<h1 class="font-display-lg text-display-lg text-primary">Runāšanas prasme</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-stack-sm max-w-2xl">
+                Apskatiet abus attēlus. Izmantojot ieraksta funkciju vai teksta lauku, atbildiet uz trim jautājumiem par redzētajām situācijām.
+            </p>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
+<!-- Left Column: Images -->
+<div class="lg:col-span-7 flex flex-col gap-stack-md">
+<div class="bg-surface border border-outline-variant rounded-xl overflow-hidden aspect-[16/9] shadow-sm">
+<img alt="Daily life scene 1" class="w-full h-full object-cover" data-alt="A candid, well-lit photograph capturing a vibrant moment of daily life in a modern urban park setting. Several individuals are engaged in relaxed activities, such as reading on a bench and walking a dog along a paved pathway. The lighting is natural and bright, suggesting a sunny afternoon, which complements the clean, structured aesthetic of the official exam interface. The scene is framed symmetrically to align with the minimalistic and formal visual tone, using a subtle color palette of natural greens and muted architectural greys." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtwV6Of-Qr8USNkRdYhIM1TlPyx6OX2yqr8_kRZ1dKrQ1h5kJj-jhm4m50s0RkZqKeG0xwbJ2q5THIZmbg4u6niQxlKsDkrsEScMVeia40OicFzFbHxxV0LaEeBJ78gATITHRC0tAG2VWQvqXmeTJ2kf8-kVzHE0jfDuINYq1wZhalOMf_rEJht2R2vZf5BbJGoj2scJYlQdlL24kLBrMxwV_9HbqT0yDQ_Bxko7I9K_ZrXEXv-ox5wbsXWsNeC0wayS4hvOGxFyg"/>
+</div>
+<div class="bg-surface border border-outline-variant rounded-xl overflow-hidden aspect-[16/9] shadow-sm">
+<img alt="Daily life scene 2" class="w-full h-full object-cover" data-alt="A crisp, high-resolution image depicting a typical daily scenario inside a contemporary, brightly lit university library. Students are focused on studying at large wooden tables, surrounded by bookshelves. The environment is uncluttered and orderly, reflecting a sense of quiet concentration and academic rigor. The lighting is soft and diffused, creating a calm mood that fits seamlessly into a formal, light-mode assessment interface. The color scheme relies on warm wood tones contrasted with clean white walls and subtle academic blues." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiRWhEd4qpiKK7Nz27SQ0Hn9KeSTDqGPVvSlORIc5xULDVcXuJOyf7b_FGx4LhNocxB6CDU0hCgtvRf97_0RmWXgljPgyneHE7HECyZrG6doWPgbT4TUKCnb9iPxcRFUbMrrnYw3XcZE8httyTENmrlB6b4_Vuqyh5d6jmIp3mASadPaEWClmyRJr6CN3EaJqEh2atRDV2nj2N765rajCKnTOnfBO_AMTTYNVauT_3aIuNmt92maSChgEZNZgoeMgRPvBW8oG8p4s"/>
+</div>
+</div>
+<!-- Right Column: Questions & Input -->
+<div class="lg:col-span-5 flex flex-col gap-stack-md sticky top-[104px]">
+<!-- Questions Card -->
+<div class="bg-surface-container border border-outline-variant rounded-xl p-stack-lg">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-stack-md">Uzdevuma jautājumi</h2>
+<ul class="space-y-stack-sm border-l-2 border-primary pl-4">
+<li class="font-body-lg text-body-lg text-on-surface">
+<span class="font-label-bold text-label-bold text-primary block text-[12px] uppercase tracking-wider mb-1">Jautājums 1</span>
+                            Kas?
+                        </li>
+<li class="font-body-lg text-body-lg text-on-surface pt-2">
+<span class="font-label-bold text-label-bold text-primary block text-[12px] uppercase tracking-wider mb-1">Jautājums 2</span>
+                            Ko dara?
+                        </li>
+<li class="font-body-lg text-body-lg text-on-surface pt-2">
+<span class="font-label-bold text-label-bold text-primary block text-[12px] uppercase tracking-wider mb-1">Jautājums 3</span>
+                            Kur?
+                        </li>
+</ul>
+</div>
+<!-- Interaction Card (Audio & Text) -->
+<div class="bg-surface border border-outline rounded-xl p-stack-lg shadow-sm">
+<!-- Audio Record Section -->
+<div class="mb-stack-lg">
+<h3 class="font-label-bold text-label-bold text-on-surface-variant mb-stack-sm">Audio atbilde</h3>
+<div class="flex items-center gap-stack-md bg-surface-container-lowest border border-outline-variant rounded-lg p-unit pr-4">
+<button aria-label="Sākt ierakstu" class="w-12 h-12 rounded-full bg-error text-on-error flex items-center justify-center hover:bg-[#93000a] transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-error">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">mic</span>
+</button>
+<div class="flex-grow">
+<span class="font-body-md text-body-md text-on-surface block">Gatavs ierakstam</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Maksimālais ilgums: 2 minūtes</span>
+</div>
+<div class="w-2 h-2 rounded-full bg-error-container"></div>
+</div>
+</div>
+<div class="relative py-4">
+<div aria-hidden="true" class="absolute inset-0 flex items-center">
+<div class="w-full border-t border-outline-variant"></div>
+</div>
+<div class="relative flex justify-center">
+<span class="bg-surface px-2 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">vai</span>
+</div>
+</div>
+<!-- Manual Text Input -->
+<div>
+<label class="font-label-bold text-label-bold text-on-surface-variant mb-stack-sm block" for="manual-answer">Rakstiska atbilde</label>
+<textarea class="w-full bg-surface-container-lowest border border-outline rounded focus:border-primary focus:ring-1 focus:ring-primary p-stack-sm font-body-md text-body-md text-on-surface placeholder:text-outline resize-none" id="manual-answer" placeholder="Ierakstiet savu atbildi šeit, ja neizmantojat audio..." rows="4"></textarea>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-white border-t border-gray-200 fixed bottom-0 left-0 w-full z-50 flex justify-center items-center h-16 gap-12">
+<button class="flex flex-col items-center justify-center text-gray-500 h-full px-6 hover:text-blue-800 transition-colors duration-150 ease-in-out">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">menu_book</span>
+<span class="font-['Public_Sans'] text-[12px] font-bold uppercase tracking-wider">Lasīšana</span>
+</button>
+<button class="flex flex-col items-center justify-center text-gray-500 h-full px-6 hover:text-blue-800 transition-colors duration-150 ease-in-out">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">edit_note</span>
+<span class="font-['Public_Sans'] text-[12px] font-bold uppercase tracking-wider">Rakstīšana</span>
+</button>
+<button class="flex flex-col items-center justify-center text-blue-900 border-t-4 border-blue-900 h-full px-6 bg-blue-50/50 opacity-90 transition-all">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">record_voice_over</span>
+<span class="font-['Public_Sans'] text-[12px] font-bold uppercase tracking-wider">Runāšana</span>
+</button>
+</nav>
+</body></html>

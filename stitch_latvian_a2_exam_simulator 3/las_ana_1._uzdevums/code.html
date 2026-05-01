@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+
+<html lang="lv"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lasīšanas prasme - 1. uzdevums</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-fixed": "#e1e3e4",
+                      "surface": "#f6faff",
+                      "surface-container-high": "#e0e9f2",
+                      "tertiary-container": "#313435",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-container-low": "#ecf5fe",
+                      "on-background": "#141d23",
+                      "inverse-primary": "#a7c8ff",
+                      "secondary-fixed-dim": "#c8c6c6",
+                      "primary": "#001e40",
+                      "surface-bright": "#f6faff",
+                      "on-tertiary-fixed-variant": "#454748",
+                      "on-tertiary-fixed": "#191c1d",
+                      "error-container": "#ffdad6",
+                      "secondary-container": "#e4e2e1",
+                      "secondary": "#5f5e5e",
+                      "inverse-on-surface": "#e9f2fb",
+                      "background": "#f6faff",
+                      "surface-container-highest": "#dbe4ed",
+                      "outline-variant": "#c3c6d1",
+                      "on-secondary-container": "#656464",
+                      "on-tertiary-container": "#9a9c9d",
+                      "surface-tint": "#3a5f94",
+                      "primary-fixed": "#d5e3ff",
+                      "primary-container": "#003366",
+                      "outline": "#737780",
+                      "inverse-surface": "#293138",
+                      "error": "#ba1a1a",
+                      "on-error-container": "#93000a",
+                      "surface-container": "#e6eff8",
+                      "on-primary": "#ffffff",
+                      "on-primary-fixed-variant": "#1f477b",
+                      "surface-dim": "#d2dbe4",
+                      "on-secondary-fixed": "#1b1c1c",
+                      "primary-fixed-dim": "#a7c8ff",
+                      "surface-variant": "#dbe4ed",
+                      "on-primary-container": "#799dd6",
+                      "tertiary-fixed-dim": "#c5c7c8",
+                      "on-error": "#ffffff",
+                      "on-surface-variant": "#43474f",
+                      "tertiary": "#1c1f20",
+                      "secondary-fixed": "#e4e2e1",
+                      "on-surface": "#141d23",
+                      "on-secondary": "#ffffff",
+                      "on-primary-fixed": "#001b3c",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary-fixed-variant": "#474747"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "margin-page": "48px",
+                      "unit": "4px",
+                      "stack-xl": "64px",
+                      "stack-lg": "32px",
+                      "gutter": "24px",
+                      "stack-sm": "8px",
+                      "stack-md": "16px",
+                      "container-max-width": "1024px"
+              },
+              "fontFamily": {
+                      "label-sm": ["Public Sans"],
+                      "headline-md": ["Public Sans"],
+                      "display-lg": ["Public Sans"],
+                      "body-md": ["Public Sans"],
+                      "body-lg": ["Public Sans"],
+                      "label-bold": ["Public Sans"]
+              },
+              "fontSize": {
+                      "label-sm": ["12px", { "lineHeight": "1.2", "letterSpacing": "0", "fontWeight": "500" }],
+                      "headline-md": ["24px", { "lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                      "display-lg": ["36px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                      "body-md": ["16px", { "lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400" }],
+                      "body-lg": ["18px", { "lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400" }],
+                      "label-bold": ["14px", { "lineHeight": "1.2", "letterSpacing": "0.02em", "fontWeight": "600" }]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        body { font-family: 'Public Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen pb-[120px] pt-[80px]">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800">
+<div class="flex justify-between items-center w-full px-6 py-4 max-w-[1024px] mx-auto">
+<div class="text-lg font-black text-blue-900 dark:text-slate-50">
+                A2 Valsts valodas pārbaudes simulators
+            </div>
+<nav class="hidden md:flex space-x-6">
+<a class="font-['Public_Sans'] text-sm tracking-tight font-medium text-gray-500 dark:text-gray-400 hover:text-blue-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors py-2 px-1" href="#">Klausīšanās</a>
+<a class="font-['Public_Sans'] text-sm tracking-tight text-blue-900 dark:text-blue-400 border-b-2 border-blue-900 dark:border-blue-400 pb-1 font-bold py-2 px-1 opacity-70 transition-opacity duration-150" href="#">Lasīšana</a>
+<a class="font-['Public_Sans'] text-sm tracking-tight font-medium text-gray-500 dark:text-gray-400 hover:text-blue-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors py-2 px-1" href="#">Rakstīšana</a>
+<a class="font-['Public_Sans'] text-sm tracking-tight font-medium text-gray-500 dark:text-gray-400 hover:text-blue-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors py-2 px-1" href="#">Runāšana</a>
+</nav>
+<div class="flex items-center space-x-4">
+<div class="font-['Public_Sans'] text-sm tracking-tight font-medium text-blue-900 dark:text-blue-400 flex items-center space-x-1">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 0;">timer</span>
+<span class="font-mono text-base font-bold">25:00</span>
+</div>
+<button class="text-blue-900 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-slate-800 p-2 rounded-full transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Container -->
+<main class="max-w-[1024px] mx-auto px-6 mt-stack-xl">
+<!-- Header Section -->
+<div class="mb-stack-lg">
+<h1 class="font-display-lg text-display-lg text-primary mb-stack-sm">2. daļa: Lasītprasme</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Uzdevums 1 no 3: Četri īsi teksti</p>
+</div>
+<!-- Progress Indicator -->
+<div class="w-full bg-surface-container-high h-2 rounded-full mb-stack-xl overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 33%;"></div>
+</div>
+<!-- Instructions -->
+<div class="bg-surface-container border border-outline-variant rounded-xl p-6 mb-stack-lg flex items-start gap-4">
+<span class="material-symbols-outlined text-primary mt-1" style="font-variation-settings: 'FILL' 1;">info</span>
+<p class="font-body-md text-body-md text-on-surface">
+                Izlasiet četrus īsos tekstus un izvēlieties vienu pareizo atbildi katram tekstam. Atzīmējiet to ar aplīti.
+            </p>
+</div>
+<!-- Texts Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter mb-stack-xl">
+<!-- Text 1: Restaurant Ad -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-lg shadow-sm flex flex-col justify-between">
+<div>
+<h2 class="font-headline-md text-headline-md text-primary mb-stack-md pb-2 border-b border-outline-variant">1. Teksts</h2>
+<p class="font-body-md text-body-md text-on-surface mb-stack-lg">
+<strong>Jaunais restorāns "Garša" aicina!</strong><br/><br/>
+                        Nāciet nogaršot mūsu īpašos dienas piedāvājumus! Katru darba dienu no pulksten 12:00 līdz 15:00 piedāvājam gardas zupas un otros ēdienus par īpašām cenām. Sestdienās un svētdienās mēs esam slēgti. Gaidām jūs Brīvības ielā 45. Mūsu pavāri izmanto tikai svaigus un vietējos produktus.
+                    </p>
+</div>
+<div class="space-y-3 bg-surface-container-low p-4 rounded-lg border border-surface-container-highest">
+<p class="font-label-bold text-label-bold text-primary mb-3">Ko piedāvā restorāns?</p>
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 text-primary focus:ring-primary border-outline" name="q1" type="radio"/>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Ēdienus katru dienu nedēļā.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 text-primary focus:ring-primary border-outline" name="q1" type="radio"/>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Pusdienu piedāvājumus tikai darba dienās.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 text-primary focus:ring-primary border-outline" name="q1" type="radio"/>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Bezmaksas ēdienu sestdienās.</span>
+</label>
+</div>
+</div>
+<!-- Text 2: Job Ad -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-lg shadow-sm flex flex-col justify-between">
+<div>
+<h2 class="font-headline-md text-headline-md text-primary mb-stack-md pb-2 border-b border-outline-variant">2. Teksts</h2>
+<p class="font-body-md text-body-md text-on-surface mb-stack-lg">
+<strong>Vakance: Pārdevējs/-a</strong><br/><br/>
+                        Veikals "Saldumiņš" meklē atbildīgu un smaidīgu pārdevēju. Darba pienākumos ietilpst klientu apkalpošana, preču izvietošana plauktos un darbs ar kases aparātu. Nepieciešamas labas latviešu valodas zināšanas un vēlme strādāt komandā. Iepriekšēja pieredze nav obligāta, mēs visu iemācīsim. CV sūtīt uz e-pastu darbs@saldumins.lv.
+                    </p>
+</div>
+<div class="space-y-3 bg-surface-container-low p-4 rounded-lg border border-surface-container-highest">
+<p class="font-label-bold text-label-bold text-primary mb-3">Ko pieprasa veikals no darbinieka?</p>
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 text-primary focus:ring-primary border-outline" name="q2" type="radio"/>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Obligātu darba pieredzi veikalā.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 text-primary focus:ring-primary border-outline" name="q2" type="radio"/>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Tikai izvietot preces plauktos.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 text-primary focus:ring-primary border-outline" name="q2" type="radio"/>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Labas latviešu valodas zināšanas.</span>
+</label>
+</div>
+</div>
+<!-- Text 3: Birthday Invitation -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-lg shadow-sm flex flex-col justify-between">
+<div>
+<h2 class="font-headline-md text-headline-md text-primary mb-stack-md pb-2 border-b border-outline-variant">3. Teksts</h2>
+<p class="font-body-md text-body-md text-on-surface mb-stack-lg">
+<strong>Ielūgums</strong><br/><br/>
+                        Sveiks, Jāni! Sestdien, 15. maijā, es svinēšu savu dzimšanas dienu. Ļoti priecāšos tevi redzēt! Ballīte sāksies pulksten 18:00 manās mājās, Dārza ielā 12. Būs daudz garšīgu ēdienu, mūzika un spēles. Lūdzu, paziņo man līdz ceturtdienai, vai tu varēsi ierasties. 
+                        Tavs draugs, Pēteris.
+                    </p>
+</div>
+<div class="space-y-3 bg-surface-container-low p-4 rounded-lg border border-surface-container-highest">
+<p class="font-label-bold text-label-bold text-primary mb-3">Kas ir jādara Jānim?</p>
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 text-primary focus:ring-primary border-outline" name="q3" type="radio"/>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Jāierodas piektdienas vakarā.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 text-primary focus:ring-primary border-outline" name="q3" type="radio"/>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Jāpaziņo Pēterim par ierašanos līdz ceturtdienai.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 text-primary focus:ring-primary border-outline" name="q3" type="radio"/>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Jāatnes mūzika un spēles.</span>
+</label>
+</div>
+</div>
+<!-- Text 4: Short Article -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-lg shadow-sm flex flex-col justify-between">
+<div>
+<h2 class="font-headline-md text-headline-md text-primary mb-stack-md pb-2 border-b border-outline-variant">4. Teksts</h2>
+<p class="font-body-md text-body-md text-on-surface mb-stack-lg">
+<strong>Slavens pavārs Rīgā</strong><br/><br/>
+                        Mārtiņš ir viens no labākajiem pavāriem Latvijā. Viņš sāka gatavot ēst, kad viņam bija tikai piecpadsmit gadu. Šobrīd Mārtiņam pieder divi restorāni Rīgas centrā. Viņa mīļākais ēdiens, ko gatavot, ir zivs ar ceptiem dārzeņiem. Daudzi cilvēki dodas uz viņa restorāniem, lai baudītu šo īpašo recepti.
+                    </p>
+</div>
+<div class="space-y-3 bg-surface-container-low p-4 rounded-lg border border-surface-container-highest">
+<p class="font-label-bold text-label-bold text-primary mb-3">Ko mēs uzzinām par Mārtiņu?</p>
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 text-primary focus:ring-primary border-outline" name="q4" type="radio"/>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Viņš sāka gatavot ēdienu nesen.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 text-primary focus:ring-primary border-outline" name="q4" type="radio"/>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Viņam pieder restorāni ārpus Rīgas.</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 text-primary focus:ring-primary border-outline" name="q4" type="radio"/>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Viņam patīk gatavot zivi ar dārzeņiem.</span>
+</label>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-10 py-5 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-t border-gray-300 dark:border-gray-700 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+<button class="flex items-center gap-2 text-blue-900 dark:text-blue-300 border border-blue-900 dark:border-blue-400 rounded-md px-6 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all font-['Public_Sans'] font-bold uppercase tracking-wider text-xs">
+<span class="material-symbols-outlined text-[18px]">arrow_back</span>
+            Iepriekšējais
+        </button>
+<!-- Hidden items for JSON compliance structure -->
+<button class="hidden">
+<span class="material-symbols-outlined">task_alt</span>
+             Pabeigt
+        </button>
+<button class="flex items-center gap-2 bg-primary text-white rounded-md px-6 py-2 hover:bg-primary-container transition-all font-['Public_Sans'] font-bold uppercase tracking-wider text-xs">
+            Nākamais
+            <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</nav>
+</body></html>

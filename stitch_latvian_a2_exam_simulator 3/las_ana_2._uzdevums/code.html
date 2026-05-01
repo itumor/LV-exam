@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+
+<html lang="lv"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lasīšanas prasme - 2. uzdevums</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#191c1d",
+                        "surface-dim": "#d2dbe4",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed-dim": "#c5c7c8",
+                        "surface": "#f6faff",
+                        "error": "#ba1a1a",
+                        "surface-container": "#e6eff8",
+                        "secondary-fixed-dim": "#c8c6c6",
+                        "on-surface": "#141d23",
+                        "on-primary-fixed": "#001b3c",
+                        "surface-tint": "#3a5f94",
+                        "surface-container-high": "#e0e9f2",
+                        "on-primary-container": "#799dd6",
+                        "surface-container-highest": "#dbe4ed",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#474747",
+                        "secondary-container": "#e4e2e1",
+                        "tertiary-container": "#313435",
+                        "outline": "#737780",
+                        "surface-variant": "#dbe4ed",
+                        "on-secondary-container": "#656464",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#f6faff",
+                        "outline-variant": "#c3c6d1",
+                        "on-background": "#141d23",
+                        "tertiary-fixed": "#e1e3e4",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#293138",
+                        "on-tertiary-fixed-variant": "#454748",
+                        "on-surface-variant": "#43474f",
+                        "on-secondary-fixed": "#1b1c1c",
+                        "background": "#f6faff",
+                        "on-error": "#ffffff",
+                        "secondary": "#5f5e5e",
+                        "tertiary": "#1c1f20",
+                        "on-primary-fixed-variant": "#1f477b",
+                        "inverse-primary": "#a7c8ff",
+                        "inverse-on-surface": "#e9f2fb",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#9a9c9d",
+                        "primary": "#001e40",
+                        "secondary-fixed": "#e4e2e1",
+                        "primary-container": "#003366",
+                        "primary-fixed": "#d5e3ff",
+                        "surface-container-low": "#ecf5fe"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "stack-sm": "8px",
+                        "stack-lg": "32px",
+                        "container-max-width": "1024px",
+                        "stack-xl": "64px",
+                        "margin-page": "48px",
+                        "stack-md": "16px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Public Sans"],
+                        "headline-md": ["Public Sans"],
+                        "body-md": ["Public Sans"],
+                        "label-sm": ["Public Sans"],
+                        "label-bold": ["Public Sans"],
+                        "display-lg": ["Public Sans"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "1.2", "letterSpacing": "0", "fontWeight": "500" }],
+                        "label-bold": ["14px", { "lineHeight": "1.2", "letterSpacing": "0.02em", "fontWeight": "600" }],
+                        "display-lg": ["36px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .timer-font { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md antialiased min-h-screen">
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-8 h-16 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-slate-950 transition-colors duration-150 ease-in-out font-['Public_Sans'] text-sm tracking-tight font-medium">
+<div class="flex items-center">
+<span class="text-lg font-black uppercase text-blue-900 dark:text-blue-100">Valsts eksāmens</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2 text-on-surface font-bold text-body-lg">
+<span class="material-symbols-outlined">timer</span>
+<span class="timer-font">00:30:00</span>
+</div>
+<button class="bg-[#ba1a1a] hover:bg-[#93000a] text-white px-6 py-2 rounded-DEFAULT font-label-bold transition-colors">
+                Beigt darbu
+            </button>
+</div>
+</header>
+<main class="max-w-container-max-width mx-auto px-gutter pt-[104px] pb-[104px]">
+<div class="mb-stack-lg border-b border-outline-variant pb-stack-md">
+<h1 class="font-display-lg text-display-lg text-on-surface mb-unit">Lasīšanas prasme - 2. uzdevums</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Izvēlieties katrai situācijai atbilstošāko sludinājumu.</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-gutter items-start">
+<div class="flex flex-col gap-stack-sm">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-unit">Situācijas</h2>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-md flex items-center gap-stack-md hover:border-primary transition-colors">
+<div class="flex-shrink-0 w-8 h-8 rounded-DEFAULT bg-primary text-on-primary flex items-center justify-center font-label-bold text-label-bold">1</div>
+<div class="flex-grow font-body-md text-body-md text-on-surface">Jānis meklē darbu, kas saistīts ar automašīnu remontu un apkopi.</div>
+<input class="w-12 h-12 border border-outline rounded-DEFAULT text-center font-label-bold text-body-lg uppercase focus:border-primary focus:border-2 outline-none text-primary" maxlength="1" placeholder="-" type="text"/>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-md flex items-center gap-stack-md hover:border-primary transition-colors">
+<div class="flex-shrink-0 w-8 h-8 rounded-DEFAULT bg-primary text-on-primary flex items-center justify-center font-label-bold text-label-bold">2</div>
+<div class="flex-grow font-body-md text-body-md text-on-surface">Anna vēlas apgūt jaunu svešvalodu tiešsaistē, īpaši spāņu valodu.</div>
+<input class="w-12 h-12 border border-outline rounded-DEFAULT text-center font-label-bold text-body-lg uppercase focus:border-primary focus:border-2 outline-none text-primary" maxlength="1" placeholder="-" type="text"/>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-md flex items-center gap-stack-md hover:border-primary transition-colors">
+<div class="flex-shrink-0 w-8 h-8 rounded-DEFAULT bg-primary text-on-primary flex items-center justify-center font-label-bold text-label-bold">3</div>
+<div class="flex-grow font-body-md text-body-md text-on-surface">Kārlis meklē dzīvokli īrei Rīgas centrā, vēlams ar zemiem komunālajiem.</div>
+<input class="w-12 h-12 border border-outline rounded-DEFAULT text-center font-label-bold text-body-lg uppercase focus:border-primary focus:border-2 outline-none text-primary" maxlength="1" placeholder="-" type="text"/>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-md flex items-center gap-stack-md hover:border-primary transition-colors">
+<div class="flex-shrink-0 w-8 h-8 rounded-DEFAULT bg-primary text-on-primary flex items-center justify-center font-label-bold text-label-bold">4</div>
+<div class="flex-grow font-body-md text-body-md text-on-surface">Maija grib iegādāties lietotu, bet labā stāvoklī esošu kalnu velosipēdu.</div>
+<input class="w-12 h-12 border border-outline rounded-DEFAULT text-center font-label-bold text-body-lg uppercase focus:border-primary focus:border-2 outline-none text-primary" maxlength="1" placeholder="-" type="text"/>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-md flex items-center gap-stack-md hover:border-primary transition-colors">
+<div class="flex-shrink-0 w-8 h-8 rounded-DEFAULT bg-primary text-on-primary flex items-center justify-center font-label-bold text-label-bold">5</div>
+<div class="flex-grow font-body-md text-body-md text-on-surface">Pēteris meklē intensīvus programmēšanas kursus iesācējiem, lai iegūtu sertifikātu.</div>
+<input class="w-12 h-12 border border-outline rounded-DEFAULT text-center font-label-bold text-body-lg uppercase focus:border-primary focus:border-2 outline-none text-primary" maxlength="1" placeholder="-" type="text"/>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-md flex items-center gap-stack-md hover:border-primary transition-colors">
+<div class="flex-shrink-0 w-8 h-8 rounded-DEFAULT bg-primary text-on-primary flex items-center justify-center font-label-bold text-label-bold">6</div>
+<div class="flex-grow font-body-md text-body-md text-on-surface">Ilze vēlas atrast profesionālu palīdzību sava mājas dārza iekārtošanai un zāliena pļaušanai.</div>
+<input class="w-12 h-12 border border-outline rounded-DEFAULT text-center font-label-bold text-body-lg uppercase focus:border-primary focus:border-2 outline-none text-primary" maxlength="1" placeholder="-" type="text"/>
+</div>
+</div>
+<div class="flex flex-col gap-stack-sm">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-unit">Sludinājumi</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-unit">
+<div class="bg-surface border border-outline-variant rounded-DEFAULT p-stack-sm flex flex-col gap-unit">
+<div class="font-headline-md text-headline-md text-primary font-bold border-b border-outline-variant pb-1">A</div>
+<p class="font-body-md text-[14px] leading-snug text-on-surface-variant">Piedāvājam angļu, spāņu un franču valodas kursus tiešsaistē. Pievienojies tagad un sāc runāt brīvi!</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-DEFAULT p-stack-sm flex flex-col gap-unit">
+<div class="font-headline-md text-headline-md text-primary font-bold border-b border-outline-variant pb-1">B</div>
+<p class="font-body-md text-[14px] leading-snug text-on-surface-variant">Pārdodu mazlietotu kalnu velosipēdu. Lieliskā stāvoklī, regulāri veikta apkope, gatavs braukšanai.</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-DEFAULT p-stack-sm flex flex-col gap-unit">
+<div class="font-headline-md text-headline-md text-primary font-bold border-b border-outline-variant pb-1">C</div>
+<p class="font-body-md text-[14px] leading-snug text-on-surface-variant">Autoserviss meklē pieredzējušu mehāniķi. Piedāvājam labu atalgojumu un stabilas sociālās garantijas.</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-DEFAULT p-stack-sm flex flex-col gap-unit">
+<div class="font-headline-md text-headline-md text-primary font-bold border-b border-outline-variant pb-1">D</div>
+<p class="font-body-md text-[14px] leading-snug text-on-surface-variant">Izīrē saulainu divistabu dzīvokli pašā Rīgas centrā. Zemi komunālie maksājumi. Pieejams uzreiz.</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-DEFAULT p-stack-sm flex flex-col gap-unit">
+<div class="font-headline-md text-headline-md text-primary font-bold border-b border-outline-variant pb-1">E</div>
+<p class="font-body-md text-[14px] leading-snug text-on-surface-variant">Dārzu iekārtošana, zāliena pļaušana un koku apzāģēšana. Profesionāla komanda palīdzēs sakopt tavu pagalmu.</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-DEFAULT p-stack-sm flex flex-col gap-unit">
+<div class="font-headline-md text-headline-md text-primary font-bold border-b border-outline-variant pb-1">F</div>
+<p class="font-body-md text-[14px] leading-snug text-on-surface-variant">Programmēšanas pamati. Intensīvie kursi 3 mēnešu garumā tiešsaistē vai klātienē. Sertifikāts pēc beigšanas.</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-DEFAULT p-stack-sm flex flex-col gap-unit">
+<div class="font-headline-md text-headline-md text-primary font-bold border-b border-outline-variant pb-1">G</div>
+<p class="font-body-md text-[14px] leading-snug text-on-surface-variant">Pārdodu lietotas automašīnas no Vācijas. Plaša izvēle un tehniska garantija visiem transportlīdzekļiem.</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-DEFAULT p-stack-sm flex flex-col gap-unit">
+<div class="font-headline-md text-headline-md text-primary font-bold border-b border-outline-variant pb-1">H</div>
+<p class="font-body-md text-[14px] leading-snug text-on-surface-variant">Piedāvājam profesionālus tulkošanas pakalpojumus no/uz vairāk nekā 20 pasaules valodām. Ātri termiņi.</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-DEFAULT p-stack-sm flex flex-col gap-unit">
+<div class="font-headline-md text-headline-md text-primary font-bold border-b border-outline-variant pb-1">I</div>
+<p class="font-body-md text-[14px] leading-snug text-on-surface-variant">Meklējam atbildīgu apkopēju darbam biroju ēkā Rīgas centrā. Elastīgs darba grafiks un labi apstākļi.</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-DEFAULT p-stack-sm flex flex-col gap-unit">
+<div class="font-headline-md text-headline-md text-primary font-bold border-b border-outline-variant pb-1">J</div>
+<p class="font-body-md text-[14px] leading-snug text-on-surface-variant">Īrēju velosipēdus uz dienu vai nedēļu. Dažādi modeļi un izmēri aktīvai atpūtai visai ģimenei.</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-DEFAULT p-stack-sm flex flex-col gap-unit">
+<div class="font-headline-md text-headline-md text-primary font-bold border-b border-outline-variant pb-1">K</div>
+<p class="font-body-md text-[14px] leading-snug text-on-surface-variant">Datorsistēmu tehniķis sniedz ātru palīdzību datoru remontā un programmatūras apkopes darbos mājās.</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-DEFAULT p-stack-sm flex flex-col gap-unit">
+<div class="font-headline-md text-headline-md text-primary font-bold border-b border-outline-variant pb-1">L</div>
+<p class="font-body-md text-[14px] leading-snug text-on-surface-variant">Floristikas kursi un ziedu kompozīciju veidošana katrai gaumei. Atklāj sevī radošo garu brīvdienās.</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-center items-center h-16 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-slate-950 gap-12 font-['Public_Sans'] text-[12px] font-bold uppercase tracking-wider transition-colors duration-150 ease-in-out">
+<a class="flex flex-col items-center justify-center text-blue-900 dark:text-blue-50 border-t-4 border-blue-900 h-full px-6 bg-blue-50/50 dark:bg-blue-900/20 opacity-90 transition-all hover:text-blue-800 dark:hover:text-blue-200" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">menu_book</span>
+            Lasīšana
+        </a>
+<a class="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 h-full px-6 hover:text-blue-800 dark:hover:text-blue-200" href="#">
+<span class="material-symbols-outlined mb-1">edit_note</span>
+            Rakstīšana
+        </a>
+<a class="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 h-full px-6 hover:text-blue-800 dark:hover:text-blue-200" href="#">
+<span class="material-symbols-outlined mb-1">record_voice_over</span>
+            Runāšana
+        </a>
+</nav>
+</body></html>

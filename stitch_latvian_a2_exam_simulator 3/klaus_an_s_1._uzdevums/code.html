@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+
+<html lang="lv"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>A2 Valsts valodas pārbaudes simulators - Klausīšanās</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-dim": "#d2dbe4",
+                      "outline-variant": "#c3c6d1",
+                      "tertiary-container": "#313435",
+                      "on-tertiary-fixed": "#191c1d",
+                      "on-primary": "#ffffff",
+                      "outline": "#737780",
+                      "on-secondary-fixed": "#1b1c1c",
+                      "inverse-on-surface": "#e9f2fb",
+                      "tertiary": "#1c1f20",
+                      "on-tertiary-container": "#9a9c9d",
+                      "secondary-fixed-dim": "#c8c6c6",
+                      "primary-fixed-dim": "#a7c8ff",
+                      "surface": "#f6faff",
+                      "error": "#ba1a1a",
+                      "surface-bright": "#f6faff",
+                      "on-primary-container": "#799dd6",
+                      "primary": "#001e40",
+                      "surface-tint": "#3a5f94",
+                      "inverse-surface": "#293138",
+                      "surface-container-highest": "#dbe4ed",
+                      "on-secondary": "#ffffff",
+                      "on-secondary-fixed-variant": "#474747",
+                      "on-primary-fixed-variant": "#1f477b",
+                      "surface-container": "#e6eff8",
+                      "on-secondary-container": "#656464",
+                      "secondary": "#5f5e5e",
+                      "on-error": "#ffffff",
+                      "secondary-container": "#e4e2e1",
+                      "on-primary-fixed": "#001b3c",
+                      "primary-container": "#003366",
+                      "surface-variant": "#dbe4ed",
+                      "surface-container-high": "#e0e9f2",
+                      "inverse-primary": "#a7c8ff",
+                      "tertiary-fixed-dim": "#c5c7c8",
+                      "on-background": "#141d23",
+                      "on-error-container": "#93000a",
+                      "on-tertiary": "#ffffff",
+                      "primary-fixed": "#d5e3ff",
+                      "on-tertiary-fixed-variant": "#454748",
+                      "on-surface": "#141d23",
+                      "secondary-fixed": "#e4e2e1",
+                      "on-surface-variant": "#43474f",
+                      "surface-container-low": "#ecf5fe",
+                      "background": "#f6faff",
+                      "tertiary-fixed": "#e1e3e4",
+                      "surface-container-lowest": "#ffffff",
+                      "error-container": "#ffdad6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "container-max-width": "1024px",
+                      "stack-xl": "64px",
+                      "unit": "4px",
+                      "margin-page": "48px",
+                      "gutter": "24px",
+                      "stack-md": "16px",
+                      "stack-sm": "8px",
+                      "stack-lg": "32px"
+              },
+              "fontFamily": {
+                      "body-lg": [
+                              "Public Sans"
+                      ],
+                      "body-md": [
+                              "Public Sans"
+                      ],
+                      "label-sm": [
+                              "Public Sans"
+                      ],
+                      "headline-md": [
+                              "Public Sans"
+                      ],
+                      "display-lg": [
+                              "Public Sans"
+                      ],
+                      "label-bold": [
+                              "Public Sans"
+                      ]
+              },
+              "fontSize": {
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "36px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-bold": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col pb-24 md:pb-0">
+<!-- TopAppBar -->
+<header class="bg-surface-container-lowest border-b border-outline-variant w-full sticky top-0 z-50">
+<div class="flex justify-between items-center w-full px-6 py-4 max-w-[1024px] mx-auto">
+<div class="flex items-center gap-6">
+<div class="text-lg font-black text-primary font-display-lg">
+                    A2 Valsts valodas pārbaudes simulators
+                </div>
+<nav class="hidden md:flex gap-6 font-['Public_Sans'] text-sm tracking-tight font-medium">
+<a class="text-primary border-b-2 border-primary pb-1 font-bold transition-colors" href="#">
+                        Klausīšanās
+                    </a>
+<a class="text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors px-2 py-1 rounded" href="#">
+                        Lasīšana
+                    </a>
+<a class="text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors px-2 py-1 rounded" href="#">
+                        Rakstīšana
+                    </a>
+<a class="text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors px-2 py-1 rounded" href="#">
+                        Runāšana
+                    </a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 text-primary font-label-bold">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">timer</span>
+<span class="font-mono text-lg">25:00</span>
+</div>
+<button class="text-primary hover:bg-surface-container-low p-2 rounded-full transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Progress Tracker -->
+<div class="w-full bg-surface-container-high h-2 fixed top-[72px] z-40">
+<div class="bg-primary h-full w-1/3 transition-all duration-300"></div>
+</div>
+<!-- Main Content Canvas -->
+<main class="w-full max-w-[1024px] mx-auto px-6 py-margin-page flex-grow">
+<!-- Section Header -->
+<div class="mb-stack-lg border-b border-outline-variant pb-stack-sm flex justify-between items-end">
+<div>
+<h1 class="font-display-lg text-primary mb-stack-sm">1. daļa: Klausīšanās prasme</h1>
+<p class="font-body-lg text-on-surface-variant">Uzdevums 1 no 3: Seši īsi paziņojumi</p>
+</div>
+<div class="bg-surface-container py-1 px-3 rounded-DEFAULT border border-outline-variant text-on-surface-variant font-label-sm">
+                Punkti: 0 / 6
+            </div>
+</div>
+<!-- Instructions Box -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-stack-md mb-stack-xl flex gap-4 items-start shadow-sm">
+<span class="material-symbols-outlined text-primary mt-1" style="font-variation-settings: 'FILL' 1;">info</span>
+<div>
+<p class="font-body-md text-on-surface font-semibold mb-1">Norādījumi:</p>
+<p class="font-body-md text-on-surface-variant">Klausieties sešus īsus paziņojumus. Katram paziņojumam izvēlieties vienu pareizo atbildi. Katru ierakstu jūs dzirdēsiet divas reizes.</p>
+</div>
+</div>
+<!-- Questions Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- Question 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-lg flex flex-col gap-stack-md hover:border-primary transition-colors group relative">
+<div class="absolute top-4 right-4 text-outline-variant group-hover:text-primary transition-colors font-label-bold text-sm">1.</div>
+<h3 class="font-headline-md text-on-surface">Cikos ielido lidmašīna no Londonas?</h3>
+<!-- Audio Player -->
+<div class="bg-surface-container rounded-lg p-3 flex items-center gap-4 border border-outline-variant/50">
+<button class="bg-primary text-on-primary w-10 h-10 rounded-full flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+<div class="flex-grow">
+<div class="h-1 bg-outline-variant/30 rounded-full w-full overflow-hidden">
+<div class="h-full bg-primary w-0 rounded-full"></div>
+</div>
+<div class="flex justify-between mt-1 text-xs font-mono text-outline font-medium">
+<span>00:00</span>
+<span>00:15</span>
+</div>
+</div>
+<div class="bg-surface-dim px-2 py-1 rounded text-xs font-label-bold text-on-surface-variant flex-shrink-0">
+                        1. reize
+                    </div>
+</div>
+<!-- Options -->
+<div class="flex flex-col gap-stack-sm mt-stack-sm">
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-inverse-on-surface">
+<input class="w-5 h-5 text-primary border-outline focus:ring-primary focus:ring-offset-1" name="q1" type="radio"/>
+<span class="font-body-md text-on-surface">14:15</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-inverse-on-surface">
+<input class="w-5 h-5 text-primary border-outline focus:ring-primary focus:ring-offset-1" name="q1" type="radio"/>
+<span class="font-body-md text-on-surface">14:50</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-inverse-on-surface">
+<input class="w-5 h-5 text-primary border-outline focus:ring-primary focus:ring-offset-1" name="q1" type="radio"/>
+<span class="font-body-md text-on-surface">15:15</span>
+</label>
+</div>
+</div>
+<!-- Question 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-lg flex flex-col gap-stack-md hover:border-primary transition-colors group relative">
+<div class="absolute top-4 right-4 text-outline-variant group-hover:text-primary transition-colors font-label-bold text-sm">2.</div>
+<h3 class="font-headline-md text-on-surface">Kur atrodas jaunā kafejnīca?</h3>
+<!-- Audio Player -->
+<div class="bg-surface-container rounded-lg p-3 flex items-center gap-4 border border-outline-variant/50">
+<button class="bg-primary text-on-primary w-10 h-10 rounded-full flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+<div class="flex-grow">
+<div class="h-1 bg-outline-variant/30 rounded-full w-full overflow-hidden">
+<div class="h-full bg-primary w-0 rounded-full"></div>
+</div>
+<div class="flex justify-between mt-1 text-xs font-mono text-outline font-medium">
+<span>00:00</span>
+<span>00:12</span>
+</div>
+</div>
+<div class="bg-surface-dim px-2 py-1 rounded text-xs font-label-bold text-on-surface-variant flex-shrink-0">
+                        1. reize
+                    </div>
+</div>
+<!-- Options -->
+<div class="flex flex-col gap-stack-sm mt-stack-sm">
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-inverse-on-surface">
+<input class="w-5 h-5 text-primary border-outline focus:ring-primary focus:ring-offset-1" name="q2" type="radio"/>
+<span class="font-body-md text-on-surface">Pie stacijas</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-inverse-on-surface">
+<input class="w-5 h-5 text-primary border-outline focus:ring-primary focus:ring-offset-1" name="q2" type="radio"/>
+<span class="font-body-md text-on-surface">Lielveikalā</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-inverse-on-surface">
+<input class="w-5 h-5 text-primary border-outline focus:ring-primary focus:ring-offset-1" name="q2" type="radio"/>
+<span class="font-body-md text-on-surface">Parkā</span>
+</label>
+</div>
+</div>
+<!-- Question 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-lg flex flex-col gap-stack-md hover:border-primary transition-colors group relative">
+<div class="absolute top-4 right-4 text-outline-variant group-hover:text-primary transition-colors font-label-bold text-sm">3.</div>
+<h3 class="font-headline-md text-on-surface">Kam ir atlaide biļetēm?</h3>
+<!-- Audio Player -->
+<div class="bg-surface-container rounded-lg p-3 flex items-center gap-4 border border-outline-variant/50">
+<button class="bg-primary text-on-primary w-10 h-10 rounded-full flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+<div class="flex-grow">
+<div class="h-1 bg-outline-variant/30 rounded-full w-full overflow-hidden">
+<div class="h-full bg-primary w-0 rounded-full"></div>
+</div>
+<div class="flex justify-between mt-1 text-xs font-mono text-outline font-medium">
+<span>00:00</span>
+<span>00:18</span>
+</div>
+</div>
+<div class="bg-surface-dim px-2 py-1 rounded text-xs font-label-bold text-on-surface-variant flex-shrink-0">
+                        1. reize
+                    </div>
+</div>
+<!-- Options -->
+<div class="flex flex-col gap-stack-sm mt-stack-sm">
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-inverse-on-surface">
+<input class="w-5 h-5 text-primary border-outline focus:ring-primary focus:ring-offset-1" name="q3" type="radio"/>
+<span class="font-body-md text-on-surface">Studentiem</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-inverse-on-surface">
+<input class="w-5 h-5 text-primary border-outline focus:ring-primary focus:ring-offset-1" name="q3" type="radio"/>
+<span class="font-body-md text-on-surface">Pensionāriem</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-inverse-on-surface">
+<input class="w-5 h-5 text-primary border-outline focus:ring-primary focus:ring-offset-1" name="q3" type="radio"/>
+<span class="font-body-md text-on-surface">Bērniem</span>
+</label>
+</div>
+</div>
+<!-- Question 4 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-lg flex flex-col gap-stack-md hover:border-primary transition-colors group relative">
+<div class="absolute top-4 right-4 text-outline-variant group-hover:text-primary transition-colors font-label-bold text-sm">4.</div>
+<h3 class="font-headline-md text-on-surface">Cik maksā baseins vakarā?</h3>
+<!-- Audio Player -->
+<div class="bg-surface-container rounded-lg p-3 flex items-center gap-4 border border-outline-variant/50">
+<button class="bg-primary text-on-primary w-10 h-10 rounded-full flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+<div class="flex-grow">
+<div class="h-1 bg-outline-variant/30 rounded-full w-full overflow-hidden">
+<div class="h-full bg-primary w-0 rounded-full"></div>
+</div>
+<div class="flex justify-between mt-1 text-xs font-mono text-outline font-medium">
+<span>00:00</span>
+<span>00:10</span>
+</div>
+</div>
+<div class="bg-surface-dim px-2 py-1 rounded text-xs font-label-bold text-on-surface-variant flex-shrink-0">
+                        1. reize
+                    </div>
+</div>
+<!-- Options -->
+<div class="flex flex-col gap-stack-sm mt-stack-sm">
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-inverse-on-surface">
+<input class="w-5 h-5 text-primary border-outline focus:ring-primary focus:ring-offset-1" name="q4" type="radio"/>
+<span class="font-body-md text-on-surface">5 eiro</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-inverse-on-surface">
+<input class="w-5 h-5 text-primary border-outline focus:ring-primary focus:ring-offset-1" name="q4" type="radio"/>
+<span class="font-body-md text-on-surface">7 eiro</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-inverse-on-surface">
+<input class="w-5 h-5 text-primary border-outline focus:ring-primary focus:ring-offset-1" name="q4" type="radio"/>
+<span class="font-body-md text-on-surface">10 eiro</span>
+</label>
+</div>
+</div>
+<!-- Question 5 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-lg flex flex-col gap-stack-md hover:border-primary transition-colors group relative opacity-60 pointer-events-none">
+<!-- Example of disabled/locked state if they must be done in order, or just styling -->
+<div class="absolute top-4 right-4 text-outline-variant font-label-bold text-sm">5.</div>
+<h3 class="font-headline-md text-on-surface-variant">Kas būs viesis pasākumā?</h3>
+<!-- Audio Player -->
+<div class="bg-surface-container rounded-lg p-3 flex items-center gap-4 border border-outline-variant/50">
+<button class="bg-outline text-surface w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+<div class="flex-grow">
+<div class="h-1 bg-outline-variant/30 rounded-full w-full overflow-hidden">
+<div class="h-full bg-outline w-0 rounded-full"></div>
+</div>
+<div class="flex justify-between mt-1 text-xs font-mono text-outline font-medium">
+<span>00:00</span>
+<span>00:14</span>
+</div>
+</div>
+<div class="bg-surface-dim px-2 py-1 rounded text-xs font-label-bold text-on-surface-variant flex-shrink-0">
+                        0. reize
+                    </div>
+</div>
+<!-- Options -->
+<div class="flex flex-col gap-stack-sm mt-stack-sm">
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT cursor-not-allowed">
+<input class="w-5 h-5 text-outline border-outline-variant" disabled="" name="q5" type="radio"/>
+<span class="font-body-md text-on-surface-variant">Rakstnieks</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT cursor-not-allowed">
+<input class="w-5 h-5 text-outline border-outline-variant" disabled="" name="q5" type="radio"/>
+<span class="font-body-md text-on-surface-variant">Mūziķis</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT cursor-not-allowed">
+<input class="w-5 h-5 text-outline border-outline-variant" disabled="" name="q5" type="radio"/>
+<span class="font-body-md text-on-surface-variant">Aktieris</span>
+</label>
+</div>
+</div>
+<!-- Question 6 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-stack-lg flex flex-col gap-stack-md hover:border-primary transition-colors group relative opacity-60 pointer-events-none">
+<div class="absolute top-4 right-4 text-outline-variant font-label-bold text-sm">6.</div>
+<h3 class="font-headline-md text-on-surface-variant">Kāds būs laiks rīt?</h3>
+<!-- Audio Player -->
+<div class="bg-surface-container rounded-lg p-3 flex items-center gap-4 border border-outline-variant/50">
+<button class="bg-outline text-surface w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+<div class="flex-grow">
+<div class="h-1 bg-outline-variant/30 rounded-full w-full overflow-hidden">
+<div class="h-full bg-outline w-0 rounded-full"></div>
+</div>
+<div class="flex justify-between mt-1 text-xs font-mono text-outline font-medium">
+<span>00:00</span>
+<span>00:09</span>
+</div>
+</div>
+<div class="bg-surface-dim px-2 py-1 rounded text-xs font-label-bold text-on-surface-variant flex-shrink-0">
+                        0. reize
+                    </div>
+</div>
+<!-- Options -->
+<div class="flex flex-col gap-stack-sm mt-stack-sm">
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT cursor-not-allowed">
+<input class="w-5 h-5 text-outline border-outline-variant" disabled="" name="q6" type="radio"/>
+<span class="font-body-md text-on-surface-variant">Saulains</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT cursor-not-allowed">
+<input class="w-5 h-5 text-outline border-outline-variant" disabled="" name="q6" type="radio"/>
+<span class="font-body-md text-on-surface-variant">Lietains</span>
+</label>
+<label class="flex items-center gap-3 p-3 border border-outline-variant rounded-DEFAULT cursor-not-allowed">
+<input class="w-5 h-5 text-outline border-outline-variant" disabled="" name="q6" type="radio"/>
+<span class="font-body-md text-on-surface-variant">Sniegs</span>
+</label>
+</div>
+</div>
+</div>
+<!-- Bottom Action Area (Desktop) -->
+<div class="hidden md:flex justify-end mt-stack-xl pt-stack-md border-t border-outline-variant">
+<button class="bg-primary text-on-primary px-8 py-3 rounded-DEFAULT font-label-bold flex items-center gap-2 hover:bg-primary-container transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+                Nākamais uzdevums
+                <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 0;">arrow_forward</span>
+</button>
+</div>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-10 py-5 bg-white/95 backdrop-blur-md border-t border-gray-300 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] font-['Public_Sans'] font-bold uppercase tracking-wider text-xs">
+<button class="flex flex-col items-center justify-center text-blue-900 border border-blue-900 rounded-md px-6 py-2 hover:bg-blue-50 transition-all opacity-50 cursor-not-allowed">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+            Iepriekšējais
+        </button>
+<button class="flex flex-col items-center justify-center bg-primary text-white rounded-md px-6 py-2 hover:bg-blue-50 transition-all active:scale-95 duration-100 ease-in-out">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">arrow_forward</span>
+            Nākamais
+        </button>
+<button class="flex flex-col items-center justify-center text-blue-900 border border-blue-900 rounded-md px-6 py-2 hover:bg-blue-50 transition-all opacity-0 pointer-events-none">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">task_alt</span>
+            Pabeigt
+        </button>
+</nav>
+</body></html>

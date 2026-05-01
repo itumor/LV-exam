@@ -3,6 +3,17 @@ services:
     build:
       context: .
     image: lvcodex/latvian-a2-exam-app:local
+    environment:
+      PORT: "80"
+      LLM_PROVIDER: ${LLM_PROVIDER:-groq}
+      LLM_MODEL: ${LLM_MODEL:-llama-3.3-70b-versatile}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      CODEX_REMOTE_URL: ${CODEX_REMOTE_URL:-}
+      CODEX_MODEL: ${CODEX_MODEL:-gpt-5.2}
+      CODEX_PROFILE: ${CODEX_PROFILE:-}
+      CODEX_OSS: ${CODEX_OSS:-false}
+      CODEX_LOCAL_PROVIDER: ${CODEX_LOCAL_PROVIDER:-}
+      CODEX_TIMEOUT_SECONDS: ${CODEX_TIMEOUT_SECONDS:-300}
     ports:
-      - "4173:80"
+      - "${APP_PORT:-4173}:80"
     restart: unless-stopped

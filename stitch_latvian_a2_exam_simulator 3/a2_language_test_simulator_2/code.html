@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+
+<html lang="lv"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>A2 Valsts valodas pārbaudes simulators - Sākums</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-dim": "#d2dbe4",
+                      "outline-variant": "#c3c6d1",
+                      "tertiary-container": "#313435",
+                      "on-tertiary-fixed": "#191c1d",
+                      "on-primary": "#ffffff",
+                      "outline": "#737780",
+                      "on-secondary-fixed": "#1b1c1c",
+                      "inverse-on-surface": "#e9f2fb",
+                      "tertiary": "#1c1f20",
+                      "on-tertiary-container": "#9a9c9d",
+                      "secondary-fixed-dim": "#c8c6c6",
+                      "primary-fixed-dim": "#a7c8ff",
+                      "surface": "#f6faff",
+                      "error": "#ba1a1a",
+                      "surface-bright": "#f6faff",
+                      "on-primary-container": "#799dd6",
+                      "primary": "#001e40",
+                      "surface-tint": "#3a5f94",
+                      "inverse-surface": "#293138",
+                      "surface-container-highest": "#dbe4ed",
+                      "on-secondary": "#ffffff",
+                      "on-secondary-fixed-variant": "#474747",
+                      "on-primary-fixed-variant": "#1f477b",
+                      "surface-container": "#e6eff8",
+                      "on-secondary-container": "#656464",
+                      "secondary": "#5f5e5e",
+                      "on-error": "#ffffff",
+                      "secondary-container": "#e4e2e1",
+                      "on-primary-fixed": "#001b3c",
+                      "primary-container": "#003366",
+                      "surface-variant": "#dbe4ed",
+                      "surface-container-high": "#e0e9f2",
+                      "inverse-primary": "#a7c8ff",
+                      "tertiary-fixed-dim": "#c5c7c8",
+                      "on-background": "#141d23",
+                      "on-error-container": "#93000a",
+                      "on-tertiary": "#ffffff",
+                      "primary-fixed": "#d5e3ff",
+                      "on-tertiary-fixed-variant": "#454748",
+                      "on-surface": "#141d23",
+                      "secondary-fixed": "#e4e2e1",
+                      "on-surface-variant": "#43474f",
+                      "surface-container-low": "#ecf5fe",
+                      "background": "#f6faff",
+                      "tertiary-fixed": "#e1e3e4",
+                      "surface-container-lowest": "#ffffff",
+                      "error-container": "#ffdad6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "container-max-width": "1024px",
+                      "stack-xl": "64px",
+                      "unit": "4px",
+                      "margin-page": "48px",
+                      "gutter": "24px",
+                      "stack-md": "16px",
+                      "stack-sm": "8px",
+                      "stack-lg": "32px"
+              },
+              "fontFamily": {
+                      "body-lg": [
+                              "Public Sans"
+                      ],
+                      "body-md": [
+                              "Public Sans"
+                      ],
+                      "label-sm": [
+                              "Public Sans"
+                      ],
+                      "headline-md": [
+                              "Public Sans"
+                      ],
+                      "display-lg": [
+                              "Public Sans"
+                      ],
+                      "label-bold": [
+                              "Public Sans"
+                      ]
+              },
+              "fontSize": {
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "36px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-bold": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+</head>
+<body class="bg-[#F8F9FA] text-on-surface min-h-screen flex flex-col font-body-md text-body-md antialiased selection:bg-primary selection:text-on-primary">
+<header class="bg-white dark:bg-slate-900 font-['Public_Sans'] text-sm tracking-tight font-medium docked full-width top-0 border-b border-gray-200 dark:border-gray-800 flat no shadows flex justify-between items-center w-full px-6 py-4 max-w-[1024px] mx-auto z-50 fixed left-1/2 -translate-x-1/2">
+<div class="flex items-center gap-6">
+<div class="text-lg font-black text-blue-900 dark:text-slate-50">
+                A2 Valsts valodas pārbaudes simulators
+            </div>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-blue-900 dark:text-blue-400 font-bold">00:45:00</span>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-500 dark:text-gray-400 hover:text-blue-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors p-2 rounded-full cursor-pointer">timer</span>
+<span class="material-symbols-outlined text-gray-500 dark:text-gray-400 hover:text-blue-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors p-2 rounded-full cursor-pointer">account_circle</span>
+</div>
+</div>
+</header>
+<main class="flex-grow flex flex-col items-center justify-center pt-24 pb-12 px-gutter">
+<div class="w-full max-w-container-max-width flex flex-col items-center">
+<div class="bg-surface-container-lowest border border-outline-variant rounded p-12 shadow-sm w-full max-w-3xl flex flex-col items-center text-center">
+<div class="mb-stack-lg flex flex-col items-center">
+<span class="material-symbols-outlined text-primary text-6xl mb-stack-md" style="font-variation-settings: 'FILL' 1;">assured_workload</span>
+<h1 class="font-display-lg text-display-lg text-primary mb-stack-sm">Valsts valodas prasmes pārbaude – A2 līmenis</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">
+                        Oficiāls valsts valodas prasmes pārbaudes simulators, kas sagatavots atbilstoši izglītības un satura standartiem.
+                    </p>
+</div>
+<div class="w-full max-w-md bg-surface-container rounded-lg p-2 flex items-center justify-between mb-stack-xl border border-outline-variant">
+<button class="flex-1 py-3 px-4 rounded font-label-bold text-label-bold bg-primary text-on-primary shadow-sm text-center">
+                        Eksāmena režīms
+                    </button>
+<button class="flex-1 py-3 px-4 rounded font-label-bold text-label-bold text-on-surface-variant hover:bg-surface-variant transition-colors text-center">
+                        Treniņa režīms
+                    </button>
+</div>
+<div class="w-full max-w-md flex flex-col gap-stack-md">
+<button class="w-full bg-primary hover:bg-primary-container text-on-primary font-label-bold text-label-bold py-4 px-6 rounded border border-primary transition-colors flex items-center justify-center gap-3 group">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">play_arrow</span>
+                        Sākt pilnu eksāmenu
+                    </button>
+<button class="w-full bg-surface-container-lowest hover:bg-surface-container-low text-primary font-label-bold text-label-bold py-4 px-6 rounded border border-outline-variant transition-colors flex items-center justify-center gap-3">
+<span class="material-symbols-outlined text-outline">view_module</span>
+                        Trenēties pa daļām
+                    </button>
+<div class="grid grid-cols-2 gap-stack-md pt-stack-sm border-t border-outline-variant mt-stack-sm">
+<button class="bg-surface-container-lowest hover:bg-surface-container-low text-on-surface-variant font-label-bold text-label-bold py-3 px-4 rounded border border-outline-variant transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">bar_chart</span>
+                            Skatīt rezultātus
+                        </button>
+<button class="bg-surface-container-lowest hover:bg-surface-container-low text-on-surface-variant font-label-bold text-label-bold py-3 px-4 rounded border border-outline-variant transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">info</span>
+                            Norādījumi
+                        </button>
+</div>
+</div>
+</div>
+<div class="mt-stack-lg text-center font-label-sm text-label-sm text-outline">
+                Sistēmas versija 1.2.0 • Oficiālais simulators
+            </div>
+</div>
+</main>
+</body></html>

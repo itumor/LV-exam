@@ -1,7 +1,14 @@
-FROM nginx:1.27-alpine
+FROM python:3.13-alpine
 
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
-COPY latvian-a2-exam-app /usr/share/nginx/html/latvian-a2-exam-app
-COPY codex /usr/share/nginx/html/codex
+WORKDIR /app
 
+COPY server.py /app/server.py
+COPY latvian-a2-exam-app /app/latvian-a2-exam-app
+COPY codex /app/codex
+
+ENV PORT=80
 EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/latvian-a2-exam-app/' % os.getenv('PORT', '80'), timeout=3).read(1)"
+
+CMD ["python", "server.py"]

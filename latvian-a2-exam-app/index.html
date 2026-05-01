@@ -8,8 +8,23 @@
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
+    <header class="exam-appbar">
+      <div class="exam-appbar-inner">
+        <div class="exam-brand-title">A2 Valsts valodas pārbaudes simulators</div>
+        <nav id="global-part-nav" class="exam-part-nav" aria-label="Exam parts"></nav>
+        <div class="exam-appbar-status">
+          <span class="timer-icon" aria-hidden="true"></span>
+          <span id="topbar-timer" class="topbar-timer">25:00</span>
+          <span class="profile-icon" aria-hidden="true"></span>
+        </div>
+      </div>
+    </header>
+    <div class="exam-progress-track" aria-hidden="true">
+      <span id="exam-progress-fill"></span>
+    </div>
+
     <div class="app-shell">
-      <aside class="sidebar">
+      <aside class="sidebar exam-tools">
         <div class="brand">
           <div class="brand-mark">A2</div>
           <div>
@@ -53,6 +68,7 @@
         <div class="button-grid">
           <button id="reload-exam" type="button">Reload</button>
           <button id="submit-exam" type="button">Submit Answers</button>
+          <button id="evaluate-submission" type="button">AI Score</button>
           <button id="copy-submission" type="button">Copy Submission</button>
           <button id="download-submission" type="button">Save Submission</button>
           <button id="copy-markdown" type="button">Copy Markdown</button>
