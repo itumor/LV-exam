@@ -397,3 +397,141 @@ Use square realistic images that clearly answer the speaking prompts **Kas? Ko d
 - Klausīšanās 2. uzdevums: read the dialogue twice at natural A2 speed with clear speaker turns.
 - Klausīšanās 3. uzdevums: read each short dialogue twice with a short pause after each dialogue.
 - Runāšanas audio, ja vajadzīgs: read only the task instructions and examiner questions clearly, without answers.
+
+## Audio Scripts for Text-to-Speech
+
+Use these scripts as clean source text for audio generation. Listening scripts already include the second reading. Speaking scripts include only instructions and examiner questions, without model answers.
+
+### klausisanas_1_uzdevums.mp3
+
+```text
+Klausieties paziņojumus! Katrs paziņojums skanēs divas reizes.
+
+Pirmais paziņojums.
+Ģimenes ārsta kabinets atrodas trešajā stāvā, pa labi no lifta.
+Ģimenes ārsta kabinets atrodas trešajā stāvā, pa labi no lifta.
+
+Otrais paziņojums.
+Bērnu teātra izrāde kultūras namā sāksies šodien pulksten septiņpadsmitos.
+Bērnu teātra izrāde kultūras namā sāksies šodien pulksten septiņpadsmitos.
+
+Trešais paziņojums.
+Šodien tirgū kilograms ābolu maksā vienu eiro un divdesmit centus.
+Šodien tirgū kilograms ābolu maksā vienu eiro un divdesmit centus.
+
+Ceturtais paziņojums.
+Pirmdien bibliotēka būs slēgta, jo notiks telpu remonts.
+Pirmdien bibliotēka būs slēgta, jo notiks telpu remonts.
+
+Piektais paziņojums.
+Lūdzu, neatstājiet velosipēdus pie ieejas. Velosipēdu vieta ir pagalmā.
+Lūdzu, neatstājiet velosipēdus pie ieejas. Velosipēdu vieta ir pagalmā.
+
+Sestais paziņojums.
+Vilciens no Rīgas līdz Jelgavai brauks apmēram četrdesmit piecas minūtes.
+Vilciens no Rīgas līdz Jelgavai brauks apmēram četrdesmit piecas minūtes.
+```
+
+### klausisanas_2_uzdevums.mp3
+
+```text
+Klausieties sarunu! Saruna skanēs divas reizes.
+
+Sarunājas Anna un Jānis.
+
+Anna: Jāni, sestdien man jāatrod dāvana brālim. Viņam būs dzimšanas diena.
+Jānis: Ko tu gribi pirkt?
+Anna: Varbūt grāmatu vai sporta somu. Vai tu vari nākt līdzi?
+Jānis: Jā, varu. Tiksimies sestdien pulksten vienpadsmitos pie lielā veikala.
+Anna: Labi. Pēc veikala varam aiziet uz kafejnīcu.
+Jānis: Jā, tur būs vieglāk izvēlēties arī apsveikuma kartīti.
+
+Saruna vēlreiz.
+
+Anna: Jāni, sestdien man jāatrod dāvana brālim. Viņam būs dzimšanas diena.
+Jānis: Ko tu gribi pirkt?
+Anna: Varbūt grāmatu vai sporta somu. Vai tu vari nākt līdzi?
+Jānis: Jā, varu. Tiksimies sestdien pulksten vienpadsmitos pie lielā veikala.
+Anna: Labi. Pēc veikala varam aiziet uz kafejnīcu.
+Jānis: Jā, tur būs vieglāk izvēlēties arī apsveikuma kartīti.
+```
+
+### klausisanas_3_uzdevums.mp3
+
+```text
+Klausieties sarunas! Sarunas skanēs divas reizes.
+
+Pirmā saruna.
+Atvainojiet, kur šeit ir aptieka?
+Aptieka ir blakus pastam.
+Atvainojiet, kur šeit ir aptieka?
+Aptieka ir blakus pastam.
+
+Otrā saruna.
+Ko jūs pasūtīsiet pusdienās?
+Es pasūtīšu zupu un maizi.
+Ko jūs pasūtīsiet pusdienās?
+Es pasūtīšu zupu un maizi.
+
+Trešā saruna.
+Cikos šodien būs nodarbība?
+Nodarbība sāksies pulksten astoņpadsmit trīsdesmit.
+Cikos šodien būs nodarbība?
+Nodarbība sāksies pulksten astoņpadsmit trīsdesmit.
+
+Ceturtā saruna.
+Cik maksā viena biļete?
+Viena biļete maksā četrus eiro.
+Cik maksā viena biļete?
+Viena biļete maksā četrus eiro.
+
+Piektā saruna.
+Kur tu brauksi brīvdienās?
+Es braukšu pie māsas uz Cēsīm.
+Kur tu brauksi brīvdienās?
+Es braukšu pie māsas uz Cēsīm.
+```
+
+### runasana_1_jautajumi.mp3
+
+```text
+Runātprasmes pārbaude. Pirmais uzdevums.
+Atbildiet uz jautājumiem pilnos teikumos.
+
+Pirmais jautājums. Kā jūs sauc?
+Otrais jautājums. Kur jūs dzīvojat?
+Trešais jautājums. Ar ko jūs parasti braucat pa pilsētu?
+Ceturtais jautājums. Ko jūs ēdat brokastīs?
+Piektais jautājums. Vai jūs bieži ejat uz aptieku?
+Sestais jautājums. Ko jūs darāt, kad jums ir brīvs laiks?
+Septītais jautājums. Kur jūs parasti iepērkaties?
+Astotais jautājums. Vai jums patīk sportot?
+Devītais jautājums. Kad jums ir latviešu valodas nodarbības?
+Desmitais jautājums. Ko jūs plānojat darīt nākamajā nedēļā?
+```
+
+### runasana_2_jautajumi.mp3
+
+```text
+Runātprasmes pārbaude. Otrais uzdevums.
+Aplūkojiet attēlu aprakstus! Atbildiet uz jautājumiem par attēliem.
+
+Attēls A. Sieviete tirgū pērk dārzeņus pie pārdevēja.
+Jautājumi. Kas? Ko dara? Kur?
+
+Attēls B. Jauns vīrietis sporta zālē skrien uz trenažiera.
+Jautājumi. Kas? Ko dara? Kur?
+
+Jautājums jums. Kur jūs parasti pērkat pārtiku?
+```
+
+### runasana_3_jautajumi.mp3
+
+```text
+Runātprasmes pārbaude. Trešais uzdevums.
+Uzdodiet jautājumus! Jautājumus formulējiet pilnā teikumā.
+
+Pirmā situācija. Aptieka strādā līdz nezināmam laikam. Uzziniet laiku!
+Otrā situācija. Baseina nodarbība bērniem maksā nezināmu cenu. Uzziniet cenu!
+Trešā situācija. Vakara kursi notiek nezināmā ielā. Uzziniet adresi!
+```
