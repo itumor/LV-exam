@@ -11,6 +11,11 @@ const EXAMS = Array.from({ length: 10 }, (_, index) => {
   };
 });
 
+const flowCore = window.ExamFlowCore;
+if (!flowCore) {
+  throw new Error("ExamFlowCore helper script did not load before app.js");
+}
+
 const state = {
   exam: EXAMS[0],
   markdown: "",
@@ -30,8 +35,9 @@ const state = {
     }
   },
   flow: {
-    screen: "home",
+    screen: "welcome",
     mode: "exam",
+    debugMode: false,
     candidate: {
       code: "",
       firstName: "",
@@ -51,7 +57,7 @@ const PART_CONFIG = [
   { key: "speaking", title: "Runāšana", english: "Speaking", heading: "### Runātprasmes pārbaude", minutes: 15 }
 ];
 
-const FLOW_SCREENS = new Set(["home", "register", "instructions", "exam", "results"]);
+const FLOW_SCREENS = new Set(["welcome", "candidate", "instructions", "exam", "results", "home", "register"]);
 
 const TASK_CONFIG = {
   listening: [
@@ -96,6 +102,8 @@ const els = {
 };
 
 function init() {
+  const params = new URLSearchParams(window.location.search);
+  state.flow.debugMode = params.get("debug") === "1" || params.get("debug") === "true";
   els.examSelect.innerHTML = EXAMS.map(exam => `<option value="${exam.id}">${exam.title}</option>`).join("");
   els.examSelect.addEventListener("change", () => loadExam(els.examSelect.value));
 
@@ -129,10 +137,9 @@ function init() {
     switchPart(button.dataset.globalPart);
   });
 
-  const params = new URLSearchParams(window.location.search);
   const requestedScreen = params.get("screen");
   const requestedPart = params.get("part");
-  state.flow.screen = FLOW_SCREENS.has(requestedScreen) ? requestedScreen : (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
+  state.flow.screen = normalizeFlowScreen(requestedScreen) || (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "welcome");
   const requestedExam = params.get("exam");
   loadExam(String(requestedExam || "01").padStart(2, "0"));
   setInterval(tickTimers, 1000);
@@ -174,13 +181,22 @@ function renderAll() {
   renderTopChrome();
   renderRunner();
   els.examOutput.innerHTML = renderMarkdown(state.markdown, state.exam);
-  els.markdownOutput.textContent = state.markdown;
-  els.jsonOutput.textContent = JSON.stringify(buildExportJson(), null, 2);
   renderSubmission();
-  renderTts();
-  renderImages();
-  renderQuality();
+  if (flowCore.shouldShowDebugPanels(state.flow.debugMode)) {
+    els.markdownOutput.textContent = state.markdown;
+    els.jsonOutput.textContent = JSON.stringify(buildExportJson(), null, 2);
+    renderTts();
+    renderImages();
+    renderQuality();
+  } else {
+    els.markdownOutput.textContent = "";
+    els.jsonOutput.textContent = "";
+    els.ttsOutput.innerHTML = "";
+    els.promptOutput.innerHTML = "";
+    els.qualityOutput.innerHTML = "";
+  }
   syncEvaluationButtons();
+  document.body.dataset.debugMode = state.flow.debugMode ? "true" : "false";
 }
 
 function renderLoadError(error) {
@@ -285,11 +301,19 @@ function durationForPart(part) {
 
 function tickTimers() {
   let changed = false;
+  let expiredPart = null;
   for (const timer of Object.values(state.runner.timers)) {
     if (!timer.running) continue;
     timer.remaining = Math.max(0, timer.remaining - 1);
     changed = true;
-    if (timer.remaining === 0) timer.running = false;
+    if (timer.remaining === 0) {
+      timer.running = false;
+      expiredPart = Object.entries(state.runner.timers).find(([, candidate]) => candidate === timer)?.[0] || expiredPart;
+    }
+  }
+  if (expiredPart) {
+    handleTimerExpiry(expiredPart);
+    return;
   }
   if (changed) renderTimersOnly();
 }
@@ -307,6 +331,7 @@ function renderRunner() {
   const totalProgress = getExamProgress();
   els.runnerOutput.innerHTML = `
     <div class="runner-shell runner-shell-sticky">
+      ${renderModeBadge()}
       ${renderPartTimer(activePart.key, `${activePart.title} / ${activePart.english}`, activePart.minutes)}
     </div>
 
@@ -314,10 +339,12 @@ function renderRunner() {
       ${renderSkillFlow(activePart, activeSectionLines)}
     </div>
 
-    <div class="part-navigation">
-      ${renderPartMoveButton("previous")}
-      ${renderPartMoveButton("next")}
-    </div>
+    ${state.flow.mode === "practice" ? `
+      <div class="part-navigation">
+        ${renderPartMoveButton("previous")}
+        ${renderPartMoveButton("next")}
+      </div>
+    ` : ""}
 
     <section class="submit-panel">
       <div>
@@ -337,32 +364,54 @@ function renderRunner() {
 }
 
 function renderFlowScreen() {
-  if (state.flow.screen === "register") return renderRegistrationScreen();
+  if (state.flow.screen === "candidate") return renderRegistrationScreen();
   if (state.flow.screen === "instructions") return renderInstructionsScreen();
   if (state.flow.screen === "results") return renderResultsScreen();
-  return renderHomeScreen();
+  return renderWelcomeScreen();
 }
 
-function renderHomeScreen() {
+function renderFlowStepper(activeKey) {
+  return `
+    <ol class="flow-stepper" aria-label="Exam flow">
+      ${flowCore.FLOW_STEPS.map(step => `
+        <li class="${step.key === activeKey ? "active" : ""}">
+          <span>${step.label}</span>
+        </li>
+      `).join("")}
+    </ol>
+  `;
+}
+
+function renderModeBadge() {
+  return `
+    <div class="mode-badge ${state.flow.mode === "practice" ? "practice" : "exam"}" aria-label="Current mode">
+      ${state.flow.mode === "practice" ? "Practice mode" : "Real simulation mode"}
+    </div>
+  `;
+}
+
+function renderWelcomeScreen() {
   return `
     <section class="flow-card flow-home">
       <div class="flow-emblem" aria-hidden="true"></div>
-      <h1>Valsts valodas prasmes pārbaude - A2 līmenis</h1>
-      <p>Oficiāls valsts valodas prasmes pārbaudes simulators, kas sagatavots atbilstoši izglītības un satura standartiem.</p>
+      <h1>Latvian A2 Exam Simulator</h1>
+      <p>Practice the Latvian A2 state language exam in a learner-first flow with locked real simulation mode and review-friendly practice mode.</p>
+      ${renderModeBadge()}
+      ${renderFlowStepper("welcome")}
       ${renderFlowExamPicker()}
       <div class="mode-switch" role="group" aria-label="Režīms">
         <button type="button" data-flow-action="set-mode" data-mode="exam" class="${state.flow.mode === "exam" ? "active" : ""}">Eksāmena režīms</button>
         <button type="button" data-flow-action="set-mode" data-mode="practice" class="${state.flow.mode === "practice" ? "active" : ""}">Treniņa režīms</button>
       </div>
       <div class="flow-primary-stack">
-        <button type="button" class="flow-primary-button" data-flow-action="register">Sākt pilnu eksāmenu</button>
+        <button type="button" class="flow-primary-button" data-flow-action="candidate">Sākt pilnu eksāmenu</button>
         <button type="button" class="flow-secondary-button" data-flow-action="start-practice">Trenēties pa daļām</button>
       </div>
       <div class="flow-home-links">
         <button type="button" data-flow-action="results">Skatīt rezultātus</button>
         <button type="button" data-flow-action="instructions">Norādījumi</button>
       </div>
-      <p class="flow-version">Sistēmas versija 1.2.0 • Oficiālais simulators</p>
+      <p class="flow-version">System version 1.3.0 • Exam Simulator</p>
     </section>
   `;
 }
@@ -372,25 +421,27 @@ function renderRegistrationScreen() {
   return `
     <section class="flow-card flow-register">
       <div class="flow-emblem" aria-hidden="true"></div>
-      <h1>Kandidāta reģistrācija</h1>
-      <p>A2 Valsts valodas pārbaudes simulators</p>
+      <h1>Candidate details</h1>
+      <p>Enter the learner details that should appear on the attempt record.</p>
+      ${renderModeBadge()}
+      ${renderFlowStepper("candidate")}
       ${renderFlowExamPicker("Izvēlētais eksāmens")}
       <form class="candidate-form" data-candidate-form>
         <label>
-          Kandidāta kods
+          Candidate code
           <input name="code" value="${escapeHtml(candidate.code)}" autocomplete="off" required>
         </label>
         <label>
-          Vārds
+          First name
           <input name="firstName" value="${escapeHtml(candidate.firstName)}" autocomplete="given-name" required>
         </label>
         <label>
-          Uzvārds
+          Last name
           <input name="lastName" value="${escapeHtml(candidate.lastName)}" autocomplete="family-name" required>
         </label>
-        <button type="submit" class="flow-success-button">Sākt pārbaudi</button>
+        <button type="submit" class="flow-success-button">Continue to instructions</button>
       </form>
-      <p class="form-note">Lūdzu, ievadiet datus tieši tā, kā norādīts jūsu eksāmena lapā.</p>
+      <p class="form-note">Use the same details you would use on the exam paper.</p>
     </section>
   `;
 }
@@ -408,18 +459,20 @@ function renderInstructionsScreen() {
   ];
   return `
     <section class="flow-card flow-instructions">
-      <h1>Pārbaudes norādījumi</h1>
-      <p>Lūdzu, uzmanīgi iepazīstieties ar biežāk sastopamajām norādēm un darbībām, kas būs jāveic eksāmena laikā.</p>
+      <h1>Instructions</h1>
+      <p>Review the common instructions before starting the timed exam. Real simulation mode keeps the order locked; practice mode lets you return to sections.</p>
+      ${renderModeBadge()}
+      ${renderFlowStepper("instructions")}
       ${renderFlowExamPicker("Eksāmens")}
       <div class="instruction-panel">
         ${commands.map(([icon, label]) => `
           <div class="instruction-row">
-            <span class="instruction-icon instruction-icon-${icon}" aria-hidden="true"></span>
-            <strong>${label}</strong>
-          </div>
+          <span class="instruction-icon instruction-icon-${icon}" aria-hidden="true"></span>
+          <strong>${label}</strong>
+        </div>
         `).join("")}
       </div>
-      <button type="button" class="flow-primary-button compact" data-flow-action="begin-exam">Saprasts / Atpakaļ</button>
+      <button type="button" class="flow-primary-button compact" data-flow-action="begin-exam">Start exam</button>
     </section>
   `;
 }
@@ -437,40 +490,62 @@ function renderFlowExamPicker(label = "Izvēlieties eksāmenu") {
 
 function renderResultsScreen() {
   const submission = ensureSubmission("draft");
-  const skills = PART_CONFIG.map(part => {
-    const score = submission.scoring.by_skill[part.key] || { correct: 0, possible: 15 };
-    const points = Math.min(15, Math.round((Number(score.correct || 0) / Math.max(1, Number(score.possible || 15))) * 15));
-    return {
-      part,
-      points,
-      percent: Math.round((points / 15) * 100),
-      passed: points >= 9
-    };
+  const summary = flowCore.buildResultsSummary({
+    submission,
+    evaluation: state.evaluation,
+    partConfig: PART_CONFIG
   });
-  const passed = skills.every(item => item.passed);
   return `
     <section class="results-flow">
-      <h1>Eksāmena Rezultāti</h1>
-      <p>Jūsu snieguma kopsavilkums pa pārbaudījuma daļām.</p>
+      <h1>Results</h1>
+      <p>Review your provisional score by skill, then jump into the weakest areas for practice.</p>
+      ${renderModeBadge()}
+      ${renderFlowStepper("results")}
+      <div class="results-summary-banner">
+        <div>
+          <p>Total score</p>
+          <strong>${summary.total} / ${summary.totalMax}</strong>
+        </div>
+        <div>
+          <p>Pass status</p>
+          <strong class="${summary.passed ? "status-pass" : "status-fail"}">${summary.passed ? "Pass" : "Needs more practice"}</strong>
+        </div>
+        <div>
+          <p>Weak areas</p>
+          <strong>${summary.weakAreas.length ? escapeHtml(summary.weakAreas.join(", ")) : "None flagged"}</strong>
+        </div>
+      </div>
       <div class="results-table" role="table" aria-label="Eksāmena rezultāti">
         <div class="results-row results-head" role="row">
           <span>Sadaļa</span><span>Punkti</span><span>Procenti</span><span>Statuss</span>
         </div>
-        ${skills.map(({ part, points, percent, passed }) => `
+        ${summary.scores.map(({ label, points, passed }) => {
+          const percent = Math.round((points / 15) * 100);
+          return `
           <div class="results-row" role="row">
-            <span>${part.title}</span>
+            <span>${label}</span>
             <span>${points} / 15</span>
             <span><b>${percent}%</b><i style="--value:${percent}%"></i></span>
             <span class="${passed ? "status-pass" : "status-fail"}">${passed ? "Nokārtots" : "Jātrenējas"}</span>
           </div>
-        `).join("")}
+        `; }).join("")}
       </div>
-      <div class="final-status ${passed ? "passed" : "failed"}">
+      <div class="result-insights">
+        <article>
+          <h3>Weak areas</h3>
+          <p>${summary.weakAreas.length ? escapeHtml(summary.weakAreas.join(", ")) : "No skill is below the pass threshold."}</p>
+        </article>
+        <article>
+          <h3>Next practice</h3>
+          <p>${summary.nextPractice.length ? escapeHtml(summary.nextPractice.join(" and ")) : "Repeat a full simulation to keep timing sharp."}</p>
+        </article>
+      </div>
+      <div class="final-status ${summary.passed ? "passed" : "failed"}">
         <p>Noslēguma statuss</p>
-        <h2>Kopējais rezultāts: ${passed ? "nokārtots" : "nav nokārtots"}</h2>
-        <span>Minimums ir 9 punkti katrā prasmē. Šis pārskats izmanto lokālo objektīvo vērtējumu un saglabā rakstīšanas/runāšanas darbus pārbaudei.</span>
+        <h2>${summary.total} / 60</h2>
+        <span>Minimums is 9 points in each skill. Writing and speaking remain reviewable without exposing the answer key.</span>
       </div>
-      <button type="button" class="flow-primary-button results-action" data-flow-action="open-submission">Skatīt detalizētu pārskatu</button>
+      <button type="button" class="flow-primary-button results-action" data-flow-action="open-submission">Open submission review</button>
     </section>
   `;
 }
@@ -763,6 +838,9 @@ function getPartConfig(partKey) {
 
 function switchPart(partKey) {
   if (!PART_CONFIG.some(part => part.key === partKey)) return;
+  if (!flowCore.canSwitchPart(state.flow.mode, state.runner.activePart, partKey, flowCore.PART_ORDER)) {
+    return;
+  }
   const keepTimerRunning = state.flow.screen === "exam" && state.flow.mode === "exam" && isAnyTimerRunning();
   state.runner.activePart = partKey;
   if (keepTimerRunning) {
@@ -774,10 +852,17 @@ function switchPart(partKey) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function normalizeFlowScreen(screen) {
+  if (screen === "home") return "welcome";
+  if (screen === "register") return "candidate";
+  return FLOW_SCREENS.has(screen) ? screen : "";
+}
+
 function setFlowScreen(screen, options = {}) {
-  if (!FLOW_SCREENS.has(screen)) return;
-  state.flow.screen = screen;
-  if (screen === "exam") {
+  const normalized = normalizeFlowScreen(screen);
+  if (!normalized) return;
+  state.flow.screen = normalized;
+  if (normalized === "exam") {
     setView("runner");
     if (options.startTimer) {
       startOnlyTimer(state.runner.activePart);
@@ -786,6 +871,28 @@ function setFlowScreen(screen, options = {}) {
   updateExamUrl();
   renderRunner();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function handleTimerExpiry(partKey) {
+  if (state.flow.mode !== "exam") {
+    renderTimersOnly();
+    return;
+  }
+  const transition = flowCore.advanceExamOnTimer(state.flow, state.runner, flowCore.PART_ORDER);
+  state.flow = transition.flow;
+  state.runner = transition.runner;
+  if (transition.action === "submit") {
+    submitAnswers();
+    return;
+  }
+  if (transition.action === "advance" && transition.nextPart) {
+    const nextTimer = state.runner.timers[transition.nextPart];
+    if (nextTimer && nextTimer.remaining > 0) {
+      nextTimer.running = true;
+    }
+    renderRunner();
+    showToast(`${getPartConfig(partKey).title} timer ended. Moving to ${getPartConfig(transition.nextPart).title}.`);
+  }
 }
 
 function getPartProgress(partKey) {
@@ -827,11 +934,12 @@ function renderTopChrome() {
   const examProgress = getExamProgress();
   const activePart = getPartConfig(state.runner.activePart);
   document.body.dataset.flowScreen = state.flow.screen;
-  els.globalPartNav.innerHTML = ["home", "register", "results"].includes(state.flow.screen) ? "" : PART_CONFIG.map(part => `
+  const allowPartNav = state.flow.screen === "exam" && state.flow.mode === "practice";
+  els.globalPartNav.innerHTML = allowPartNav ? PART_CONFIG.map(part => `
     <button type="button" data-global-part="${part.key}" class="${part.key === state.runner.activePart ? "active" : ""}">
       ${part.title}
     </button>
-  `).join("");
+  `).join("") : "";
   if (els.topbarTimer) {
     els.topbarTimer.textContent = state.flow.screen === "exam"
       ? formatTime(state.runner.timers[activePart.key].remaining)
@@ -913,16 +1021,16 @@ function bindFlowEvents() {
 function handleFlowAction(dataset) {
   const { flowAction } = dataset;
   if (flowAction === "set-mode") {
-    state.flow.mode = dataset.mode || "exam";
+    state.flow = flowCore.switchFlowMode(state.flow, dataset.mode || "exam");
     renderRunner();
     return;
   }
-  if (flowAction === "register") {
-    setFlowScreen("register");
+  if (flowAction === "candidate") {
+    setFlowScreen("candidate");
     return;
   }
   if (flowAction === "start-practice") {
-    state.flow.mode = "practice";
+    state.flow = flowCore.switchFlowMode(state.flow, "practice");
     setFlowScreen("instructions");
     return;
   }
@@ -959,6 +1067,7 @@ function formatTaskProgress(progress) {
 function renderPartTimer(part, label, minutes) {
   const timer = state.runner.timers[part];
   const startLabel = timer.running ? "Running" : (timer.remaining < timer.total ? "Resume" : "Start");
+  const practiceControls = state.flow.mode === "practice";
   return `
     <article class="timer-card ${state.runner.activePart === part ? "active" : ""}">
       <div>
@@ -966,11 +1075,13 @@ function renderPartTimer(part, label, minutes) {
         <p>${minutes} min</p>
       </div>
       <div class="timer-display" data-timer="${part}">${formatTime(timer.remaining)}</div>
-      <div class="timer-actions">
-        <button type="button" data-action="start" data-part="${part}" ${timer.running ? "disabled" : ""}>${startLabel}</button>
-        <button type="button" data-action="pause" data-part="${part}">Pause</button>
-        <button type="button" data-action="reset" data-part="${part}">Reset</button>
-      </div>
+      ${practiceControls ? `
+        <div class="timer-actions">
+          <button type="button" data-action="start" data-part="${part}" ${timer.running ? "disabled" : ""}>${startLabel}</button>
+          <button type="button" data-action="pause" data-part="${part}">Pause</button>
+          <button type="button" data-action="reset" data-part="${part}">Reset</button>
+        </div>
+      ` : `<div class="timer-locked">Locked real simulation</div>`}
     </article>
   `;
 }
@@ -1571,6 +1682,9 @@ function handleRunnerAction(dataset) {
 function handleTimerAction(action, part) {
   const timer = state.runner.timers[part];
   if (!timer) return;
+  if (state.flow.mode !== "practice" && action !== "start") {
+    return;
+  }
   state.runner.activePart = part;
   updateExamUrl();
   if (action === "start") {
@@ -2000,9 +2114,9 @@ function submitAnswers() {
   state.submission = buildSubmission("submitted");
   persistSubmission(state.submission);
   state.evaluation = null;
-  renderRunner();
+  setFlowScreen("results");
+  setView("runner");
   renderSubmission();
-  setView("submission");
   showToast("Answers submitted locally");
 }
 
@@ -2252,11 +2366,12 @@ function persistSubmission(submission) {
 
 function renderSubmission() {
   const submission = state.submission || buildSubmission("draft");
+  const learnerSubmission = flowCore.sanitizeSubmissionForLearner(submission);
   const score = submission.scoring;
   els.submissionOutput.innerHTML = `
     <section class="submission-hero">
       <div>
-        <p class="eyebrow">${submission.status === "submitted" ? "Submitted" : "Draft submission"}</p>
+        <p class="eyebrow">${submission.status === "submitted" ? "Submitted attempt" : "Draft attempt"}</p>
         <h2>${escapeHtml(submission.exam_title)}</h2>
         <p>${submission.progress.answered}/${submission.progress.total} response fields completed. Objective score: ${score.objective_correct}/${score.objective_possible}. Manual review fields: ${score.manual_review_possible} points.</p>
       </div>
@@ -2272,7 +2387,7 @@ function renderSubmission() {
       <button type="button" data-submission-action="download">Download JSON</button>
     </div>
     ${renderAiEvaluationPanel()}
-    <pre class="code-panel submission-json">${escapeHtml(JSON.stringify(submission, null, 2))}</pre>
+    ${state.flow.debugMode ? `<pre class="code-panel submission-json">${escapeHtml(JSON.stringify(learnerSubmission, null, 2))}</pre>` : ""}
   `;
   els.submissionOutput.querySelectorAll("[data-submission-action]").forEach(button => {
     button.addEventListener("click", () => handleSubmissionAction(button.dataset.submissionAction));
@@ -2388,12 +2503,13 @@ function handleSubmissionAction(action) {
     return;
   }
   const submission = ensureSubmission("draft");
+  const safeSubmission = flowCore.sanitizeSubmissionForLearner(submission);
   if (action === "copy") {
-    copyText(JSON.stringify(submission, null, 2), "Submission copied");
+    copyText(JSON.stringify(safeSubmission, null, 2), "Submission copied");
     return;
   }
   if (action === "download") {
-    downloadFile(`${submission.submission_id}.json`, JSON.stringify(submission, null, 2), "application/json");
+    downloadFile(`${submission.submission_id}.json`, JSON.stringify(safeSubmission, null, 2), "application/json");
   }
 }
 
@@ -2445,20 +2561,24 @@ function buildExportJson() {
 }
 
 function setView(viewName) {
+  const debugViews = new Set(["markdown", "json", "tts", "prompts", "quality"]);
+  if (!state.flow.debugMode && debugViews.has(viewName)) {
+    viewName = "runner";
+  }
   document.querySelectorAll(".view").forEach(view => view.classList.remove("active"));
   document.querySelector(`#${viewName}-view`).classList.add("active");
   document.querySelectorAll(".nav-list button").forEach(button => {
     button.classList.toggle("active", button.dataset.view === viewName);
   });
   const titles = {
-    runner: "Exam Runner",
-    submission: "Submission",
+    runner: "Exam Simulator",
+    submission: "Attempt review",
     exam: state.exam.title,
-    markdown: "Raw Markdown",
-    json: "Structured JSON",
-    tts: "TTS Audio",
-    prompts: "Generated Images",
-    quality: "Quality Gate"
+    markdown: "Developer markdown",
+    json: "Developer JSON",
+    tts: "Developer audio",
+    prompts: "Developer images",
+    quality: "Developer quality"
   };
   els.workspaceTitle.textContent = titles[viewName];
 }

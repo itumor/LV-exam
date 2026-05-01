@@ -1,4 +1,4 @@
-# Latvian A2 Exam Studio
+# Latvian A2 Exam Simulator
 
 Browser exam app for dynamically rendering the existing `codex/A2_Mock_Exam_01.md` through `codex/A2_Mock_Exam_10.md` files with their audio and image attachments. A small local Python server adds secure AI scoring without exposing API keys to the browser.
 
