@@ -3825,6 +3825,264 @@ textarea:focus {
   background: var(--primary);
 }
 
+.timer-actions {
+  gap: 8px;
+}
+
+.timer-note {
+  color: var(--on-surface-variant);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.speaking-recorder {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 16px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,251,255,0.98));
+  box-shadow: var(--shadow);
+}
+
+.speaking-recorder-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.speaking-recorder-head h4 {
+  margin: 2px 0 0;
+  font-size: 18px;
+}
+
+.speaking-status {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--surface-container-high);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.speaking-status-recording,
+.speaking-status-dictating {
+  background: #ffe7dd;
+  color: #9d3f21;
+}
+
+.speaking-status-uploaded {
+  background: #dff3e6;
+  color: #1f6b3f;
+}
+
+.speaking-status-error {
+  background: #ffe2e2;
+  color: #a63636;
+}
+
+.speaking-recorder-actions,
+.submission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.speaking-recorder-actions button,
+.submission-actions button {
+  border-radius: 999px;
+  min-height: 38px;
+}
+
+.speaking-recorder-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--on-surface-variant);
+  font-size: 13px;
+}
+
+.speaking-recorder audio,
+.candidate-report audio {
+  width: 100%;
+}
+
+.speaking-transcript {
+  display: grid;
+  gap: 8px;
+}
+
+.speaking-transcript span {
+  color: var(--on-surface-variant);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.speaking-error {
+  margin: 0;
+  color: var(--error);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.candidate-report {
+  margin: 24px 0 16px;
+}
+
+.stitch-task-panel[data-locked="true"] {
+  opacity: 0.74;
+}
+
+.stitch-task-panel[data-locked="true"] * {
+  pointer-events: none;
+}
+
+.candidate-report-print {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 24px;
+  background: #fff;
+}
+
+.report-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--outline-variant);
+}
+
+.report-hero h1 {
+  margin: 6px 0 4px;
+  font-size: clamp(26px, 3vw, 38px);
+}
+
+.report-score-pill {
+  min-width: 84px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.report-block {
+  display: grid;
+  gap: 10px;
+}
+
+.report-result {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.report-result.passed {
+  color: #1f6b3f;
+}
+
+.report-result.failed {
+  color: var(--error);
+}
+
+.report-skills {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.report-skill-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 16px;
+  background: var(--surface-container-lowest);
+}
+
+.report-skill-card.passed {
+  border-color: #9fd3b3;
+}
+
+.report-skill-card.failed {
+  border-color: #f0b1b1;
+}
+
+.report-skill-card h4,
+.report-skill-card strong {
+  margin: 0;
+}
+
+.report-corrections {
+  display: grid;
+  gap: 10px;
+}
+
+.report-correction {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-container-low);
+  border: 1px solid var(--outline-variant);
+}
+
+.report-correction p {
+  margin: 4px 0 0;
+}
+
+@media print {
+  body.report-print-mode {
+    background: #fff;
+  }
+
+  body.report-print-mode .exam-appbar,
+  body.report-print-mode .exam-progress-track,
+  body.report-print-mode .exam-tools,
+  body.report-print-mode .workspace-bar,
+  body.report-print-mode .nav-list,
+  body.report-print-mode .button-grid,
+  body.report-print-mode .submission-actions,
+  body.report-print-mode .ai-evaluation-panel,
+  body.report-print-mode .code-panel.submission-json,
+  body.report-print-mode .toast,
+  body.report-print-mode .flow-card,
+  body.report-print-mode .results-action {
+    display: none !important;
+  }
+
+  body.report-print-mode .workspace,
+  body.report-print-mode .view,
+  body.report-print-mode .submission-panel,
+  body.report-print-mode .candidate-report {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  body.report-print-mode .submission-panel {
+    padding: 0;
+  }
+
+  body.report-print-mode .candidate-report {
+    margin: 0;
+  }
+
+  body.report-print-mode .candidate-report-print {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
 @media (max-width: 980px) {
   .exam-appbar-inner,
   .workspace,

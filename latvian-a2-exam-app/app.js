@@ -1,4 +1,19 @@
 const optionLetters = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
+const FlowCore = window.LatvianA2FlowCore;
+if (!FlowCore) {
+  throw new Error("LatvianA2FlowCore helpers failed to load.");
+}
+
+const {
+  createTimerState,
+  calculateRemaining,
+  startTimer,
+  pauseTimer,
+  resetTimer,
+  tickTimer,
+  buildCandidateReportModel,
+  buildCandidateReportHtml
+} = FlowCore;
 
 const EXAMS = Array.from({ length: 10 }, (_, index) => {
   const number = String(index + 1).padStart(2, "0");
@@ -22,11 +37,15 @@ const state = {
     activePart: "listening",
     selectedDragValue: "",
     activeAdGroups: {},
+    playbackCounts: {},
+    speakingSessions: {},
+    lockedParts: {},
+    finalized: false,
     timers: {
-      listening: { total: 25 * 60, remaining: 25 * 60, running: false, startedAt: null },
-      reading: { total: 30 * 60, remaining: 30 * 60, running: false, startedAt: null },
-      writing: { total: 35 * 60, remaining: 35 * 60, running: false, startedAt: null },
-      speaking: { total: 15 * 60, remaining: 15 * 60, running: false, startedAt: null }
+      listening: createTimerState(25 * 60),
+      reading: createTimerState(30 * 60),
+      writing: createTimerState(35 * 60),
+      speaking: createTimerState(15 * 60)
     }
   },
   flow: {
@@ -155,6 +174,7 @@ async function loadExam(examId) {
     state.assets = extractAssets(state.markdown, exam);
     resetAnswers();
     resetTimers();
+    resetSpeakingSessions();
     state.submission = null;
     state.evaluation = null;
     state.evaluating = false;
@@ -263,12 +283,34 @@ function resetAnswers() {
 
 function resetTimers() {
   for (const [part, timer] of Object.entries(state.runner.timers)) {
-    timer.total = durationForPart(part);
-    timer.remaining = timer.total;
-    timer.running = false;
-    timer.startedAt = null;
+    resetTimer(timer, durationForPart(part));
   }
   state.runner.activePart = "listening";
+  state.runner.finalized = false;
+  state.runner.lockedParts = {};
+}
+
+function resetSpeakingSessions() {
+  for (const session of Object.values(state.runner.speakingSessions || {})) {
+    if (session?.previewUrl && String(session.previewUrl).startsWith("blob:")) {
+      URL.revokeObjectURL(session.previewUrl);
+    }
+  }
+  state.runner.speakingSessions = Object.fromEntries(
+    TASK_CONFIG.speaking.map(task => [task.taskKey, {
+      recordingId: "",
+      uploadUrl: "",
+      uploadState: "idle",
+      uploadError: "",
+      playbackCount: 0,
+      transcript: "",
+      status: "idle",
+      mimeType: "",
+      durationMs: 0,
+      previewUrl: "",
+      uploadedAt: ""
+    }])
+  );
 }
 
 function updateExamUrl() {
@@ -284,12 +326,22 @@ function durationForPart(part) {
 }
 
 function tickTimers() {
+  const now = Date.now();
+  const expiredParts = [];
   let changed = false;
-  for (const timer of Object.values(state.runner.timers)) {
-    if (!timer.running) continue;
-    timer.remaining = Math.max(0, timer.remaining - 1);
+  for (const [part, timer] of Object.entries(state.runner.timers)) {
+    const previousRemaining = calculateRemaining(timer);
+    const tick = tickTimer(timer, now);
+    if (tick.remaining !== previousRemaining) {
+      changed = true;
+    }
+    if (tick.expired) {
+      expiredParts.push(part);
+    }
+  }
+  if (expiredParts.length) {
+    expiredParts.forEach(part => handleTimerExpired(part));
     changed = true;
-    if (timer.remaining === 0) timer.running = false;
   }
   if (changed) renderTimersOnly();
 }
@@ -486,7 +538,7 @@ function renderSkillFlow(part, sectionLines) {
           const referenceHtml = renderTaskReferencePanel(part.key, task, view.reference);
           const taskProgress = getTaskProgress(part.key, task.taskKey);
           return `
-            <article class="stitch-task-panel">
+            <article class="stitch-task-panel" data-locked="${state.flow.mode === "exam" && isPartLocked(part.key) ? "true" : "false"}">
               <header class="stitch-section-head">
                 <div>
                   <h3>${taskIndex + 1}. daļa: ${part.title} prasme</h3>
@@ -761,11 +813,81 @@ function getPartConfig(partKey) {
   return PART_CONFIG.find(part => part.key === partKey) || PART_CONFIG[0];
 }
 
+function getPartIndex(partKey) {
+  return PART_CONFIG.findIndex(part => part.key === partKey);
+}
+
+function isPartLocked(partKey) {
+  return Boolean(state.runner.finalized || state.runner.lockedParts?.[partKey]);
+}
+
+function lockPart(partKey) {
+  if (!partKey) return;
+  state.runner.lockedParts ||= {};
+  state.runner.lockedParts[partKey] = true;
+}
+
+function lockAllParts() {
+  state.runner.lockedParts = Object.fromEntries(PART_CONFIG.map(part => [part.key, true]));
+  state.runner.finalized = true;
+  for (const timer of Object.values(state.runner.timers)) {
+    pauseTimer(timer, Date.now());
+    timer.remaining = 0;
+    timer.locked = true;
+    timer.completedAt = Date.now();
+  }
+}
+
+function handleTimerExpired(partKey) {
+  stopActiveSpeakingRecorder();
+  if (state.flow.mode !== "exam") {
+    pauseTimer(state.runner.timers[partKey], Date.now());
+    renderRunner();
+    showToast(`${getPartConfig(partKey).title} timer ended`);
+    return;
+  }
+  lockPart(partKey);
+  const nextPart = PART_CONFIG[getPartIndex(partKey) + 1];
+  if (nextPart) {
+    state.runner.activePart = nextPart.key;
+    startOnlyTimer(nextPart.key);
+    showToast(`${getPartConfig(partKey).title} ended. Moving to ${nextPart.title}.`);
+    renderRunner();
+    return;
+  }
+  lockAllParts();
+  state.submission = buildSubmission("submitted");
+  persistSubmission(state.submission);
+  renderRunner();
+  renderSubmission();
+  setView("results");
+  showToast(`${getPartConfig(partKey).title} timed out`);
+}
+
 function switchPart(partKey) {
   if (!PART_CONFIG.some(part => part.key === partKey)) return;
-  const keepTimerRunning = state.flow.screen === "exam" && state.flow.mode === "exam" && isAnyTimerRunning();
+  const targetIndex = getPartIndex(partKey);
+  const currentIndex = getPartIndex(state.runner.activePart);
+  if (state.flow.screen === "exam" && state.flow.mode === "exam") {
+    if (targetIndex < currentIndex) {
+      showToast("Real mode locks previous sections.");
+      return;
+    }
+    if (targetIndex > currentIndex + 1) {
+      showToast("Real mode follows the section order.");
+      return;
+    }
+    if (state.runner.finalized || isPartLocked(partKey)) {
+      showToast("This section is already locked.");
+      return;
+    }
+    if (currentIndex !== -1 && targetIndex > currentIndex) {
+      lockPart(state.runner.activePart);
+    }
+  }
+  stopActiveSpeakingRecorder();
   state.runner.activePart = partKey;
-  if (keepTimerRunning) {
+  if (state.flow.screen === "exam" && state.flow.mode === "exam") {
     startOnlyTimer(partKey);
   }
   state.flow.screen = "exam";
@@ -777,11 +899,9 @@ function switchPart(partKey) {
 function setFlowScreen(screen, options = {}) {
   if (!FLOW_SCREENS.has(screen)) return;
   state.flow.screen = screen;
-  if (screen === "exam") {
-    setView("runner");
-    if (options.startTimer) {
-      startOnlyTimer(state.runner.activePart);
-    }
+  setView("runner");
+  if (screen === "exam" && options.startTimer) {
+    startOnlyTimer(state.runner.activePart);
   }
   updateExamUrl();
   renderRunner();
@@ -833,9 +953,12 @@ function renderTopChrome() {
     </button>
   `).join("");
   if (els.topbarTimer) {
-    els.topbarTimer.textContent = state.flow.screen === "exam"
-      ? formatTime(state.runner.timers[activePart.key].remaining)
-      : formatLongTime(45 * 60);
+    if (state.flow.screen === "exam") {
+      const timer = state.runner.timers[activePart.key];
+      els.topbarTimer.textContent = formatTime(calculateRemaining(timer));
+    } else {
+      els.topbarTimer.textContent = formatLongTime(45 * 60);
+    }
   }
   if (els.progressFill) {
     const percent = examProgress.total ? Math.round((examProgress.answered / examProgress.total) * 100) : 0;
@@ -858,7 +981,7 @@ function renderPartMoveButton(direction) {
 function renderTimersOnly() {
   document.querySelectorAll("[data-timer]").forEach(node => {
     const part = node.dataset.timer;
-    node.textContent = formatTime(state.runner.timers[part].remaining);
+    node.textContent = formatTime(calculateRemaining(state.runner.timers[part]));
   });
   renderTopChrome();
 }
@@ -958,18 +1081,22 @@ function formatTaskProgress(progress) {
 
 function renderPartTimer(part, label, minutes) {
   const timer = state.runner.timers[part];
-  const startLabel = timer.running ? "Running" : (timer.remaining < timer.total ? "Resume" : "Start");
+  const remaining = calculateRemaining(timer);
+  const startLabel = timer.running ? "Running" : (remaining < timer.total ? "Resume" : "Start");
+  const isExamMode = state.flow.mode === "exam";
   return `
     <article class="timer-card ${state.runner.activePart === part ? "active" : ""}">
       <div>
         <h3>${label}</h3>
         <p>${minutes} min</p>
       </div>
-      <div class="timer-display" data-timer="${part}">${formatTime(timer.remaining)}</div>
+      <div class="timer-display" data-timer="${part}">${formatTime(remaining)}</div>
       <div class="timer-actions">
-        <button type="button" data-action="start" data-part="${part}" ${timer.running ? "disabled" : ""}>${startLabel}</button>
-        <button type="button" data-action="pause" data-part="${part}">Pause</button>
-        <button type="button" data-action="reset" data-part="${part}">Reset</button>
+        <button type="button" data-action="start" data-part="${part}" ${timer.running || isPartLocked(part) || state.runner.finalized ? "disabled" : ""}>${isExamMode ? startLabel : startLabel}</button>
+        ${isExamMode ? `<span class="timer-note">Real mode locks previous sections and auto-submits on timeout.</span>` : `
+          <button type="button" data-action="pause" data-part="${part}">Pause</button>
+          <button type="button" data-action="reset" data-part="${part}">Reset</button>
+        `}
       </div>
     </article>
   `;
@@ -1004,12 +1131,329 @@ function renderChoiceQuestion(section, task, question, index, useReadingBox, aud
 }
 
 function renderCardAudio(audioSrc, index) {
+  const count = getMediaPlaybackCount("listening", audioSrc);
   return `
     <div class="stitch-audio-card">
-      <audio controls preload="none" src="${escapeHtml(toAssetUrl(audioSrc))}" aria-label="Audio ${index + 1}"></audio>
-      <span>${index < 4 ? "1. reize" : "0. reize"}</span>
+      <audio controls preload="none" src="${escapeHtml(toAssetUrl(audioSrc))}" aria-label="Audio ${index + 1}" data-playback-track="listening" data-playback-key="${escapeHtml(audioSrc)}"></audio>
+      <span class="playback-count">${count} listens</span>
     </div>
   `;
+}
+
+function getMediaPlaybackCount(track, key) {
+  return Number(state.runner.playbackCounts?.[track]?.[key] || 0);
+}
+
+function incrementMediaPlaybackCount(track, key) {
+  state.runner.playbackCounts ||= {};
+  state.runner.playbackCounts[track] ||= {};
+  state.runner.playbackCounts[track][key] = getMediaPlaybackCount(track, key) + 1;
+  renderMediaPlaybackBadges();
+}
+
+function renderMediaPlaybackBadges() {
+  document.querySelectorAll("[data-playback-track][data-playback-key]").forEach(node => {
+    const track = node.dataset.playbackTrack;
+    const key = node.dataset.playbackKey;
+    const count = getMediaPlaybackCount(track, key);
+    const card = node.closest(".stitch-audio-card, .media-card");
+    if (card) {
+      const badge = card.querySelector(".playback-count, [data-playback-count]");
+      if (badge) {
+        badge.textContent = `${count} listens`;
+      }
+    }
+  });
+}
+
+function handlePlaybackEvent(event) {
+  const node = event.currentTarget;
+  const track = node.dataset.playbackTrack;
+  const key = node.dataset.playbackKey;
+  if (!track || !key) return;
+  if (track === "speaking") {
+    const session = ensureSpeakingSession(key);
+    session.playbackCount += 1;
+    renderSpeakingRecorderStatus(key);
+    return;
+  }
+  incrementMediaPlaybackCount(track, key);
+}
+
+function renderSpeakingRecorderStatus(taskKey) {
+  const card = document.querySelector(`[data-speaking-recorder="${taskKey}"]`);
+  if (!card) return;
+  const session = ensureSpeakingSession(taskKey);
+  const badge = card.querySelector(".speaking-status");
+  if (badge) badge.textContent = session.status;
+  const meta = card.querySelector(".speaking-recorder-meta");
+  if (meta) {
+    meta.innerHTML = `
+      <span>${session.durationMs ? `${Math.max(1, Math.round(session.durationMs / 1000))}s recorded` : "No recording yet"}</span>
+      <span>${session.uploadState === "uploaded" ? "Uploaded" : session.uploadState === "uploading" ? "Uploading..." : "Local draft only"}</span>
+      <span>${session.playbackCount} plays</span>
+    `;
+  }
+  const audio = card.querySelector("audio[data-speaking-recording-playback]");
+  if (audio && session.previewUrl && audio.getAttribute("src") !== session.previewUrl) {
+    audio.setAttribute("src", session.previewUrl);
+  }
+  const startButton = card.querySelector('[data-speaking-action="start"]');
+  const stopButton = card.querySelector('[data-speaking-action="stop"]');
+  const playButton = card.querySelector('[data-speaking-action="play"]');
+  const uploadButton = card.querySelector('[data-speaking-action="upload"]');
+  const clearButton = card.querySelector('[data-speaking-action="clear"]');
+  const dictationButton = card.querySelector('[data-speaking-action="speech-to-text"]');
+  const hasRecording = Boolean(session.previewUrl);
+  if (startButton) startButton.disabled = state.runner.finalized || session.status === "recording" || session.uploadState === "uploading";
+  if (stopButton) stopButton.disabled = session.status !== "recording";
+  if (playButton) playButton.disabled = !hasRecording;
+  if (uploadButton) uploadButton.disabled = !hasRecording || session.uploadState === "uploading";
+  if (clearButton) clearButton.disabled = !hasRecording || session.uploadState === "uploading";
+  if (dictationButton) dictationButton.disabled = state.runner.finalized || session.status === "recording";
+}
+
+async function handleSpeakingAction(dataset) {
+  const taskKey = dataset.speakingTask;
+  if (!taskKey) return;
+  const action = dataset.speakingAction;
+  if (action === "start") {
+    await startSpeakingRecording(taskKey);
+    return;
+  }
+  if (action === "stop") {
+    stopSpeakingRecording(taskKey);
+    return;
+  }
+  if (action === "play") {
+    playSpeakingRecording(taskKey);
+    return;
+  }
+  if (action === "upload") {
+    await uploadSpeakingRecording(taskKey);
+    return;
+  }
+  if (action === "clear") {
+    clearSpeakingRecording(taskKey);
+    return;
+  }
+  if (action === "speech-to-text") {
+    startSpeakingTranscription(taskKey);
+  }
+}
+
+function handleTranscriptAction(dataset) {
+  const taskKey = dataset.transcriptSource;
+  if (!taskKey) return;
+  const session = ensureSpeakingSession(taskKey);
+  session.transcript = String(document.querySelector(`[data-speaking-transcript="${taskKey}"]`)?.value || "").trim();
+  state.submission = null;
+  state.evaluation = null;
+}
+
+async function startSpeakingRecording(taskKey) {
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    ensureSpeakingSession(taskKey).uploadError = "This browser does not support microphone recording.";
+    renderSpeakingRecorderStatus(taskKey);
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stopActiveSpeakingRecorder();
+    const session = ensureSpeakingSession(taskKey);
+    session.status = "recording";
+    session.uploadError = "";
+    session.stream = stream;
+    session.chunks = [];
+    session.startedAt = Date.now();
+    const mimeType = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/mp4"
+    ].find(type => MediaRecorder.isTypeSupported(type)) || "";
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    session.mimeType = recorder.mimeType || mimeType || "audio/webm";
+    session.mediaRecorder = recorder;
+    recorder.addEventListener("dataavailable", event => {
+      if (event.data && event.data.size > 0) {
+        session.chunks.push(event.data);
+      }
+    });
+    recorder.addEventListener("stop", () => finalizeSpeakingRecording(taskKey));
+    recorder.start();
+    renderSpeakingRecorderStatus(taskKey);
+    showToast("Microphone recording started");
+  } catch (error) {
+    const session = ensureSpeakingSession(taskKey);
+    session.status = "error";
+    session.uploadError = error.message || "Could not access the microphone.";
+    renderSpeakingRecorderStatus(taskKey);
+    showToast("Microphone permission failed");
+  }
+}
+
+function stopActiveSpeakingRecorder() {
+  const activeTaskKey = Object.keys(state.runner.speakingSessions || {}).find(key => state.runner.speakingSessions[key]?.status === "recording");
+  if (!activeTaskKey) return;
+  const session = ensureSpeakingSession(activeTaskKey);
+  if (session.mediaRecorder && session.mediaRecorder.state !== "inactive") {
+    session.mediaRecorder.stop();
+  }
+  if (session.stream) {
+    session.stream.getTracks().forEach(track => track.stop());
+    session.stream = null;
+  }
+}
+
+function stopSpeakingRecording(taskKey) {
+  const session = ensureSpeakingSession(taskKey);
+  if (session.mediaRecorder && session.mediaRecorder.state !== "inactive") {
+    session.mediaRecorder.stop();
+  }
+  if (session.stream) {
+    session.stream.getTracks().forEach(track => track.stop());
+    session.stream = null;
+  }
+  session.status = "processing";
+  renderSpeakingRecorderStatus(taskKey);
+}
+
+function finalizeSpeakingRecording(taskKey) {
+  const session = ensureSpeakingSession(taskKey);
+  const blob = new Blob(session.chunks || [], { type: session.mimeType || "audio/webm" });
+  if (session.previewUrl) {
+    URL.revokeObjectURL(session.previewUrl);
+  }
+  session.previewUrl = URL.createObjectURL(blob);
+  session.recordingBlob = blob;
+  session.recordingId = `${taskKey}-${Date.now()}`;
+  session.uploadState = "idle";
+  session.status = "ready";
+  session.durationMs = Math.max(0, Date.now() - Number(session.startedAt || Date.now()));
+  session.startedAt = null;
+  session.mediaRecorder = null;
+  session.chunks = [];
+  renderSpeakingRecorderStatus(taskKey);
+  state.submission = null;
+  state.evaluation = null;
+  showToast("Recording captured");
+}
+
+function playSpeakingRecording(taskKey) {
+  const audio = document.querySelector(`[data-speaking-recorder="${taskKey}"] audio[data-speaking-recording-playback]`);
+  if (audio) {
+    audio.play();
+  }
+}
+
+function clearSpeakingRecording(taskKey) {
+  const session = ensureSpeakingSession(taskKey);
+  if (session.mediaRecorder && session.mediaRecorder.state !== "inactive") {
+    session.mediaRecorder.stop();
+  }
+  if (session.stream) {
+    session.stream.getTracks().forEach(track => track.stop());
+    session.stream = null;
+  }
+  if (session.previewUrl && String(session.previewUrl).startsWith("blob:")) {
+    URL.revokeObjectURL(session.previewUrl);
+  }
+  session.recordingBlob = null;
+  session.recordingId = "";
+  session.uploadState = "idle";
+  session.uploadUrl = "";
+  session.uploadError = "";
+  session.status = "idle";
+  session.mimeType = "";
+  session.durationMs = 0;
+  session.previewUrl = "";
+  session.uploadedAt = "";
+  renderSpeakingRecorderStatus(taskKey);
+  state.submission = null;
+  state.evaluation = null;
+  showToast("Recording cleared");
+}
+
+async function uploadSpeakingRecording(taskKey) {
+  const session = ensureSpeakingSession(taskKey);
+  if (!session.recordingBlob) {
+    session.uploadError = "Record audio before uploading.";
+    renderSpeakingRecorderStatus(taskKey);
+    return;
+  }
+  if (session.uploadState === "uploading") return;
+  session.uploadState = "uploading";
+  session.uploadError = "";
+  renderSpeakingRecorderStatus(taskKey);
+  try {
+    const params = new URLSearchParams({
+      submission_id: ensureSubmission("draft").submission_id,
+      exam_id: state.exam.id,
+      task: taskKey
+    });
+    const response = await fetch(`/api/uploads/speaking?${params.toString()}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": session.recordingBlob.type || session.mimeType || "audio/webm"
+      },
+      body: session.recordingBlob
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || payload.detail || `Upload failed with HTTP ${response.status}`);
+    }
+    const previousPreview = session.previewUrl;
+    session.uploadState = "uploaded";
+    session.uploadUrl = payload.upload_url || "";
+    session.previewUrl = payload.upload_url || session.previewUrl;
+    session.recordingId = payload.upload_id || session.recordingId;
+    session.uploadedAt = payload.created_at || new Date().toISOString();
+    session.uploadError = "";
+    if (previousPreview && previousPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(previousPreview);
+    }
+    state.submission = null;
+    state.evaluation = null;
+    renderSpeakingRecorderStatus(taskKey);
+    showToast("Recording uploaded");
+  } catch (error) {
+    session.uploadState = "error";
+    session.uploadError = error.message || "Upload failed.";
+    renderSpeakingRecorderStatus(taskKey);
+    showToast("Recording upload failed");
+  }
+}
+
+function startSpeakingTranscription(taskKey) {
+  const recognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!recognitionCtor) {
+    ensureSpeakingSession(taskKey).uploadError = "Speech-to-text is not available in this browser.";
+    renderSpeakingRecorderStatus(taskKey);
+    return;
+  }
+  const recognition = new recognitionCtor();
+  recognition.lang = "lv-LV";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  recognition.onresult = event => {
+    const transcript = Array.from(event.results).map(result => result[0]?.transcript || "").join(" ").trim();
+    const session = ensureSpeakingSession(taskKey);
+    session.transcript = transcript;
+    const textarea = document.querySelector(`[data-speaking-transcript="${taskKey}"]`);
+    if (textarea) textarea.value = transcript;
+    state.submission = null;
+    state.evaluation = null;
+    renderSpeakingRecorderStatus(taskKey);
+    showToast("Transcript captured");
+  };
+  recognition.onerror = event => {
+    const session = ensureSpeakingSession(taskKey);
+    session.uploadError = event.error || "Speech recognition failed.";
+    renderSpeakingRecorderStatus(taskKey);
+  };
+  recognition.start();
+  ensureSpeakingSession(taskKey).status = "dictating";
+  renderSpeakingRecorderStatus(taskKey);
 }
 
 function renderReadingStimulus(parsed, index) {
@@ -1328,10 +1772,87 @@ function renderWritingLongTask(section, task, introLines) {
   `;
 }
 
+function ensureSpeakingSession(taskKey) {
+  state.runner.speakingSessions ||= {};
+  state.runner.speakingSessions[taskKey] ||= {
+    recordingId: "",
+    uploadUrl: "",
+    uploadState: "idle",
+    uploadError: "",
+    playbackCount: 0,
+    transcript: "",
+    status: "idle",
+    mimeType: "",
+    durationMs: 0,
+    previewUrl: "",
+    uploadedAt: ""
+  };
+  return state.runner.speakingSessions[taskKey];
+}
+
+function serializeSpeakingSessions() {
+  return Object.fromEntries(
+    Object.entries(state.runner.speakingSessions || {}).map(([taskKey, session]) => [
+      taskKey,
+      {
+        recordingId: session.recordingId || "",
+        uploadUrl: session.uploadUrl || "",
+        uploadState: session.uploadState || "idle",
+        uploadError: session.uploadError || "",
+        playbackCount: Number(session.playbackCount || 0),
+        transcript: session.transcript || "",
+        status: session.status || "idle",
+        mimeType: session.mimeType || "",
+        durationMs: Number(session.durationMs || 0),
+        previewUrl: session.uploadUrl || "",
+        uploadedAt: session.uploadedAt || ""
+      }
+    ])
+  );
+}
+
+function renderSpeakingRecorderPanel(task) {
+  const session = ensureSpeakingSession(task.taskKey);
+  const hasPreview = Boolean(session.previewUrl);
+  return `
+    <section class="speaking-recorder" data-speaking-recorder="${task.taskKey}">
+      <div class="speaking-recorder-head">
+        <div>
+          <p class="eyebrow">Speaking capture</p>
+          <h4>${task.title}</h4>
+        </div>
+        <span class="speaking-status speaking-status-${session.status}">${escapeHtml(session.status)}</span>
+      </div>
+      <div class="speaking-recorder-actions">
+        <button type="button" data-speaking-action="start" data-speaking-task="${task.taskKey}" ${session.status === "recording" || state.runner.finalized ? "disabled" : ""}>Start recording</button>
+        <button type="button" data-speaking-action="stop" data-speaking-task="${task.taskKey}" ${session.status !== "recording" ? "disabled" : ""}>Stop</button>
+        <button type="button" data-speaking-action="play" data-speaking-task="${task.taskKey}" ${!hasPreview ? "disabled" : ""}>Play</button>
+        <button type="button" data-speaking-action="upload" data-speaking-task="${task.taskKey}" ${!hasPreview ? "disabled" : ""}>Upload</button>
+        <button type="button" data-speaking-action="clear" data-speaking-task="${task.taskKey}" ${!hasPreview ? "disabled" : ""}>Clear</button>
+        <button type="button" data-speaking-action="speech-to-text" data-speaking-task="${task.taskKey}">Speech-to-text</button>
+      </div>
+      <div class="speaking-recorder-meta">
+        <span>${session.durationMs ? `${Math.max(1, Math.round(session.durationMs / 1000))}s recorded` : "No recording yet"}</span>
+        <span>${session.uploadState === "uploaded" ? `Uploaded` : session.uploadState === "uploading" ? "Uploading..." : "Local draft only"}</span>
+        <span>${session.playbackCount} plays</span>
+      </div>
+      ${hasPreview ? `
+        <audio controls preload="none" src="${escapeHtml(session.previewUrl)}" data-playback-track="speaking" data-playback-key="${escapeHtml(task.taskKey)}" data-speaking-recording-playback="true" data-speaking-task="${task.taskKey}"></audio>
+      ` : ""}
+      <label class="speaking-transcript">
+        <span>Transcript / notes</span>
+        <textarea data-speaking-transcript="${task.taskKey}" rows="3" placeholder="Optional transcript or notes">${escapeHtml(session.transcript || "")}</textarea>
+      </label>
+      ${session.uploadError ? `<p class="speaking-error">${escapeHtml(session.uploadError)}</p>` : ""}
+    </section>
+  `;
+}
+
 function renderOralInterviewTask(section, task, questions) {
   const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
   return `
     <div class="oral-interview-list">
+      ${renderSpeakingRecorderPanel(task)}
       ${safeQuestions.map((question, index) => {
         const name = `${section}.${task.taskKey}.${index}`;
         ensureAnswerSlot(section, task.taskKey, index);
@@ -1352,6 +1873,7 @@ function renderOralPicturesTask(section, task, questions, introLines) {
   const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
   return `
     <div class="oral-picture-grid">
+      ${renderSpeakingRecorderPanel(task)}
       ${safeQuestions.map((question, index) => {
         const name = `${section}.${task.taskKey}.${index}`;
         ensureAnswerSlot(section, task.taskKey, index);
@@ -1373,6 +1895,7 @@ function renderOralQuestionTask(section, task, questions) {
   const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
   return `
     <div class="oral-question-list">
+      ${renderSpeakingRecorderPanel(task)}
       ${safeQuestions.map((question, index) => {
         const name = `${section}.${task.taskKey}.${index}`;
         ensureAnswerSlot(section, task.taskKey, index);
@@ -1534,6 +2057,24 @@ function bindRunnerEvents() {
     target.addEventListener("dragleave", handleDropDragLeave);
     target.addEventListener("drop", handleDrop);
   });
+  document.querySelectorAll("[data-playback-track]").forEach(audio => {
+    audio.addEventListener("play", handlePlaybackEvent);
+  });
+  document.querySelectorAll("[data-speaking-recording-playback]").forEach(audio => {
+    audio.addEventListener("play", handlePlaybackEvent);
+  });
+  document.querySelectorAll("[data-speaking-action]").forEach(button => {
+    button.addEventListener("click", () => handleSpeakingAction(button.dataset));
+  });
+  document.querySelectorAll("[data-speaking-transcript]").forEach(field => {
+    field.addEventListener("input", event => {
+      const taskKey = event.currentTarget.dataset.speakingTranscript;
+      const session = ensureSpeakingSession(taskKey);
+      session.transcript = event.currentTarget.value;
+      state.submission = null;
+      state.evaluation = null;
+    });
+  });
 }
 
 function handleRunnerAction(dataset) {
@@ -1557,6 +2098,9 @@ function handleRunnerAction(dataset) {
     return;
   }
   if (action === "show-results") {
+    if (state.flow.mode === "exam") {
+      submitAnswers();
+    }
     setFlowScreen("results");
     return;
   }
@@ -1574,21 +2118,29 @@ function handleTimerAction(action, part) {
   state.runner.activePart = part;
   updateExamUrl();
   if (action === "start") {
+    if (state.runner.finalized || isPartLocked(part)) return;
     startOnlyTimer(part);
   }
   if (action === "pause") {
-    timer.running = false;
+    if (state.flow.mode === "exam") return;
+    pauseTimer(timer);
   }
   if (action === "reset") {
-    timer.remaining = timer.total;
-    timer.running = false;
+    if (state.flow.mode === "exam") return;
+    resetTimer(timer, durationForPart(part));
   }
   renderRunner();
 }
 
 function startOnlyTimer(part) {
+  const now = Date.now();
   for (const key of Object.keys(state.runner.timers)) {
-    state.runner.timers[key].running = key === part && state.runner.timers[key].remaining > 0;
+    const timer = state.runner.timers[key];
+    if (key === part && timer.remaining > 0 && !isPartLocked(part)) {
+      startTimer(timer, now);
+    } else {
+      pauseTimer(timer, now);
+    }
   }
 }
 
@@ -1601,6 +2153,10 @@ function handleAnswerInput(event) {
   const key = target.dataset.answer;
   if (target.type === "radio") {
     const [section, task, index] = target.name.split(".");
+    if (isPartLocked(section) && state.flow.mode === "exam") {
+      target.checked = state.answers[section]?.[task]?.[Number(index)] === target.value;
+      return;
+    }
     ensureAnswerSlot(section, task, Number(index));
     state.answers[section][task][Number(index)] = target.value;
     state.submission = null;
@@ -1609,6 +2165,10 @@ function handleAnswerInput(event) {
     return;
   }
   const [section, task, index] = key.split(".");
+  if (isPartLocked(section) && state.flow.mode === "exam") {
+    target.value = state.answers[section]?.[task]?.[Number(index)] || "";
+    return;
+  }
   ensureAnswerSlot(section, task, Number(index));
   state.answers[section][task][Number(index)] = target.value;
   state.submission = null;
@@ -1669,6 +2229,9 @@ function handleDrop(event) {
 function setDragFillAnswer(key, value) {
   const [section, task, index] = key.split(".");
   const targetIndex = Number(index);
+  if (isPartLocked(section) && state.flow.mode === "exam") {
+    return;
+  }
   ensureAnswerSlot(section, task, targetIndex);
   if (value) {
     state.answers[section][task] = state.answers[section][task].map((item, itemIndex) => (
@@ -1938,7 +2501,8 @@ function renderTts() {
       ${state.assets.audio.map(asset => `
         <article class="media-card">
           <h3>${escapeHtml(asset.label)}</h3>
-          <audio controls preload="none" src="${asset.url}"></audio>
+          <audio controls preload="none" src="${asset.url}" data-playback-track="listening" data-playback-key="${escapeHtml(asset.path)}"></audio>
+          <span class="playback-count">${getMediaPlaybackCount("listening", asset.path)} listens</span>
           <p><code>${escapeHtml(asset.path)}</code></p>
         </article>
       `).join("")}
@@ -1994,8 +2558,12 @@ function buildQualityChecks() {
 }
 
 function submitAnswers() {
+  stopActiveSpeakingRecorder();
   for (const timer of Object.values(state.runner.timers)) {
-    timer.running = false;
+    pauseTimer(timer);
+  }
+  if (state.flow.mode === "exam") {
+    lockAllParts();
   }
   state.submission = buildSubmission("submitted");
   persistSubmission(state.submission);
@@ -2008,8 +2576,12 @@ function submitAnswers() {
 
 async function evaluateSubmissionWithAi() {
   if (state.evaluating) return;
+  stopActiveSpeakingRecorder();
   for (const timer of Object.values(state.runner.timers)) {
-    timer.running = false;
+    pauseTimer(timer);
+  }
+  if (state.flow.mode === "exam") {
+    lockAllParts();
   }
   state.submission = buildSubmission("submitted");
   state.evaluating = true;
@@ -2070,6 +2642,7 @@ function buildSubmission(status = "draft") {
     language: "lv",
     source_path: state.exam.sourcePath,
     exam_url: window.location.href,
+    candidate: cloneJson(state.flow.candidate),
     created_at: now,
     submitted_at: status === "submitted" ? now : null,
     pass_rule: {
@@ -2081,6 +2654,8 @@ function buildSubmission(status = "draft") {
     progress: getExamProgress(),
     timers: snapshotTimers(),
     answers: cloneJson(state.answers),
+    speaking_recordings: serializeSpeakingSessions(),
+    media_playback_counts: cloneJson(state.runner.playbackCounts),
     answer_key: answerKey,
     scoring,
     validation_queue: buildValidationQueue(answerKey),
@@ -2232,9 +2807,9 @@ function snapshotTimers() {
     part,
     {
       total_seconds: timer.total,
-      remaining_seconds: timer.remaining,
-      elapsed_seconds: timer.total - timer.remaining,
-      remaining_display: formatTime(timer.remaining)
+      remaining_seconds: calculateRemaining(timer),
+      elapsed_seconds: timer.total - calculateRemaining(timer),
+      remaining_display: formatTime(calculateRemaining(timer))
     }
   ]));
 }
@@ -2253,6 +2828,12 @@ function persistSubmission(submission) {
 function renderSubmission() {
   const submission = state.submission || buildSubmission("draft");
   const score = submission.scoring;
+  const evaluation = state.evaluation?.evaluation || submission.ai_evaluation || null;
+  const reportModel = buildCandidateReportModel({
+    submission,
+    evaluation,
+    candidate: submission.candidate || state.flow.candidate
+  });
   els.submissionOutput.innerHTML = `
     <section class="submission-hero">
       <div>
@@ -2268,9 +2849,13 @@ function renderSubmission() {
     <div class="submission-actions">
       <button type="button" data-submission-action="submit">${submission.status === "submitted" ? "Resubmit answers" : "Submit answers"}</button>
       <button type="button" data-submission-action="evaluate" ${state.evaluating ? "disabled" : ""}>${state.evaluating ? "Scoring..." : "AI score and corrections"}</button>
+      <button type="button" data-submission-action="pdf">Export PDF</button>
       <button type="button" data-submission-action="copy">Copy JSON</button>
       <button type="button" data-submission-action="download">Download JSON</button>
     </div>
+    <section class="candidate-report">
+      ${buildCandidateReportHtml(reportModel)}
+    </section>
     ${renderAiEvaluationPanel()}
     <pre class="code-panel submission-json">${escapeHtml(JSON.stringify(submission, null, 2))}</pre>
   `;
@@ -2387,6 +2972,10 @@ function handleSubmissionAction(action) {
     evaluateSubmissionWithAi();
     return;
   }
+  if (action === "pdf") {
+    exportCandidateReportPdf();
+    return;
+  }
   const submission = ensureSubmission("draft");
   if (action === "copy") {
     copyText(JSON.stringify(submission, null, 2), "Submission copied");
@@ -2395,6 +2984,15 @@ function handleSubmissionAction(action) {
   if (action === "download") {
     downloadFile(`${submission.submission_id}.json`, JSON.stringify(submission, null, 2), "application/json");
   }
+}
+
+function exportCandidateReportPdf() {
+  const onAfterPrint = () => {
+    document.body.classList.remove("report-print-mode");
+  };
+  document.body.classList.add("report-print-mode");
+  window.addEventListener("afterprint", onAfterPrint, { once: true });
+  window.print();
 }
 
 function syncEvaluationButtons() {
@@ -2425,6 +3023,9 @@ function buildExportJson() {
     },
     assets: state.assets,
     answers: state.answers,
+    candidate: state.flow.candidate,
+    speaking_recordings: serializeSpeakingSessions(),
+    media_playback_counts: state.runner.playbackCounts,
     answer_key: answerKey,
     latest_submission: state.submission,
     latest_ai_evaluation: state.evaluation,

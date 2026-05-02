@@ -13,8 +13,10 @@ import tempfile
 import threading
 import time
 import hashlib
+import uuid
 import urllib.error
 import urllib.request
+from urllib.parse import parse_qs, urlparse
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -23,10 +25,12 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent
 MAX_BODY_BYTES = 1_500_000
+MAX_UPLOAD_BYTES = 15_000_000
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_CODEX_MODEL = "gpt-5.2"
 CODEX_OSS_DEFAULT_MODEL_LABEL = "codex-oss-default"
 CODEX_TIMEOUT_SECONDS = 300
+UPLOAD_ROOT = ROOT / ".runtime" / "speaking_uploads"
 EVALUATION_CACHE: dict[str, dict[str, Any]] = {}
 EVALUATION_CACHE_LOCK = threading.Lock()
 
@@ -61,6 +65,95 @@ def safe_read_json(handler: SimpleHTTPRequestHandler) -> dict[str, Any]:
         raise ValueError("Request body is too large.")
     raw = handler.rfile.read(length)
     return json.loads(raw.decode("utf-8"))
+
+
+def safe_upload_extension(content_type: str) -> str:
+    lowered = content_type.lower()
+    if "webm" in lowered:
+        return ".webm"
+    if "mp4" in lowered or "m4a" in lowered:
+        return ".m4a"
+    if "ogg" in lowered:
+        return ".ogg"
+    return ".bin"
+
+
+def relative_or_absolute_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
+def upload_storage_for_id(upload_id: str) -> Path:
+    return UPLOAD_ROOT / f"{upload_id}.json"
+
+
+def store_speaking_upload(
+    *,
+    content: bytes,
+    content_type: str,
+    query: dict[str, list[str]],
+) -> dict[str, Any]:
+    if len(content) == 0:
+        raise ValueError("Audio upload body is empty.")
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise ValueError("Audio upload is too large.")
+
+    submission_id = (query.get("submission_id") or [""])[0].strip()
+    task = (query.get("task") or [""])[0].strip()
+    exam_id = (query.get("exam_id") or [""])[0].strip()
+    if not submission_id:
+        raise ValueError("submission_id is required for speaking uploads.")
+    if not task:
+        raise ValueError("task is required for speaking uploads.")
+
+    upload_id = uuid.uuid4().hex
+    UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+    upload_dir = UPLOAD_ROOT / submission_id / task
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    extension = safe_upload_extension(content_type or "audio/webm")
+    audio_path = upload_dir / f"{upload_id}{extension}"
+    meta_path = upload_storage_for_id(upload_id)
+    created_at = time.time()
+    audio_path.write_bytes(content)
+    meta_path.write_text(
+        json.dumps(
+            {
+                "upload_id": upload_id,
+                "submission_id": submission_id,
+                "task": task,
+                "exam_id": exam_id,
+                "content_type": content_type or "audio/webm",
+                "file_path": relative_or_absolute_path(audio_path),
+                "created_at": created_at,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "upload_id": upload_id,
+        "submission_id": submission_id,
+        "task": task,
+        "exam_id": exam_id,
+        "content_type": content_type or "audio/webm",
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(created_at)),
+        "upload_url": f"/api/uploads/speaking/{upload_id}",
+    }
+
+
+def find_uploaded_recording(upload_id: str) -> tuple[Path, dict[str, Any]]:
+    meta_matches = list(UPLOAD_ROOT.rglob(f"{upload_id}.json"))
+    if not meta_matches:
+        raise FileNotFoundError(upload_id)
+    meta_path = meta_matches[0]
+    metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+    file_path = ROOT / metadata["file_path"]
+    if not file_path.exists():
+        raise FileNotFoundError(upload_id)
+    return file_path, metadata
 
 
 def extract_json_object(text: str) -> dict[str, Any]:
@@ -431,7 +524,47 @@ class AppHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
+    def do_GET(self) -> None:
+        if self.path.startswith("/api/uploads/speaking/"):
+            upload_id = self.path.rsplit("/", 1)[-1].split("?", 1)[0].strip()
+            try:
+                file_path, metadata = find_uploaded_recording(upload_id)
+            except FileNotFoundError:
+                json_response(self, HTTPStatus.NOT_FOUND, {"error": "Upload not found."})
+                return
+
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", metadata.get("content_type", "audio/webm"))
+            self.send_header("Content-Length", str(file_path.stat().st_size))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            with file_path.open("rb") as stream:
+                shutil.copyfileobj(stream, self.wfile)
+            return
+
+        return super().do_GET()
+
     def do_POST(self) -> None:
+        if self.path.startswith("/api/uploads/speaking"):
+            try:
+                parsed = urlparse(self.path)
+                query = parse_qs(parsed.query)
+                length = int(self.headers.get("Content-Length", "0") or "0")
+                if length <= 0:
+                    raise ValueError("Audio upload body is empty.")
+                if length > MAX_UPLOAD_BYTES:
+                    raise ValueError("Audio upload is too large.")
+                content = self.rfile.read(length)
+                result = store_speaking_upload(
+                    content=content,
+                    content_type=self.headers.get("Content-Type", "audio/webm"),
+                    query=query,
+                )
+                json_response(self, HTTPStatus.OK, result)
+            except Exception as error:  # noqa: BLE001 - API should always return JSON.
+                json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+            return
+
         if self.path != "/api/evaluate":
             json_response(self, HTTPStatus.NOT_FOUND, {"error": "Unknown endpoint."})
             return
