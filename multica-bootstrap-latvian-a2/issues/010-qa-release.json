@@ -1,0 +1,20 @@
+{
+  "assignee_id": "abcdf106-12ba-4f52-9f4a-e60ef1bdec71",
+  "assignee_type": "agent",
+  "created_at": "2026-05-01T12:53:49Z",
+  "creator_id": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "creator_type": "member",
+  "description": "Tasks:\n1. Add E2E tests for full learner journey: sign up, choose free/paid exam, take exam, submit, view results/history.\n2. Add tests for real simulation restrictions and timer expiry.\n3. Add tests for auth-protected routes.\n4. Add tests for entitlement enforcement and Stripe webhook idempotency.\n5. Add tests for AI scoring failure/retry/quota states.\n6. Create release regression checklist.\n\nAcceptance criteria:\n- CI can run deterministic tests without live paid APIs.\n- Test fixtures exist for exam content, auth sessions, payments, scoring responses, and media upload.\n- Release checklist blocks launch if critical flows fail.\n- QA summary is posted to each issue before marking ready for review.",
+  "due_date": null,
+  "id": "b65eaa93-6753-4383-9e34-51638feb8c33",
+  "identifier": "HUM-16",
+  "number": 16,
+  "parent_issue_id": null,
+  "position": 0,
+  "priority": "high",
+  "project_id": "fadba75a-251e-45bb-bc18-d9e6494af677",
+  "status": "todo",
+  "title": "[QA] Add end-to-end regression suite and release gate checklist",
+  "updated_at": "2026-05-01T12:53:49Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

@@ -1,0 +1,1 @@
+Error: import skill: POST /api/skills/import returned 502: {"error":"failed to inspect repository vercel-labs/agent-skills for skill vercel-react-best-practices: HTTP 403"}

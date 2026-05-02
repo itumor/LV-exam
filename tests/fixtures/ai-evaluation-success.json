@@ -1,0 +1,57 @@
+{
+  "provider": "mock",
+  "model": "fixture-judge",
+  "evaluation": {
+    "status": "evaluated",
+    "scores": {
+      "listening": {
+        "points": 15,
+        "max_points": 15,
+        "passed": true,
+        "reason": "All objective responses matched the fixture key."
+      },
+      "reading": {
+        "points": 15,
+        "max_points": 15,
+        "passed": true,
+        "reason": "Reading answers were complete and consistent."
+      },
+      "writing": {
+        "points": 15,
+        "max_points": 15,
+        "passed": true,
+        "reason": "Writing answers were clear enough for the fixture."
+      },
+      "speaking": {
+        "points": 15,
+        "max_points": 15,
+        "passed": true,
+        "reason": "Speaking answers satisfied the practice rubric."
+      },
+      "total": 60,
+      "passed": true
+    },
+    "corrections": [
+      {
+        "skill": "writing",
+        "task": "task3",
+        "item": 1,
+        "candidate_answer": "Es gribu kafija.",
+        "suggested_answer": "Es gribu kafiju.",
+        "comment": "Fixture correction for noun case."
+      }
+    ],
+    "feedback": {
+      "summary": "Fixture evaluation for the regression suite.",
+      "strengths": [
+        "Objective answers are reproducible."
+      ],
+      "improvements": [
+        "Keep AI feedback visible when scoring succeeds."
+      ],
+      "next_practice": [
+        "Try one more full exam with the same fixture."
+      ]
+    }
+  }
+}

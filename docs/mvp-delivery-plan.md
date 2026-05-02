@@ -107,6 +107,8 @@ Exit criteria:
 - Outputs: login, account recovery if needed, learner profile, progress dashboard, and auth sync into the database.
 - Tests: sign-in, protected route access, webhook verification, and dashboard data visibility.
 - Blocker handling: if auth provider setup is delayed, build the profile and dashboard contract against mocked identity data first.
+- MVP auth decision: keep the current server-managed email/password session flow as the launch path and defer an external IdP migration until the product needs it. See [[Auth Accounts MVP Decision]].
+- Deterministic smoke coverage: `scripts/smoke_auth_accounts.py` exercises register, login, logout, dashboard visibility, webhook rejection, export, delete, and secret-leak checks against a throwaway server instance.
 
 ### HUM-11 - Stripe Checkout, subscriptions, exam packs, and entitlements
 

@@ -1,0 +1,12 @@
+{
+  "config": {},
+  "content": "\n# Latvian A2 Auth Accounts\n\nSupport account creation/login, learner profile fields, exam target date, attempt dashboard, latest score, skill progress, billing/entitlement status, account deletion/export, and protected API routes. Never expose secret keys client-side. Webhooks must verify signatures and be idempotent. Keep public marketing/pricing pages accessible while protecting paid exam and dashboard routes.",
+  "created_at": "2026-05-01T12:52:09Z",
+  "created_by": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "description": "Implement authentication, learner profiles, account dashboard, privacy flows, and auth webhook sync for the exam simulator.",
+  "files": [],
+  "id": "fc080cd0-5f07-48a0-ab8c-86c6fd24cdea",
+  "name": "latvian-a2-auth-accounts",
+  "updated_at": "2026-05-01T12:52:09Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

@@ -1,0 +1,20 @@
+{
+  "assignee_id": "93d185ef-e54f-4f2f-9c6b-119705d27cc6",
+  "assignee_type": "agent",
+  "created_at": "2026-05-01T12:53:44Z",
+  "creator_id": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "creator_type": "member",
+  "description": "Tasks:\n1. Build provider abstraction for AI scoring.\n2. Implement writing and speaking scoring rubrics with deterministic prompt templates.\n3. Store prompt version, rubric version, model, input hash, provider status, score, feedback, retry/failure state, and estimated cost.\n4. Add quotas by user/plan and retry caps.\n5. Add request size limits and cost telemetry.\n6. Clearly label scores as practice estimates, not official results.\n\nAcceptance criteria:\n- AI scoring only applies to writing/speaking/free text.\n- Scoring output is schema validated.\n- Retries and failure states are visible to user/admin.\n- Quotas prevent unbounded LLM spend.\n- Tests cover successful scoring, invalid model response, provider timeout, quota exceeded, and retry exhaustion.",
+  "due_date": null,
+  "id": "034d2c12-b4c8-4ec7-aacc-53095b162505",
+  "identifier": "HUM-12",
+  "number": 12,
+  "parent_issue_id": null,
+  "position": 0,
+  "priority": "high",
+  "project_id": "fadba75a-251e-45bb-bc18-d9e6494af677",
+  "status": "todo",
+  "title": "[AI Scoring] Add rubric scoring, retries, quotas, and cost controls",
+  "updated_at": "2026-05-01T12:53:44Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}
