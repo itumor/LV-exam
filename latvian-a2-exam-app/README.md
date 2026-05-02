@@ -46,6 +46,8 @@ The Codex provider expects the `codex` executable to be available to the `server
 
 In the app, use **Submit Answers**, then **AI Score** or **AI score and corrections**. The frontend sends the current submission and exam Markdown to `/api/evaluate`; the server calls the configured LLM and returns per-skill points, corrections, and feedback.
 
+The scoring response includes telemetry for retries, quota state, and estimated cost, and the UI labels the result as a practice estimate rather than an official exam result.
+
 ### Docker with Codex on the host
 
 The Docker container cannot execute the macOS Codex CLI installed on the laptop. To use Docker for the app and Codex CLI from the host, run a small host-local scoring server on a different port:

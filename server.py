@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import math
 import re
 import shutil
 import socket
@@ -27,8 +28,346 @@ DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_CODEX_MODEL = "gpt-5.2"
 CODEX_OSS_DEFAULT_MODEL_LABEL = "codex-oss-default"
 CODEX_TIMEOUT_SECONDS = 300
+DEFAULT_RETRY_LIMIT = 3
+DEFAULT_DAILY_REQUEST_LIMITS = {
+    "anonymous": 2,
+    "free": 3,
+    "pro": 12,
+    "enterprise": 30,
+    "admin": 100,
+}
+DEFAULT_DAILY_COST_LIMIT_CENTS = {
+    "anonymous": 50,
+    "free": 100,
+    "pro": 500,
+    "enterprise": 2_000,
+    "admin": 10_000,
+}
+MAX_FREE_TEXT_CHARS = int(os.getenv("AI_SCORING_MAX_FREE_TEXT_CHARS", "12000"))
+MAX_TOTAL_ANSWER_CHARS = int(os.getenv("AI_SCORING_MAX_TOTAL_ANSWER_CHARS", "40000"))
+DEFAULT_PLAN = os.getenv("AI_SCORING_DEFAULT_PLAN", "free").strip().lower() or "free"
 EVALUATION_CACHE: dict[str, dict[str, Any]] = {}
 EVALUATION_CACHE_LOCK = threading.Lock()
+QUOTA_USAGE: dict[str, dict[str, Any]] = {}
+QUOTA_USAGE_LOCK = threading.Lock()
+AUDIT_LOG: list[dict[str, Any]] = []
+AUDIT_LOG_LOCK = threading.Lock()
+
+
+class ProviderResponseError(RuntimeError):
+    def __init__(self, message: str, *, retriable: bool = False) -> None:
+        super().__init__(message)
+        self.retriable = retriable
+
+
+class QuotaExceededError(RuntimeError):
+    def __init__(self, message: str, *, status_code: int = HTTPStatus.TOO_MANY_REQUESTS) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class EvaluationError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int = HTTPStatus.BAD_GATEWAY,
+        retry_state: str = "failed",
+        telemetry: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.retry_state = retry_state
+        self.telemetry = telemetry or {}
+
+
+def current_day_key() -> str:
+    return time.strftime("%Y-%m-%d", time.gmtime())
+
+
+def identity_from_submission(submission: dict[str, Any]) -> dict[str, str]:
+    candidate = submission.get("candidate", {})
+    candidate_code = ""
+    if isinstance(candidate, dict):
+        candidate_code = str(candidate.get("code", "") or "").strip()
+    user_key = (
+        str(submission.get("user_id", "") or "").strip()
+        or str(submission.get("candidate_code", "") or "").strip()
+        or candidate_code
+        or str(submission.get("submission_id", "") or "").strip()
+        or "anonymous"
+    )
+    plan = str(submission.get("plan", "") or submission.get("access_plan", "") or DEFAULT_PLAN).strip().lower()
+    if not plan:
+        plan = DEFAULT_PLAN
+    return {"user_key": user_key, "plan": plan}
+
+
+def retry_limit() -> int:
+    raw = os.getenv("AI_SCORING_MAX_RETRIES", str(DEFAULT_RETRY_LIMIT)).strip()
+    try:
+        return max(1, int(raw))
+    except ValueError as error:
+        raise RuntimeError("AI_SCORING_MAX_RETRIES must be an integer.") from error
+
+
+def plan_request_limit(plan: str) -> int:
+    env_name = f"AI_SCORING_DAILY_REQUEST_LIMIT_{plan.upper()}"
+    raw = os.getenv(env_name, "").strip()
+    if raw:
+        try:
+            return max(0, int(raw))
+        except ValueError as error:
+            raise RuntimeError(f"{env_name} must be an integer.") from error
+    return DEFAULT_DAILY_REQUEST_LIMITS.get(plan, DEFAULT_DAILY_REQUEST_LIMITS["free"])
+
+
+def plan_cost_limit_cents(plan: str) -> int:
+    env_name = f"AI_SCORING_DAILY_COST_LIMIT_CENTS_{plan.upper()}"
+    raw = os.getenv(env_name, "").strip()
+    if raw:
+        try:
+            return max(0, int(raw))
+        except ValueError as error:
+            raise RuntimeError(f"{env_name} must be an integer.") from error
+    return DEFAULT_DAILY_COST_LIMIT_CENTS.get(plan, DEFAULT_DAILY_COST_LIMIT_CENTS["free"])
+
+
+def cost_rate_cents_per_1k_tokens(provider: str) -> float:
+    if provider == "groq":
+        raw = os.getenv("GROQ_COST_CENTS_PER_1K_TOKENS", "1.0").strip()
+    else:
+        raw = os.getenv("CODEX_COST_CENTS_PER_1K_TOKENS", "1.0").strip()
+    try:
+        value = float(raw)
+    except ValueError as error:
+        raise RuntimeError("AI scoring cost rate must be numeric.") from error
+    return max(0.0, value)
+
+
+def estimate_text_tokens(text: str) -> int:
+    return max(1, math.ceil(len(text) / 4))
+
+
+def estimate_request_cost_cents(provider: str, submission_context: dict[str, Any], exam_context: str) -> int:
+    request_text = json.dumps(
+        {"submission": submission_context, "exam_context": exam_context},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    input_tokens = estimate_text_tokens(request_text)
+    output_tokens = int(os.getenv("AI_SCORING_MAX_OUTPUT_TOKENS", "1200"))
+    rate = cost_rate_cents_per_1k_tokens(provider)
+    estimated = ((input_tokens + output_tokens) * rate) / 1000.0
+    return max(1, math.ceil(estimated))
+
+
+def validate_submission_size(submission_context: dict[str, Any]) -> None:
+    answers = submission_context.get("answers", {})
+    if not isinstance(answers, dict):
+        raise ValueError("Submission answers must be an object.")
+    total_chars = 0
+    for skill_values in answers.values():
+        if not isinstance(skill_values, dict):
+            raise ValueError("Submission answers must be nested objects.")
+        for task_values in skill_values.values():
+            if not isinstance(task_values, list):
+                raise ValueError("Submission answers must contain arrays of responses.")
+            for answer in task_values:
+                answer_text = str(answer or "")
+                total_chars += len(answer_text)
+                if len(answer_text) > MAX_FREE_TEXT_CHARS:
+                    raise ValueError("A response is too long for AI scoring.")
+    if total_chars > MAX_TOTAL_ANSWER_CHARS:
+        raise ValueError("The submitted answers are too large for AI scoring.")
+
+
+def reserve_quota(identity: dict[str, str], estimated_cost_cents: int) -> dict[str, Any]:
+    plan = identity["plan"]
+    user_key = identity["user_key"]
+    quota_key = f"{plan}:{user_key}:{current_day_key()}"
+    request_limit = plan_request_limit(plan)
+    cost_limit = plan_cost_limit_cents(plan)
+
+    with QUOTA_USAGE_LOCK:
+        usage = QUOTA_USAGE.setdefault(
+            quota_key,
+            {
+                "requests": 0,
+                "estimated_cost_cents": 0,
+                "plan": plan,
+                "user_key": user_key,
+                "day": current_day_key(),
+            },
+        )
+        if usage["requests"] >= request_limit:
+            raise QuotaExceededError(
+                f"AI scoring quota exceeded for plan '{plan}'. Retry tomorrow or upgrade your plan."
+            )
+        if usage["estimated_cost_cents"] + estimated_cost_cents > cost_limit:
+            raise QuotaExceededError(
+                f"AI scoring daily cost budget exceeded for plan '{plan}'. Try again tomorrow."
+            )
+        usage["requests"] += 1
+        usage["estimated_cost_cents"] += estimated_cost_cents
+        usage["last_request_at"] = time.time()
+        return {
+            "quota_key": quota_key,
+            "request_limit": request_limit,
+            "cost_limit_cents": cost_limit,
+            "usage": dict(usage),
+        }
+
+
+def record_audit_event(event: dict[str, Any]) -> None:
+    redacted = dict(event)
+    if "submission" in redacted:
+        redacted["submission"] = {
+            "submission_id": redacted["submission"].get("submission_id"),
+            "exam_id": redacted["submission"].get("exam_id"),
+            "plan": redacted["submission"].get("plan"),
+            "candidate_code": redacted["submission"].get("candidate", {}).get("code") if isinstance(redacted["submission"].get("candidate"), dict) else None,
+        }
+    with AUDIT_LOG_LOCK:
+        AUDIT_LOG.append(redacted)
+        if len(AUDIT_LOG) > 200:
+            del AUDIT_LOG[: len(AUDIT_LOG) - 200]
+
+
+def safe_int(value: Any, *, field_name: str, minimum: int | None = None, maximum: int | None = None) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be an integer.")
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{field_name} must be an integer.") from error
+    if minimum is not None and parsed < minimum:
+        raise ValueError(f"{field_name} must be at least {minimum}.")
+    if maximum is not None and parsed > maximum:
+        raise ValueError(f"{field_name} must be at most {maximum}.")
+    return parsed
+
+
+def safe_bool(value: Any, *, field_name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"{field_name} must be a boolean.")
+
+
+def safe_text(value: Any, *, field_name: str, max_length: int = 4000) -> str:
+    if value is None:
+        return ""
+    if not isinstance(value, (str, int, float)):
+        raise ValueError(f"{field_name} must be text.")
+    text = str(value).strip()
+    if len(text) > max_length:
+        raise ValueError(f"{field_name} is too long.")
+    return text
+
+
+def normalize_score_section(raw_section: Any, *, skill: str) -> dict[str, Any]:
+    if not isinstance(raw_section, dict):
+        raise ValueError(f"Scores for {skill} must be an object.")
+    points = safe_int(raw_section.get("points"), field_name=f"{skill}.points", minimum=0, maximum=15)
+    max_points = safe_int(raw_section.get("max_points", 15), field_name=f"{skill}.max_points", minimum=15, maximum=15)
+    reason = safe_text(raw_section.get("reason", ""), field_name=f"{skill}.reason", max_length=2000)
+    return {
+        "points": points,
+        "max_points": max_points,
+        "passed": points >= 9,
+        "reason": reason,
+    }
+
+
+def normalize_corrections(raw_corrections: Any) -> list[dict[str, Any]]:
+    if raw_corrections is None:
+        return []
+    if not isinstance(raw_corrections, list):
+        raise ValueError("Corrections must be an array.")
+    normalized: list[dict[str, Any]] = []
+    for index, item in enumerate(raw_corrections[:50], start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f"Correction #{index} must be an object.")
+        normalized.append(
+            {
+                "skill": safe_text(item.get("skill", ""), field_name=f"corrections[{index}].skill", max_length=40),
+                "task": safe_text(item.get("task", ""), field_name=f"corrections[{index}].task", max_length=80),
+                "item": safe_int(item.get("item", 1), field_name=f"corrections[{index}].item", minimum=1),
+                "candidate_answer": safe_text(
+                    item.get("candidate_answer", ""),
+                    field_name=f"corrections[{index}].candidate_answer",
+                    max_length=1200,
+                ),
+                "suggested_answer": safe_text(
+                    item.get("suggested_answer", ""),
+                    field_name=f"corrections[{index}].suggested_answer",
+                    max_length=1200,
+                ),
+                "comment": safe_text(item.get("comment", ""), field_name=f"corrections[{index}].comment", max_length=2000),
+            }
+        )
+    return normalized
+
+
+def normalize_feedback_items(raw_items: Any, *, field_name: str) -> list[str]:
+    if raw_items is None:
+        return []
+    if not isinstance(raw_items, list):
+        raise ValueError(f"{field_name} must be an array.")
+    return [safe_text(item, field_name=f"{field_name}[]", max_length=600) for item in raw_items]
+
+
+def normalize_feedback(raw_feedback: Any) -> dict[str, Any]:
+    if raw_feedback is None:
+        raw_feedback = {}
+    if not isinstance(raw_feedback, dict):
+        raise ValueError("Feedback must be an object.")
+    return {
+        "summary": safe_text(raw_feedback.get("summary", ""), field_name="feedback.summary", max_length=4000),
+        "strengths": normalize_feedback_items(raw_feedback.get("strengths"), field_name="feedback.strengths"),
+        "improvements": normalize_feedback_items(raw_feedback.get("improvements"), field_name="feedback.improvements"),
+        "next_practice": normalize_feedback_items(raw_feedback.get("next_practice"), field_name="feedback.next_practice"),
+    }
+
+
+def validate_and_normalize_evaluation_payload(raw_payload: Any) -> dict[str, Any]:
+    if not isinstance(raw_payload, dict):
+        raise ValueError("LLM response must be a JSON object.")
+    status = safe_text(raw_payload.get("status", ""), field_name="status", max_length=40).lower()
+    if status != "evaluated":
+        raise ValueError("LLM response status must be 'evaluated'.")
+    scores = raw_payload.get("scores")
+    if not isinstance(scores, dict):
+        raise ValueError("LLM response scores must be an object.")
+
+    normalized_scores: dict[str, Any] = {}
+    total = 0
+    passed = True
+    for skill in ("listening", "reading", "writing", "speaking"):
+        normalized_section = normalize_score_section(scores.get(skill), skill=skill)
+        normalized_scores[skill] = normalized_section
+        total += normalized_section["points"]
+        passed = passed and normalized_section["passed"]
+
+    normalized_scores["total"] = total
+    normalized_scores["passed"] = passed
+    return {
+        "status": "evaluated",
+        "scores": normalized_scores,
+        "corrections": normalize_corrections(raw_payload.get("corrections", [])),
+        "feedback": normalize_feedback(raw_payload.get("feedback", {})),
+    }
+
+
+def provider_call_once(config: dict[str, Any], submission_context: dict[str, Any], exam_context: str) -> dict[str, Any]:
+    if config["provider"] == "groq":
+        return call_groq(config, submission_context, exam_context)
+    if config["provider"] == "codex" and config.get("mode") == "remote":
+        return call_codex_remote(config, submission_context, exam_context)
+    if config["provider"] == "codex":
+        return call_codex(config, submission_context, exam_context)
+    raise RuntimeError("Unsupported LLM provider.")
 
 
 def load_dotenv(path: Path) -> None:
@@ -120,6 +459,8 @@ def compact_submission(submission: dict[str, Any]) -> dict[str, Any]:
     }
     return {
         "submission_id": submission.get("submission_id"),
+        "candidate": submission.get("candidate", {}),
+        "plan": submission.get("plan", DEFAULT_PLAN),
         "exam_id": submission.get("exam_id"),
         "exam_title": submission.get("exam_title"),
         "level": submission.get("level", "A2"),
@@ -280,34 +621,25 @@ def call_groq(config: dict[str, Any], submission_context: dict[str, Any], exam_c
         method="POST",
     )
 
-    last_error: Exception | None = None
-    for attempt in range(3):
-        try:
-            with urllib.request.urlopen(request, timeout=120) as response:
-                result = json.loads(response.read().decode("utf-8"))
-            content = result["choices"][0]["message"]["content"]
-            evaluation = extract_json_object(content)
-            return {
-                "provider": config["provider"],
-                "model": config["model"],
-                "evaluation": evaluation,
-                "usage": result.get("usage", {}),
-            }
-        except urllib.error.HTTPError as error:
-            last_error = error
-            if error.code not in {429, 500, 502, 503, 504} or attempt == 2:
-                raise
-            retry_after = error.headers.get("Retry-After")
-            delay = 2 ** attempt
-            if retry_after:
-                try:
-                    delay = max(delay, int(float(retry_after)))
-                except ValueError:
-                    pass
-            time.sleep(delay)
-
-    assert last_error is not None
-    raise last_error
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        content = result["choices"][0]["message"]["content"]
+        evaluation = extract_json_object(content)
+        return {
+            "provider": config["provider"],
+            "model": config["model"],
+            "evaluation": evaluation,
+            "usage": result.get("usage", {}),
+        }
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise ProviderResponseError(
+            provider_error_message(error.code, detail),
+            retriable=error.code in {429, 500, 502, 503, 504},
+        ) from error
+    except (TimeoutError, urllib.error.URLError, KeyError, json.JSONDecodeError) as error:
+        raise ProviderResponseError(str(error), retriable=True) from error
 
 
 def call_codex(config: dict[str, Any], submission_context: dict[str, Any], exam_context: str) -> dict[str, Any]:
@@ -397,24 +729,146 @@ def evaluate_submission(submission: dict[str, Any], exam_markdown: str) -> dict[
     config = provider_config()
     exam_context = compact_exam_context(exam_markdown)
     submission_context = compact_submission(submission)
+    validate_submission_size(submission_context)
     cache_key = submission_cache_key(submission_context, exam_context, config["provider"], config["model"])
     with EVALUATION_CACHE_LOCK:
         cached = EVALUATION_CACHE.get(cache_key)
     if cached:
         return cached
 
-    if config["provider"] == "groq":
-        result_payload = call_groq(config, submission_context, exam_context)
-    elif config["provider"] == "codex" and config.get("mode") == "remote":
-        result_payload = call_codex_remote(config, submission_context, exam_context)
-    elif config["provider"] == "codex":
-        result_payload = call_codex(config, submission_context, exam_context)
-    else:
-        raise RuntimeError("Unsupported LLM provider.")
+    identity = identity_from_submission(submission_context)
+    estimated_cost_cents = estimate_request_cost_cents(config["provider"], submission_context, exam_context)
+    quota_snapshot = reserve_quota(identity, estimated_cost_cents)
 
-    with EVALUATION_CACHE_LOCK:
-        EVALUATION_CACHE[cache_key] = result_payload
-    return result_payload
+    attempt_limit = retry_limit()
+    attempt_history: list[dict[str, Any]] = []
+    last_error: Exception | None = None
+    last_status_code = HTTPStatus.BAD_GATEWAY
+    for attempt in range(1, attempt_limit + 1):
+        started = time.perf_counter()
+        try:
+            raw_result = provider_call_once(config, submission_context, exam_context)
+            normalized_evaluation = validate_and_normalize_evaluation_payload(raw_result.get("evaluation"))
+            result_payload = {
+                "status": "evaluated",
+                "provider": raw_result.get("provider", config["provider"]),
+                "model": raw_result.get("model", config["model"]),
+                "evaluation": normalized_evaluation,
+                "usage": raw_result.get("usage", {}),
+                "telemetry": {
+                    "identity": identity,
+                    "plan": identity["plan"],
+                    "quota": {
+                        "key": quota_snapshot["quota_key"],
+                        "request_limit": quota_snapshot["request_limit"],
+                        "cost_limit_cents": quota_snapshot["cost_limit_cents"],
+                        "usage": quota_snapshot["usage"],
+                    },
+                    "request_bytes": len(
+                        json.dumps(
+                            {"submission": submission_context, "exam_context": exam_context},
+                            ensure_ascii=False,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ).encode("utf-8")
+                    ),
+                    "estimated_cost_cents": estimated_cost_cents,
+                    "attempts": attempt_history + [
+                        {
+                            "attempt": attempt,
+                            "status": "success",
+                            "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+                        }
+                    ],
+                    "retry_limit": attempt_limit,
+                },
+            }
+            with EVALUATION_CACHE_LOCK:
+                EVALUATION_CACHE[cache_key] = result_payload
+            record_audit_event(
+                {
+                    "event": "evaluation.success",
+                    "submission": submission_context,
+                    "provider": result_payload["provider"],
+                    "model": result_payload["model"],
+                    "telemetry": result_payload["telemetry"],
+                }
+            )
+            return result_payload
+        except ProviderResponseError as error:
+            last_error = error
+            last_status_code = HTTPStatus.SERVICE_UNAVAILABLE if error.retriable else HTTPStatus.BAD_GATEWAY
+        except TimeoutError as error:
+            last_error = error
+            last_status_code = HTTPStatus.GATEWAY_TIMEOUT
+        except urllib.error.URLError as error:
+            last_error = error
+            last_status_code = HTTPStatus.GATEWAY_TIMEOUT
+        except ValueError as error:
+            last_error = error
+            last_status_code = HTTPStatus.BAD_GATEWAY
+        except Exception as error:  # noqa: BLE001 - all provider failures should be normalized here.
+            last_error = error
+            last_status_code = HTTPStatus.BAD_GATEWAY
+
+        attempt_history.append(
+            {
+                "attempt": attempt,
+                "status": "retrying" if attempt < attempt_limit else "failed",
+                "error": str(last_error),
+                "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+            }
+        )
+        if attempt < attempt_limit:
+            time.sleep(min(2 ** (attempt - 1), 8))
+            continue
+        break
+
+    failure_payload = {
+        "status": "failed",
+        "error": str(last_error) if last_error else "AI scoring failed.",
+        "retry_state": "exhausted" if attempt_history else "not_started",
+        "provider": config["provider"],
+        "model": config["model"],
+        "telemetry": {
+            "identity": identity,
+            "plan": identity["plan"],
+            "quota": {
+                "key": quota_snapshot["quota_key"],
+                "request_limit": quota_snapshot["request_limit"],
+                "cost_limit_cents": quota_snapshot["cost_limit_cents"],
+                "usage": quota_snapshot["usage"],
+            },
+            "request_bytes": len(
+                json.dumps(
+                    {"submission": submission_context, "exam_context": exam_context},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ),
+            "estimated_cost_cents": estimated_cost_cents,
+            "attempts": attempt_history,
+            "retry_limit": attempt_limit,
+        },
+    }
+    record_audit_event(
+        {
+            "event": "evaluation.failure",
+            "submission": submission_context,
+            "provider": config["provider"],
+            "model": config["model"],
+            "status_code": int(last_status_code),
+            "telemetry": failure_payload["telemetry"],
+            "error": str(last_error) if last_error else "AI scoring failed.",
+        }
+    )
+    raise EvaluationError(
+        failure_payload["error"],
+        status_code=last_status_code,
+        retry_state="exhausted",
+        telemetry=failure_payload["telemetry"],
+    )
 
 
 def provider_error_message(status_code: int, detail: str) -> str:
@@ -446,6 +900,26 @@ class AppHandler(SimpleHTTPRequestHandler):
                 raise ValueError("Payload must include exam_markdown text.")
             result = evaluate_submission(submission, exam_markdown)
             json_response(self, HTTPStatus.OK, result)
+        except QuotaExceededError as error:
+            json_response(
+                self,
+                error.status_code,
+                {
+                    "status": "quota_exceeded",
+                    "error": str(error),
+                },
+            )
+        except EvaluationError as error:
+            json_response(
+                self,
+                error.status_code,
+                {
+                    "status": "failed",
+                    "error": str(error),
+                    "retry_state": error.retry_state,
+                    "telemetry": error.telemetry,
+                },
+            )
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")
             json_response(self, error.code, {"error": provider_error_message(error.code, detail), "detail": detail})

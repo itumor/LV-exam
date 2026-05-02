@@ -2070,6 +2070,10 @@ function buildSubmission(status = "draft") {
     language: "lv",
     source_path: state.exam.sourcePath,
     exam_url: window.location.href,
+    candidate: {
+      code: state.flow.candidate.code.trim()
+    },
+    plan: "free",
     created_at: now,
     submitted_at: status === "submitted" ? now : null,
     pass_rule: {
@@ -2091,6 +2095,8 @@ function buildSubmission(status = "draft") {
 function buildEvaluationSubmission(submission) {
   return {
     submission_id: submission.submission_id,
+    candidate: submission.candidate,
+    plan: submission.plan,
     exam_id: submission.exam_id,
     exam_title: submission.exam_title,
     level: submission.level,
@@ -2112,6 +2118,9 @@ function buildEvaluationSubmission(submission) {
 
 function evaluationErrorHint(message) {
   const lower = String(message || "").toLowerCase();
+  if (lower.includes("quota") || lower.includes("budget") || lower.includes("too many")) {
+    return "AI scoring quota was reached for this account or plan. Try again tomorrow or upgrade the plan.";
+  }
   if (lower.includes("rate limit") || lower.includes("429")) {
     return "Groq is rate limiting this key. Wait a little and click AI Score once.";
   }
@@ -2296,7 +2305,7 @@ function renderAiEvaluationPanel() {
     return `
       <section class="ai-evaluation-panel pending">
         <h3>AI scoring</h3>
-        <p>Reviewing the submitted answers with the configured LLM provider. This can take a minute.</p>
+        <p>Reviewing the submitted answers with the configured LLM provider. This is a practice estimate, not an official exam result.</p>
       </section>
     `;
   }
@@ -2304,7 +2313,7 @@ function renderAiEvaluationPanel() {
     return `
       <section class="ai-evaluation-panel">
         <h3>AI scoring</h3>
-        <p>Submit the answers, then use AI score and corrections to validate writing and speaking responses.</p>
+        <p>Submit the answers, then use AI score and corrections to validate writing and speaking responses. The output is a practice estimate, not an official exam result.</p>
       </section>
     `;
   }
