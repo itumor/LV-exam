@@ -74,10 +74,10 @@
           <button id="evaluate-submission" type="button">AI Score</button>
           <button id="copy-submission" type="button">Copy Submission</button>
           <button id="download-submission" type="button">Save Submission</button>
-          <button id="copy-markdown" type="button">Copy Markdown</button>
-          <button id="copy-json" type="button">Copy JSON</button>
-          <button id="download-markdown" type="button">Save .md</button>
-          <button id="download-json" type="button">Save .json</button>
+          <button id="copy-markdown" type="button" data-debug-control="true">Copy Markdown</button>
+          <button id="copy-json" type="button" data-debug-control="true">Copy JSON</button>
+          <button id="download-markdown" type="button" data-debug-control="true">Save .md</button>
+          <button id="download-json" type="button" data-debug-control="true">Save .json</button>
         </div>
       </aside>
 
@@ -137,6 +137,7 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="flow-core.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

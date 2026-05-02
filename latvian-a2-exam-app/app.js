@@ -11,6 +11,11 @@ const EXAMS = Array.from({ length: 10 }, (_, index) => {
   };
 });
 
+const flowCore = window.ExamFlowCore;
+if (!flowCore) {
+  throw new Error("ExamFlowCore helper script did not load before app.js");
+}
+
 const state = {
   exam: EXAMS[0],
   markdown: "",
@@ -39,6 +44,7 @@ const state = {
   flow: {
     screen: "home",
     mode: "exam",
+    debugMode: false,
     candidate: {
       code: "",
       firstName: "",
@@ -68,6 +74,7 @@ const PART_CONFIG = [
 ];
 
 const FLOW_SCREENS = new Set(["home", "register", "instructions", "exam", "results"]);
+const DEBUG_VIEWS = new Set(["markdown", "json", "tts", "prompts", "quality"]);
 const PROTECTED_VIEWS = new Set(["runner", "submission", "markdown", "json", "tts", "prompts", "quality", "dashboard"]);
 
 const TASK_CONFIG = {
@@ -116,6 +123,8 @@ const els = {
 };
 
 async function init() {
+  const params = new URLSearchParams(window.location.search);
+  state.flow.debugMode = params.get("debug") === "1" || params.get("debug") === "true";
   els.examSelect.innerHTML = EXAMS.map(exam => `<option value="${exam.id}">${exam.title}</option>`).join("");
   els.examSelect.addEventListener("change", () => loadExam(els.examSelect.value));
 
@@ -149,15 +158,15 @@ async function init() {
     switchPart(button.dataset.globalPart);
   });
 
-  const params = new URLSearchParams(window.location.search);
-  const requestedScreen = params.get("screen");
-  const requestedView = params.get("view");
-  const requestedPart = params.get("part");
+  const urlParams = new URLSearchParams(window.location.search);
+  const requestedScreen = urlParams.get("screen");
+  const requestedView = urlParams.get("view");
+  const requestedPart = urlParams.get("part");
   state.flow.screen = FLOW_SCREENS.has(requestedScreen) ? requestedScreen : (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
   if (requestedView === "billing") {
     setView("billing");
   }
-  const requestedExam = params.get("exam");
+  const requestedExam = urlParams.get("exam");
   await bootstrapAuth();
   if (state.auth.status === "authenticated") {
     await loadDashboard();
@@ -420,13 +429,24 @@ function renderAll() {
   renderDashboard();
   renderRunner();
   els.examOutput.innerHTML = renderMarkdown(state.markdown, state.exam);
-  els.markdownOutput.textContent = state.markdown;
-  els.jsonOutput.textContent = JSON.stringify(buildExportJson(), null, 2);
+  if (flowCore.shouldShowDebugPanels(state.flow.debugMode)) {
+    els.markdownOutput.textContent = state.markdown;
+    els.jsonOutput.textContent = JSON.stringify(buildExportJson(), null, 2);
+  } else {
+    els.markdownOutput.textContent = "";
+    els.jsonOutput.textContent = "";
+  }
   renderSubmission();
   renderBilling();
-  renderTts();
-  renderImages();
-  renderQuality();
+  if (flowCore.shouldShowDebugPanels(state.flow.debugMode)) {
+    renderTts();
+    renderImages();
+    renderQuality();
+  } else {
+    els.ttsOutput.innerHTML = "";
+    els.promptOutput.innerHTML = "";
+    els.qualityOutput.innerHTML = "";
+  }
   syncEvaluationButtons();
 }
 
@@ -655,7 +675,20 @@ function tickTimers() {
     changed = true;
     if (timer.remaining === 0) timer.running = false;
   }
-  if (changed) renderTimersOnly();
+  if (!changed) return;
+  if (state.flow.screen === "exam" && state.flow.mode === "exam" && !isAnyTimerRunning()) {
+    const outcome = flowCore.advanceExamOnTimer(state.flow, state.runner, PART_CONFIG.map(part => part.key));
+    state.flow = outcome.flow;
+    state.runner = outcome.runner;
+    if (outcome.action === "submit") {
+      submitAnswers({ autoSubmitted: true });
+      return;
+    }
+    updateExamUrl();
+    renderRunner();
+    return;
+  }
+  renderTimersOnly();
 }
 
 function renderRunner() {
@@ -803,38 +836,55 @@ function renderFlowExamPicker(label = "Izvēlieties eksāmenu") {
 
 function renderResultsScreen() {
   const submission = ensureSubmission("draft");
-  const skills = PART_CONFIG.map(part => {
-    const score = submission.scoring.by_skill[part.key] || { correct: 0, possible: 15 };
-    const points = Math.min(15, Math.round((Number(score.correct || 0) / Math.max(1, Number(score.possible || 15))) * 15));
-    return {
-      part,
-      points,
-      percent: Math.round((points / 15) * 100),
-      passed: points >= 9
-    };
+  const summary = flowCore.buildResultsSummary({
+    submission,
+    evaluation: state.evaluation,
+    partConfig: PART_CONFIG,
+    skillLabels: {
+      listening: "Klausīšanās",
+      reading: "Lasīšana",
+      writing: "Rakstīšana",
+      speaking: "Runāšana"
+    }
   });
-  const passed = skills.every(item => item.passed);
   return `
     <section class="results-flow">
       <h1>Eksāmena Rezultāti</h1>
       <p>Jūsu snieguma kopsavilkums pa pārbaudījuma daļām.</p>
+      <div class="results-total">
+        <strong>${summary.total} / ${summary.totalMax}</strong>
+        <span>${summary.passed ? "Nokārtots" : "Jātrenējas"}</span>
+      </div>
       <div class="results-table" role="table" aria-label="Eksāmena rezultāti">
         <div class="results-row results-head" role="row">
           <span>Sadaļa</span><span>Punkti</span><span>Procenti</span><span>Statuss</span>
         </div>
-        ${skills.map(({ part, points, percent, passed }) => `
+        ${summary.scores.map(score => {
+          const part = PART_CONFIG.find(item => item.key === score.key) || { title: score.label };
+          const percent = Math.round((score.points / 15) * 100);
+          return `
           <div class="results-row" role="row">
             <span>${part.title}</span>
-            <span>${points} / 15</span>
+            <span>${score.points} / 15</span>
             <span><b>${percent}%</b><i style="--value:${percent}%"></i></span>
-            <span class="${passed ? "status-pass" : "status-fail"}">${passed ? "Nokārtots" : "Jātrenējas"}</span>
+            <span class="${score.passed ? "status-pass" : "status-fail"}">${score.passed ? "Nokārtots" : "Jātrenējas"}</span>
           </div>
-        `).join("")}
+        `; }).join("")}
       </div>
-      <div class="final-status ${passed ? "passed" : "failed"}">
+      <div class="final-status ${summary.passed ? "passed" : "failed"}">
         <p>Noslēguma statuss</p>
-        <h2>Kopējais rezultāts: ${passed ? "nokārtots" : "nav nokārtots"}</h2>
+        <h2>Kopējais rezultāts: ${summary.passed ? "nokārtots" : "nav nokārtots"}</h2>
         <span>Minimums ir 9 punkti katrā prasmē. Šis pārskats izmanto lokālo objektīvo vērtējumu un saglabā rakstīšanas/runāšanas darbus pārbaudei.</span>
+      </div>
+      <div class="results-insights">
+        <article>
+          <h3>Weak areas</h3>
+          <p>${summary.weakAreas.length ? summary.weakAreas.join(", ") : "None"}</p>
+        </article>
+        <article>
+          <h3>Suggested next practice</h3>
+          <p>${summary.nextPractice.length ? summary.nextPractice.join(", ") : "Review the weakest skills."}</p>
+        </article>
       </div>
       ${renderUpgradePrompt("results")}
       <button type="button" class="flow-primary-button results-action" data-flow-action="open-submission">Skatīt detalizētu pārskatu</button>
@@ -1200,6 +1250,10 @@ function getPartConfig(partKey) {
 
 function switchPart(partKey) {
   if (!PART_CONFIG.some(part => part.key === partKey)) return;
+  if (!flowCore.canSwitchPart(state.flow.mode, state.runner.activePart, partKey, PART_CONFIG.map(part => part.key))) {
+    showToast("In exam mode, follow the fixed section order.");
+    return;
+  }
   const keepTimerRunning = state.flow.screen === "exam" && state.flow.mode === "exam" && isAnyTimerRunning();
   state.runner.activePart = partKey;
   if (keepTimerRunning) {
@@ -1269,6 +1323,7 @@ function renderTopChrome() {
   const activePart = getPartConfig(state.runner.activePart);
   document.body.dataset.flowScreen = state.flow.screen;
   document.body.dataset.authenticated = String(state.auth.status === "authenticated");
+  document.body.dataset.debugMode = String(flowCore.shouldShowDebugPanels(state.flow.debugMode));
   els.globalPartNav.innerHTML = state.auth.status !== "authenticated" || ["home", "register", "results"].includes(state.flow.screen) ? "" : PART_CONFIG.map(part => `
     <button type="button" data-global-part="${part.key}" class="${part.key === state.runner.activePart ? "active" : ""}">
       ${part.title}
@@ -1294,7 +1349,7 @@ function renderPartMoveButton(direction) {
   const nextIndex = direction === "next" ? currentIndex + 1 : currentIndex - 1;
   const part = PART_CONFIG[nextIndex];
   if (!part && direction === "next") {
-    return `<button type="button" data-action="show-results">Pabeigt</button>`;
+    return `<button type="button" data-action="${state.flow.mode === "exam" ? "submit-exam" : "show-results"}">Pabeigt</button>`;
   }
   if (!part) return "<span></span>";
   const label = direction === "next" ? `Next: ${part.title}` : `Previous: ${part.title}`;
@@ -1362,7 +1417,7 @@ function bindFlowEvents() {
 function handleFlowAction(dataset) {
   const { flowAction } = dataset;
   if (flowAction === "set-mode") {
-    state.flow.mode = dataset.mode || "exam";
+    state.flow = flowCore.switchFlowMode(state.flow, dataset.mode || "exam");
     renderRunner();
     return;
   }
@@ -1371,7 +1426,7 @@ function handleFlowAction(dataset) {
     return;
   }
   if (flowAction === "start-practice") {
-    state.flow.mode = "practice";
+    state.flow = flowCore.switchFlowMode(state.flow, "practice");
     setFlowScreen("instructions");
     return;
   }
@@ -2456,7 +2511,7 @@ function buildQualityChecks() {
   ];
 }
 
-async function submitAnswers() {
+async function submitAnswers(options = {}) {
   if (state.auth.status !== "authenticated") {
     setView("auth");
     showToast("Sign in required");
@@ -2495,7 +2550,10 @@ async function submitAnswers() {
   renderRunner();
   renderSubmission();
   renderBilling();
-  setView("submission");
+  setFlowScreen("results");
+  if (!options.autoSubmitted) {
+    setView("submission");
+  }
   showToast("Answers submitted locally");
 }
 
@@ -2778,6 +2836,9 @@ function syncAttemptToServer() {
 function renderSubmission() {
   const submission = state.submission || buildSubmission("draft");
   const score = submission.scoring;
+  const visibleSubmission = flowCore.shouldShowDebugPanels(state.flow.debugMode)
+    ? submission
+    : flowCore.sanitizeSubmissionForLearner(submission);
   els.submissionOutput.innerHTML = `
     <section class="submission-hero">
       <div>
@@ -2797,7 +2858,7 @@ function renderSubmission() {
       <button type="button" data-submission-action="download">Download JSON</button>
     </div>
     ${renderAiEvaluationPanel()}
-    <pre class="code-panel submission-json">${escapeHtml(JSON.stringify(submission, null, 2))}</pre>
+    <pre class="code-panel submission-json">${escapeHtml(JSON.stringify(visibleSubmission, null, 2))}</pre>
   `;
   els.submissionOutput.querySelectorAll("[data-submission-action]").forEach(button => {
     button.addEventListener("click", () => handleSubmissionAction(button.dataset.submissionAction));
@@ -3007,11 +3068,17 @@ function handleSubmissionAction(action) {
   }
   const submission = ensureSubmission("draft");
   if (action === "copy") {
-    copyText(JSON.stringify(submission, null, 2), "Submission copied");
+    const visibleSubmission = flowCore.shouldShowDebugPanels(state.flow.debugMode)
+      ? submission
+      : flowCore.sanitizeSubmissionForLearner(submission);
+    copyText(JSON.stringify(visibleSubmission, null, 2), "Submission copied");
     return;
   }
   if (action === "download") {
-    downloadFile(`${submission.submission_id}.json`, JSON.stringify(submission, null, 2), "application/json");
+    const visibleSubmission = flowCore.shouldShowDebugPanels(state.flow.debugMode)
+      ? submission
+      : flowCore.sanitizeSubmissionForLearner(submission);
+    downloadFile(`${submission.submission_id}.json`, JSON.stringify(visibleSubmission, null, 2), "application/json");
   }
 }
 
@@ -3127,12 +3194,17 @@ function buildExportJson() {
 }
 
 function setView(viewName) {
+  if (DEBUG_VIEWS.has(viewName) && !flowCore.shouldShowDebugPanels(state.flow.debugMode)) {
+    viewName = state.auth.status === "authenticated" ? "runner" : "auth";
+  }
   if (PROTECTED_VIEWS.has(viewName) && state.auth.status !== "authenticated") {
     viewName = "auth";
   }
   document.querySelectorAll(".view").forEach(view => view.classList.remove("active"));
   document.querySelector(`#${viewName}-view`).classList.add("active");
   document.querySelectorAll(".nav-list button").forEach(button => {
+    const showButton = !DEBUG_VIEWS.has(button.dataset.view) || flowCore.shouldShowDebugPanels(state.flow.debugMode);
+    button.hidden = !showButton;
     button.classList.toggle("active", button.dataset.view === viewName);
   });
   const titles = {

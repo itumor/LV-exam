@@ -408,6 +408,15 @@ body[data-authenticated="false"] .workspace-bar {
   display: none;
 }
 
+body[data-debug-mode="false"] .nav-list [data-view="markdown"],
+body[data-debug-mode="false"] .nav-list [data-view="json"],
+body[data-debug-mode="false"] .nav-list [data-view="tts"],
+body[data-debug-mode="false"] .nav-list [data-view="prompts"],
+body[data-debug-mode="false"] .nav-list [data-view="quality"],
+body[data-debug-mode="false"] [data-debug-control="true"] {
+  display: none;
+}
+
 .exam-tools .nav-list button.active,
 .exam-tools .button-grid button {
   border-color: var(--primary);
