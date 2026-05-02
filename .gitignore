@@ -1,1 +1,2 @@
 .env
+.multica/*.sqlite3

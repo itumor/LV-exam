@@ -18,6 +18,13 @@ const state = {
     audio: [],
     images: []
   },
+  auth: {
+    status: "loading",
+    account: null,
+    profile: null,
+    dashboard: null,
+    error: ""
+  },
   runner: {
     activePart: "listening",
     selectedDragValue: "",
@@ -52,6 +59,7 @@ const PART_CONFIG = [
 ];
 
 const FLOW_SCREENS = new Set(["home", "register", "instructions", "exam", "results"]);
+const PROTECTED_VIEWS = new Set(["runner", "submission", "markdown", "json", "tts", "prompts", "quality", "dashboard"]);
 
 const TASK_CONFIG = {
   listening: [
@@ -87,6 +95,8 @@ const els = {
   ttsOutput: document.querySelector("#tts-output"),
   promptOutput: document.querySelector("#prompt-output"),
   qualityOutput: document.querySelector("#quality-output"),
+  authOutput: document.querySelector("#auth-output"),
+  dashboardOutput: document.querySelector("#dashboard-output"),
   workspaceTitle: document.querySelector("#workspace-title"),
   validationPill: document.querySelector("#validation-pill"),
   globalPartNav: document.querySelector("#global-part-nav"),
@@ -95,7 +105,7 @@ const els = {
   toast: document.querySelector("#toast")
 };
 
-function init() {
+async function init() {
   els.examSelect.innerHTML = EXAMS.map(exam => `<option value="${exam.id}">${exam.title}</option>`).join("");
   els.examSelect.addEventListener("change", () => loadExam(els.examSelect.value));
 
@@ -134,7 +144,20 @@ function init() {
   const requestedPart = params.get("part");
   state.flow.screen = FLOW_SCREENS.has(requestedScreen) ? requestedScreen : (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
   const requestedExam = params.get("exam");
-  loadExam(String(requestedExam || "01").padStart(2, "0"));
+  await bootstrapAuth();
+  if (state.auth.status === "authenticated") {
+    await loadDashboard();
+    await loadExam(String(requestedExam || "01").padStart(2, "0"));
+    state.flow.screen = FLOW_SCREENS.has(requestedScreen) ? requestedScreen : "exam";
+    const requestedOuterView = requestedScreen === "dashboard" ? "dashboard" : (requestedScreen ? "runner" : "dashboard");
+    setView(requestedOuterView);
+  } else {
+    state.flow.screen = "home";
+    setView("auth");
+  }
+  renderTopChrome();
+  renderAuth();
+  renderDashboard();
   setInterval(tickTimers, 1000);
 }
 
@@ -170,8 +193,161 @@ async function loadExam(examId) {
   }
 }
 
+async function bootstrapAuth() {
+  try {
+    const response = await fetch("/api/session", { credentials: "same-origin" });
+    const payload = await response.json();
+    state.auth.status = payload.authenticated ? "authenticated" : "anonymous";
+    state.auth.account = payload.account || null;
+    state.auth.profile = payload.profile || null;
+    state.auth.dashboard = null;
+    state.auth.error = "";
+  } catch (error) {
+    state.auth.status = "anonymous";
+    state.auth.account = null;
+    state.auth.profile = null;
+    state.auth.dashboard = null;
+    state.auth.error = error.message;
+  }
+}
+
+async function loadDashboard() {
+  if (state.auth.status !== "authenticated") return null;
+  const response = await fetch("/api/dashboard", { credentials: "same-origin" });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error || `Dashboard request failed with HTTP ${response.status}`);
+  }
+  state.auth.account = payload.account || state.auth.account;
+  state.auth.profile = payload.profile || state.auth.profile;
+  state.auth.dashboard = payload;
+  return payload;
+}
+
+async function handleAuthSubmit(event, mode) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const formData = new FormData(form);
+  const payload = {
+    email: String(formData.get("email") || "").trim(),
+    password: String(formData.get("password") || "")
+  };
+  if (mode === "register") {
+    payload.full_name = String(formData.get("full_name") || "").trim();
+    payload.native_language = String(formData.get("native_language") || "").trim();
+    payload.exam_target_date = String(formData.get("exam_target_date") || "").trim();
+  }
+  try {
+    const response = await fetch(`/api/auth/${mode}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(result.error || `Authentication failed with HTTP ${response.status}`);
+    }
+    state.auth.status = "authenticated";
+    state.auth.account = result.account || null;
+    state.auth.profile = result.profile || null;
+    state.auth.dashboard = result.dashboard || null;
+    state.auth.error = "";
+    await loadExam(state.exam.id || "01");
+    await loadDashboard().catch(() => {});
+    setView("dashboard");
+    renderAuth();
+    renderDashboard();
+    showToast(mode === "register" ? "Account created" : "Signed in");
+  } catch (error) {
+    state.auth.error = error.message;
+    renderAuth();
+    showToast(error.message);
+  }
+}
+
+async function handleProfileSubmit(event) {
+  event.preventDefault();
+  if (state.auth.status !== "authenticated") {
+    setView("auth");
+    return;
+  }
+  const formData = new FormData(event.currentTarget);
+  const payload = {
+    full_name: String(formData.get("full_name") || "").trim(),
+    native_language: String(formData.get("native_language") || "").trim(),
+    exam_target_date: String(formData.get("exam_target_date") || "").trim(),
+    exam_pack_status: String(formData.get("exam_pack_status") || "").trim()
+  };
+  const response = await fetch("/api/profile", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(payload)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    showToast(result.error || `Profile update failed with HTTP ${response.status}`);
+    return;
+  }
+  state.auth.profile = result.profile || state.auth.profile;
+  await loadDashboard().catch(() => {});
+  renderAuth();
+  renderDashboard();
+  showToast("Profile updated");
+}
+
+async function logout() {
+  await fetch("/api/auth/logout", {
+    method: "POST",
+    credentials: "same-origin"
+  });
+  state.auth = {
+    status: "anonymous",
+    account: null,
+    profile: null,
+    dashboard: null,
+    error: ""
+  };
+  state.flow.screen = "home";
+  state.runner.activePart = "listening";
+  state.submission = null;
+  state.evaluation = null;
+  setView("auth");
+  renderAuth();
+  renderDashboard();
+  showToast("Signed out");
+}
+
+async function deleteAccount() {
+  if (!window.confirm("Delete this account and its stored attempts?")) return;
+  const response = await fetch("/api/account/delete", {
+    method: "POST",
+    credentials: "same-origin"
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    showToast(payload.error || `Account deletion failed with HTTP ${response.status}`);
+    return;
+  }
+  await logout();
+  showToast("Account deleted");
+}
+
+async function exportAccount() {
+  const response = await fetch("/api/account/export", { credentials: "same-origin" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    showToast(payload.error || `Export failed with HTTP ${response.status}`);
+    return;
+  }
+  downloadFile(`a2-account-${state.auth.account?.id || "export"}.json`, JSON.stringify(payload, null, 2), "application/json");
+}
+
 function renderAll() {
   renderTopChrome();
+  renderAuth();
+  renderDashboard();
   renderRunner();
   els.examOutput.innerHTML = renderMarkdown(state.markdown, state.exam);
   els.markdownOutput.textContent = state.markdown;
@@ -181,6 +357,123 @@ function renderAll() {
   renderImages();
   renderQuality();
   syncEvaluationButtons();
+}
+
+function renderAuth() {
+  if (!els.authOutput) return;
+  const sessionLabel = state.auth.status === "authenticated"
+    ? `${escapeHtml(state.auth.account?.email || "")}`
+    : "Guest";
+  els.authOutput.innerHTML = `
+    <section class="auth-shell">
+      <article class="auth-card hero">
+        <p class="eyebrow">Accounts</p>
+        <h2>Latvian A2 learner access</h2>
+        <p>Sign in to save attempts across sessions, protect exam routes, and track progress from the dashboard.</p>
+        <div class="auth-session-chip">${sessionLabel}</div>
+        ${state.auth.error ? `<p class="auth-error">${escapeHtml(state.auth.error)}</p>` : ""}
+      </article>
+      <article class="auth-card">
+        <h3>Sign in</h3>
+        <form id="login-form" class="auth-form">
+          <label>Email<input name="email" type="email" autocomplete="email" required></label>
+          <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+          <button type="submit">Sign in</button>
+        </form>
+      </article>
+      <article class="auth-card">
+        <h3>Create account</h3>
+        <form id="register-form" class="auth-form">
+          <label>Full name<input name="full_name" type="text" autocomplete="name" required></label>
+          <label>Email<input name="email" type="email" autocomplete="email" required></label>
+          <label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+          <label>Native language<input name="native_language" type="text" autocomplete="off" placeholder="Optional"></label>
+          <label>Exam target date<input name="exam_target_date" type="date"></label>
+          <button type="submit">Create account</button>
+        </form>
+      </article>
+    </section>
+  `;
+  els.authOutput.querySelector("#login-form")?.addEventListener("submit", event => handleAuthSubmit(event, "login"));
+  els.authOutput.querySelector("#register-form")?.addEventListener("submit", event => handleAuthSubmit(event, "register"));
+}
+
+function renderDashboard() {
+  if (!els.dashboardOutput) return;
+  if (state.auth.status !== "authenticated") {
+    els.dashboardOutput.innerHTML = `
+      <section class="dashboard-shell empty">
+        <h2>Protected dashboard</h2>
+        <p>Sign in to see attempts, latest score, and account controls.</p>
+      </section>
+    `;
+    return;
+  }
+  const dashboard = state.auth.dashboard || {};
+  const summary = dashboard.summary || {};
+  const attempts = Array.isArray(dashboard.attempts) ? dashboard.attempts : [];
+  const profile = state.auth.profile || dashboard.profile || {};
+  const latestScore = summary.latest_score ?? "—";
+  const skillCards = Object.entries(summary.skill_progress || {}).map(([skill, values]) => `
+    <article class="dashboard-stat">
+      <span>${escapeHtml(skill)}</span>
+      <strong>${escapeHtml(values.objective_correct || 0)} / ${escapeHtml(values.objective_possible || 0)}</strong>
+    </article>
+  `).join("");
+  els.dashboardOutput.innerHTML = `
+    <section class="dashboard-shell">
+      <article class="dashboard-card hero">
+        <p class="eyebrow">Dashboard</p>
+        <h2>${escapeHtml(profile.full_name || state.auth.account?.email || "Learner")}</h2>
+        <p>${escapeHtml(state.auth.account?.email || "")}</p>
+        <div class="dashboard-actions">
+          <button id="logout-button" type="button">Sign out</button>
+          <button id="export-account-button" type="button">Export account</button>
+          <button id="delete-account-button" type="button" class="danger">Delete account</button>
+        </div>
+      </article>
+      <article class="dashboard-card">
+        <h3>Profile</h3>
+        <form id="profile-form" class="auth-form compact">
+          <label>Full name<input name="full_name" type="text" value="${escapeHtml(profile.full_name || "")}" required></label>
+          <label>Native language<input name="native_language" type="text" value="${escapeHtml(profile.native_language || "")}"></label>
+          <label>Exam target date<input name="exam_target_date" type="date" value="${escapeHtml(profile.exam_target_date || "")}"></label>
+          <label>Exam pack status
+            <select name="exam_pack_status">
+              ${["free", "paid", "trial"].map(value => `<option value="${value}" ${String(profile.exam_pack_status || "free") === value ? "selected" : ""}>${value}</option>`).join("")}
+            </select>
+          </label>
+          <button type="submit">Save profile</button>
+        </form>
+      </article>
+      <article class="dashboard-card metrics">
+        <div class="dashboard-metric"><span>Attempts taken</span><strong>${escapeHtml(summary.attempts_taken ?? 0)}</strong></div>
+        <div class="dashboard-metric"><span>Latest score</span><strong>${escapeHtml(latestScore)}</strong></div>
+        <div class="dashboard-metric"><span>Subscription</span><strong>${escapeHtml(summary.subscription_status || "free")}</strong></div>
+        <div class="dashboard-metric"><span>Protected access</span><strong>${state.auth.status === "authenticated" ? "On" : "Off"}</strong></div>
+      </article>
+      <article class="dashboard-card">
+        <h3>Skill progress</h3>
+        <div class="dashboard-stats-grid">${skillCards || "<p>No attempts saved yet.</p>"}</div>
+      </article>
+      <article class="dashboard-card attempts">
+        <h3>Recent attempts</h3>
+        ${attempts.length ? attempts.map(attempt => `
+          <div class="attempt-row">
+            <div>
+              <strong>${escapeHtml(attempt.exam_title)}</strong>
+              <p>${escapeHtml(attempt.submitted_at)}</p>
+            </div>
+            <span>${escapeHtml(attempt.score_total ?? "—")} points</span>
+          </div>
+        `).join("") : "<p>No server-backed attempts yet.</p>"}
+      </article>
+    </section>
+  `;
+  els.dashboardOutput.querySelector("#logout-button")?.addEventListener("click", () => logout());
+  els.dashboardOutput.querySelector("#delete-account-button")?.addEventListener("click", () => deleteAccount());
+  els.dashboardOutput.querySelector("#export-account-button")?.addEventListener("click", () => exportAccount());
+  els.dashboardOutput.querySelector("#profile-form")?.addEventListener("submit", handleProfileSubmit);
 }
 
 function renderLoadError(error) {
@@ -776,6 +1069,10 @@ function switchPart(partKey) {
 
 function setFlowScreen(screen, options = {}) {
   if (!FLOW_SCREENS.has(screen)) return;
+  if (state.auth.status !== "authenticated" && screen !== "home") {
+    setView("auth");
+    return;
+  }
   state.flow.screen = screen;
   if (screen === "exam") {
     setView("runner");
@@ -827,18 +1124,23 @@ function renderTopChrome() {
   const examProgress = getExamProgress();
   const activePart = getPartConfig(state.runner.activePart);
   document.body.dataset.flowScreen = state.flow.screen;
-  els.globalPartNav.innerHTML = ["home", "register", "results"].includes(state.flow.screen) ? "" : PART_CONFIG.map(part => `
+  document.body.dataset.authenticated = String(state.auth.status === "authenticated");
+  els.globalPartNav.innerHTML = state.auth.status !== "authenticated" || ["home", "register", "results"].includes(state.flow.screen) ? "" : PART_CONFIG.map(part => `
     <button type="button" data-global-part="${part.key}" class="${part.key === state.runner.activePart ? "active" : ""}">
       ${part.title}
     </button>
   `).join("");
   if (els.topbarTimer) {
-    els.topbarTimer.textContent = state.flow.screen === "exam"
+    els.topbarTimer.textContent = state.auth.status !== "authenticated"
+      ? "Sign in"
+      : state.flow.screen === "exam"
       ? formatTime(state.runner.timers[activePart.key].remaining)
       : formatLongTime(45 * 60);
   }
   if (els.progressFill) {
-    const percent = examProgress.total ? Math.round((examProgress.answered / examProgress.total) * 100) : 0;
+    const percent = state.auth.status === "authenticated" && examProgress.total
+      ? Math.round((examProgress.answered / examProgress.total) * 100)
+      : 0;
     els.progressFill.style.width = `${percent}%`;
   }
 }
@@ -1994,11 +2296,17 @@ function buildQualityChecks() {
 }
 
 function submitAnswers() {
+  if (state.auth.status !== "authenticated") {
+    setView("auth");
+    showToast("Sign in required");
+    return;
+  }
   for (const timer of Object.values(state.runner.timers)) {
     timer.running = false;
   }
   state.submission = buildSubmission("submitted");
   persistSubmission(state.submission);
+  syncAttemptToServer();
   state.evaluation = null;
   renderRunner();
   renderSubmission();
@@ -2008,6 +2316,11 @@ function submitAnswers() {
 
 async function evaluateSubmissionWithAi() {
   if (state.evaluating) return;
+  if (state.auth.status !== "authenticated") {
+    setView("auth");
+    showToast("Sign in required");
+    return;
+  }
   for (const timer of Object.values(state.runner.timers)) {
     timer.running = false;
   }
@@ -2036,6 +2349,7 @@ async function evaluateSubmissionWithAi() {
     state.evaluation = payload;
     state.submission.ai_evaluation = payload;
     persistSubmission(state.submission);
+    syncAttemptToServer();
     showToast("AI score complete");
   } catch (error) {
     state.evaluation = {
@@ -2250,6 +2564,19 @@ function persistSubmission(submission) {
   }
 }
 
+function syncAttemptToServer() {
+  if (state.auth.status !== "authenticated" || !state.submission) return;
+  const submission = cloneJson(state.submission);
+  const evaluation = state.evaluation && !state.evaluation.error ? cloneJson(state.evaluation) : null;
+  fetch("/api/attempts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    keepalive: true,
+    body: JSON.stringify({ submission, evaluation })
+  }).catch(() => {});
+}
+
 function renderSubmission() {
   const submission = state.submission || buildSubmission("draft");
   const score = submission.scoring;
@@ -2445,12 +2772,17 @@ function buildExportJson() {
 }
 
 function setView(viewName) {
+  if (PROTECTED_VIEWS.has(viewName) && state.auth.status !== "authenticated") {
+    viewName = "auth";
+  }
   document.querySelectorAll(".view").forEach(view => view.classList.remove("active"));
   document.querySelector(`#${viewName}-view`).classList.add("active");
   document.querySelectorAll(".nav-list button").forEach(button => {
     button.classList.toggle("active", button.dataset.view === viewName);
   });
   const titles = {
+    auth: "Account access",
+    dashboard: "Dashboard",
     runner: "Exam Runner",
     submission: "Submission",
     exam: state.exam.title,
