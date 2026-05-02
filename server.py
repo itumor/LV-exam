@@ -17,6 +17,8 @@ import tempfile
 import threading
 import time
 import secrets
+from functools import lru_cache
+import urllib.parse
 import urllib.error
 import urllib.request
 from http.cookies import SimpleCookie
@@ -26,9 +28,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from billing import BillingStore, FREE_EXAM_ID, DEFAULT_PRODUCTS, StripeClient
+
 
 ROOT = Path(__file__).resolve().parent
 MAX_BODY_BYTES = 1_500_000
+DEFAULT_BILLING_DB_PATH = ROOT / "data" / "billing.sqlite3"
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_CODEX_MODEL = "gpt-5.2"
 CODEX_OSS_DEFAULT_MODEL_LABEL = "codex-oss-default"
@@ -87,6 +92,44 @@ def safe_read_json(handler: SimpleHTTPRequestHandler) -> dict[str, Any]:
         raise ValueError("Request body is too large.")
     raw = handler.rfile.read(length)
     return json.loads(raw.decode("utf-8"))
+
+
+def safe_read_raw_body(handler: SimpleHTTPRequestHandler) -> bytes:
+    length = int(handler.headers.get("Content-Length", "0") or "0")
+    if length <= 0:
+        raise ValueError("Request body is empty.")
+    if length > MAX_BODY_BYTES:
+        raise ValueError("Request body is too large.")
+    return handler.rfile.read(length)
+
+
+def request_base_url(handler: SimpleHTTPRequestHandler) -> str:
+    host = handler.headers.get("Host", "localhost:4173")
+    return f"http://{host}"
+
+
+def billing_db_path() -> Path:
+    return Path(os.getenv("BILLING_DB_PATH", str(DEFAULT_BILLING_DB_PATH)))
+
+
+@lru_cache(maxsize=1)
+def get_billing_store() -> BillingStore:
+    return BillingStore(billing_db_path())
+
+
+def get_stripe_client() -> StripeClient:
+    return StripeClient(os.getenv("STRIPE_SECRET_KEY", "").strip())
+
+
+def get_product_price_id(product_key: str) -> str:
+    product = next((item for item in DEFAULT_PRODUCTS if item.key == product_key), None)
+    if not product:
+        return ""
+    return os.getenv(product.price_env, "").strip()
+
+
+def stripe_webhook_secret() -> str:
+    return os.getenv("STRIPE_WEBHOOK_SECRET", "").strip()
 
 
 def extract_json_object(text: str) -> dict[str, Any]:
@@ -988,6 +1031,62 @@ class AppHandler(SimpleHTTPRequestHandler):
             except PermissionError as error:
                 json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
             return
+        if self.path.startswith("/api/billing/config"):
+            payload = {
+                "free_exam_id": FREE_EXAM_ID,
+                "stripe_enabled": bool(get_stripe_client().enabled()),
+                "products": [],
+                "success_url": f"{request_base_url(self)}/latvian-a2-exam-app/?view=billing&billing=success",
+                "cancel_url": f"{request_base_url(self)}/latvian-a2-exam-app/?view=billing&billing=cancel",
+            }
+            for product in DEFAULT_PRODUCTS:
+                price_id = get_product_price_id(product.key)
+                payload["products"].append(
+                    {
+                        "key": product.key,
+                        "name": product.name,
+                        "mode": product.mode,
+                        "quantity": product.quantity,
+                        "grants_attempts": product.grants_attempts,
+                        "grants_ai_credits": product.grants_ai_credits,
+                        "price_id_configured": bool(price_id),
+                        "price_id": price_id,
+                    }
+                )
+            json_response(self, HTTPStatus.OK, payload)
+            return
+
+        if self.path.startswith("/api/billing/state"):
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+            learner_id = (params.get("learner_id") or [""])[0].strip()
+            if not learner_id:
+                json_response(self, HTTPStatus.BAD_REQUEST, {"error": "learner_id is required."})
+                return
+            store = get_billing_store()
+            store.ensure_learner(learner_id)
+            json_response(self, HTTPStatus.OK, {"learner_id": learner_id, "state": store.get_state(learner_id)})
+            return
+
+        if self.path.startswith("/api/billing/audit"):
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+            learner_id = (params.get("learner_id") or [""])[0].strip()
+            if not learner_id:
+                json_response(self, HTTPStatus.BAD_REQUEST, {"error": "learner_id is required."})
+                return
+            store = get_billing_store()
+            json_response(
+                self,
+                HTTPStatus.OK,
+                {
+                    "learner_id": learner_id,
+                    "events": store.list_recent_events(learner_id, limit=20),
+                    "activity": store.list_recent_activity(learner_id, limit=20),
+                },
+            )
+            return
+
         super().do_GET()
 
     def do_POST(self) -> None:
@@ -1026,15 +1125,48 @@ class AppHandler(SimpleHTTPRequestHandler):
             if self.path == "/api/webhooks/auth":
                 json_response(self, HTTPStatus.OK, handle_auth_webhook(self))
                 return
+            if self.path == "/api/billing/checkout-session":
+                self.handle_checkout_session()
+                return
+            if self.path == "/api/billing/consume-exam":
+                self.handle_consume_exam()
+                return
+            if self.path == "/api/billing/consume-ai-credit":
+                self.handle_consume_ai_credit()
+                return
+            if self.path == "/api/stripe/webhook":
+                self.handle_stripe_webhook()
+                return
             if self.path == "/api/evaluate":
                 payload = safe_read_json(self)
                 submission = payload.get("submission")
                 exam_markdown = payload.get("exam_markdown", "")
+                learner_id = str(payload.get("learner_id", "")).strip()
                 if not isinstance(submission, dict):
                     raise ValueError("Payload must include a submission object.")
                 if not isinstance(exam_markdown, str) or not exam_markdown.strip():
                     raise ValueError("Payload must include exam_markdown text.")
+                if not learner_id:
+                    raise ValueError("Payload must include learner_id text.")
+                store = get_billing_store()
+                store.ensure_learner(learner_id, email=str(payload.get("email", "")).strip() or None)
+                ai_credit_result = store.consume_ai_credit(learner_id, source_reference=submission.get("submission_id"), source_event_id=submission.get("submission_id"))
+                if not ai_credit_result["allowed"]:
+                    json_response(
+                        self,
+                        HTTPStatus.PAYMENT_REQUIRED,
+                        {
+                            "error": "AI scoring requires an available AI credit or active subscription.",
+                            "billing_state": ai_credit_result["state"],
+                        },
+                    )
+                    return
                 result = evaluate_submission(submission, exam_markdown)
+                result["billing"] = {
+                    "learner_id": learner_id,
+                    "ai_credit_consumed": True,
+                    "billing_state": ai_credit_result["state"],
+                }
                 json_response(self, HTTPStatus.OK, result)
                 return
             json_response(self, HTTPStatus.NOT_FOUND, {"error": "Unknown endpoint."})
@@ -1045,6 +1177,124 @@ class AppHandler(SimpleHTTPRequestHandler):
         except PermissionError as error:
             json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
         except Exception as error:  # noqa: BLE001 - this endpoint should always return JSON.
+            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+
+    def handle_checkout_session(self) -> None:
+        try:
+            payload = safe_read_json(self)
+            learner_id = str(payload.get("learner_id", "")).strip()
+            product_key = str(payload.get("product_key", "")).strip()
+            email = str(payload.get("email", "")).strip() or None
+            success_url = str(payload.get("success_url", "")).strip() or f"{request_base_url(self)}/latvian-a2-exam-app/?view=billing&checkout=success"
+            cancel_url = str(payload.get("cancel_url", "")).strip() or f"{request_base_url(self)}/latvian-a2-exam-app/?view=billing&checkout=cancel"
+            if not learner_id:
+                raise ValueError("learner_id is required.")
+            if not product_key:
+                raise ValueError("product_key is required.")
+            store = get_billing_store()
+            learner = store.ensure_learner(learner_id, email=email)
+            product = next((item for item in DEFAULT_PRODUCTS if item.key == product_key), None)
+            if not product:
+                raise ValueError("Unknown product_key.")
+            price_id = get_product_price_id(product_key)
+            client = get_stripe_client()
+            if client.enabled():
+                if not price_id:
+                    raise ValueError(f"Missing Stripe price ID for {product_key}.")
+                session = client.create_checkout_session(
+                    product=product,
+                    price_id=price_id,
+                    learner_id=learner_id,
+                    email=email,
+                    success_url=success_url,
+                    cancel_url=cancel_url,
+                    metadata={"learner_id": learner_id, "product_key": product_key},
+                )
+                json_response(
+                    self,
+                    HTTPStatus.OK,
+                    {
+                        "mode": "stripe",
+                        "learner": learner,
+                        "product": product.key,
+                        "checkout_url": session.get("url"),
+                        "session": session,
+                    },
+                )
+                return
+
+            session = client.create_mock_checkout_session(
+                product=product,
+                learner_id=learner_id,
+                email=email,
+                success_url=success_url,
+                cancel_url=cancel_url,
+            )
+            json_response(
+                self,
+                HTTPStatus.OK,
+                {
+                    "mode": "mock",
+                    "learner": learner,
+                    "product": product.key,
+                    "checkout_url": session.get("url"),
+                    "session": session,
+                },
+            )
+        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
+            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+
+    def handle_consume_exam(self) -> None:
+        try:
+            payload = safe_read_json(self)
+            learner_id = str(payload.get("learner_id", "")).strip()
+            exam_id = str(payload.get("exam_id", "")).strip()
+            if not learner_id:
+                raise ValueError("learner_id is required.")
+            if not exam_id:
+                raise ValueError("exam_id is required.")
+            store = get_billing_store()
+            store.ensure_learner(learner_id)
+            result = store.consume_exam_access(
+                learner_id,
+                exam_id,
+                source_reference=str(payload.get("source_reference", "")).strip() or None,
+                source_event_id=str(payload.get("source_event_id", "")).strip() or None,
+            )
+            status = HTTPStatus.OK if result["allowed"] else HTTPStatus.PAYMENT_REQUIRED
+            json_response(self, status, result)
+        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
+            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+
+    def handle_consume_ai_credit(self) -> None:
+        try:
+            payload = safe_read_json(self)
+            learner_id = str(payload.get("learner_id", "")).strip()
+            if not learner_id:
+                raise ValueError("learner_id is required.")
+            store = get_billing_store()
+            store.ensure_learner(learner_id)
+            result = store.consume_ai_credit(
+                learner_id,
+                source_reference=str(payload.get("source_reference", "")).strip() or None,
+                source_event_id=str(payload.get("source_event_id", "")).strip() or None,
+            )
+            status = HTTPStatus.OK if result["allowed"] else HTTPStatus.PAYMENT_REQUIRED
+            json_response(self, status, result)
+        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
+            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+
+    def handle_stripe_webhook(self) -> None:
+        try:
+            payload = safe_read_raw_body(self)
+            secret = stripe_webhook_secret()
+            if not secret:
+                raise ValueError("STRIPE_WEBHOOK_SECRET is required.")
+            signature = self.headers.get("Stripe-Signature")
+            store = get_billing_store()
+            result = store.handle_webhook(payload, signature, secret)
+            json_response(self, HTTPStatus.OK, {"status": "ok", "result": result})
+        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
 

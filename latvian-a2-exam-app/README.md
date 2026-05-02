@@ -46,6 +46,37 @@ The Codex provider expects the `codex` executable to be available to the `server
 
 In the app, use **Submit Answers**, then **AI Score** or **AI score and corrections**. The frontend sends the current submission and exam Markdown to `/api/evaluate`; the server calls the configured LLM and returns per-skill points, corrections, and feedback.
 
+## Billing and entitlements
+
+The app now includes a server-side billing layer for:
+
+- Stripe Checkout sessions for a single exam, an exam pack, a monthly subscription, and AI scoring credits.
+- Learner entitlement state persisted in a local SQLite ledger.
+- Webhook handling for checkout completion, subscription changes, renewals, refunds, and chargebacks.
+- Upgrade prompts after the free exam is used.
+
+Configure these environment variables for live Stripe checkout:
+
+```sh
+STRIPE_SECRET_KEY=<your-stripe-secret>
+STRIPE_WEBHOOK_SECRET=<your-stripe-webhook-secret>
+STRIPE_PRICE_SINGLE_EXAM=<price-id>
+STRIPE_PRICE_EXAM_PACK=<price-id>
+STRIPE_PRICE_MONTHLY_SUBSCRIPTION=<price-id>
+STRIPE_PRICE_AI_CREDITS=<price-id>
+```
+
+Without a Stripe key, the checkout endpoint runs in mock mode so the rest of the app remains testable locally.
+
+Useful billing endpoints:
+
+- `GET /api/billing/config`
+- `GET /api/billing/state?learner_id=...`
+- `POST /api/billing/checkout-session`
+- `POST /api/billing/consume-exam`
+- `POST /api/billing/consume-ai-credit`
+- `POST /api/stripe/webhook`
+
 ### Docker with Codex on the host
 
 The Docker container cannot execute the macOS Codex CLI installed on the laptop. To use Docker for the app and Codex CLI from the host, run a small host-local scoring server on a different port:
