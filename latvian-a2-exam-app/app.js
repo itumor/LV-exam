@@ -45,6 +45,15 @@ const state = {
       lastName: ""
     }
   },
+  billing: {
+    config: null,
+    state: null,
+    loading: false,
+    error: "",
+    learnerId: "",
+    email: "",
+    lastCheckout: null
+  },
   answers: {},
   submission: null,
   evaluation: null,
@@ -92,6 +101,7 @@ const els = {
   markdownOutput: document.querySelector("#markdown-output"),
   jsonOutput: document.querySelector("#json-output"),
   submissionOutput: document.querySelector("#submission-output"),
+  billingOutput: document.querySelector("#billing-output"),
   ttsOutput: document.querySelector("#tts-output"),
   promptOutput: document.querySelector("#prompt-output"),
   qualityOutput: document.querySelector("#quality-output"),
@@ -141,8 +151,12 @@ async function init() {
 
   const params = new URLSearchParams(window.location.search);
   const requestedScreen = params.get("screen");
+  const requestedView = params.get("view");
   const requestedPart = params.get("part");
   state.flow.screen = FLOW_SCREENS.has(requestedScreen) ? requestedScreen : (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
+  if (requestedView === "billing") {
+    setView("billing");
+  }
   const requestedExam = params.get("exam");
   await bootstrapAuth();
   if (state.auth.status === "authenticated") {
@@ -155,6 +169,7 @@ async function init() {
     state.flow.screen = "home";
     setView("auth");
   }
+  await loadBillingContext();
   renderTopChrome();
   renderAuth();
   renderDashboard();
@@ -344,6 +359,61 @@ async function exportAccount() {
   downloadFile(`a2-account-${state.auth.account?.id || "export"}.json`, JSON.stringify(payload, null, 2), "application/json");
 }
 
+function ensureLearnerIdentity() {
+  const storageKey = "latvian_a2_learner_identity";
+  let identity = {};
+  try {
+    identity = JSON.parse(localStorage.getItem(storageKey) || "{}");
+  } catch {
+    identity = {};
+  }
+  if (!identity.learnerId) {
+    identity.learnerId = crypto.randomUUID();
+    localStorage.setItem(storageKey, JSON.stringify(identity));
+  }
+  state.billing.learnerId = identity.learnerId;
+  state.billing.email = identity.email || "";
+  return identity;
+}
+
+function saveLearnerIdentity(partial) {
+  const storageKey = "latvian_a2_learner_identity";
+  const current = ensureLearnerIdentity();
+  const merged = { ...current, ...partial, learnerId: current.learnerId };
+  localStorage.setItem(storageKey, JSON.stringify(merged));
+  state.billing.learnerId = merged.learnerId;
+  state.billing.email = merged.email || "";
+  return merged;
+}
+
+async function loadBillingContext() {
+  ensureLearnerIdentity();
+  state.billing.loading = true;
+  state.billing.error = "";
+  try {
+    const [configResponse, stateResponse] = await Promise.all([
+      fetch("/api/billing/config", { cache: "no-store" }),
+      fetch(`/api/billing/state?learner_id=${encodeURIComponent(state.billing.learnerId)}`, { cache: "no-store" })
+    ]);
+    const config = await configResponse.json().catch(() => null);
+    const billingState = await stateResponse.json().catch(() => null);
+    if (!configResponse.ok) {
+      throw new Error(config?.error || `Failed to load billing config (${configResponse.status}).`);
+    }
+    if (!stateResponse.ok) {
+      throw new Error(billingState?.error || `Failed to load billing state (${stateResponse.status}).`);
+    }
+    state.billing.config = config;
+    state.billing.state = billingState.state;
+  } catch (error) {
+    state.billing.error = error.message;
+  } finally {
+    state.billing.loading = false;
+    renderBilling();
+    renderTopChrome();
+  }
+}
+
 function renderAll() {
   renderTopChrome();
   renderAuth();
@@ -353,6 +423,7 @@ function renderAll() {
   els.markdownOutput.textContent = state.markdown;
   els.jsonOutput.textContent = JSON.stringify(buildExportJson(), null, 2);
   renderSubmission();
+  renderBilling();
   renderTts();
   renderImages();
   renderQuality();
@@ -623,6 +694,7 @@ function renderRunner() {
         <button type="button" data-action="open-submission">Review submission</button>
       </div>
     </section>
+    ${renderUpgradePrompt("runner")}
   `;
   bindRunnerEvents();
   renderTimersOnly();
@@ -642,6 +714,7 @@ function renderHomeScreen() {
       <div class="flow-emblem" aria-hidden="true"></div>
       <h1>Valsts valodas prasmes pārbaude - A2 līmenis</h1>
       <p>Oficiāls valsts valodas prasmes pārbaudes simulators, kas sagatavots atbilstoši izglītības un satura standartiem.</p>
+      ${renderAccessSummaryCard()}
       ${renderFlowExamPicker()}
       <div class="mode-switch" role="group" aria-label="Režīms">
         <button type="button" data-flow-action="set-mode" data-mode="exam" class="${state.flow.mode === "exam" ? "active" : ""}">Eksāmena režīms</button>
@@ -763,7 +836,78 @@ function renderResultsScreen() {
         <h2>Kopējais rezultāts: ${passed ? "nokārtots" : "nav nokārtots"}</h2>
         <span>Minimums ir 9 punkti katrā prasmē. Šis pārskats izmanto lokālo objektīvo vērtējumu un saglabā rakstīšanas/runāšanas darbus pārbaudei.</span>
       </div>
+      ${renderUpgradePrompt("results")}
       <button type="button" class="flow-primary-button results-action" data-flow-action="open-submission">Skatīt detalizētu pārskatu</button>
+    </section>
+  `;
+}
+
+function getBillingSnapshot() {
+  return state.billing.state || {
+    free_exam_available: true,
+    free_exam_taken: 0,
+    paid_attempts_remaining: 0,
+    ai_credits_remaining: 0,
+    subscription_active: false,
+    frozen: false,
+    current_plan: "free",
+    recent_events: [],
+    recent_activity: []
+  };
+}
+
+function canRunAiScoring() {
+  const billing = getBillingSnapshot();
+  return !billing.frozen && (billing.subscription_active || (billing.ai_credits_remaining || 0) > 0);
+}
+
+function renderAccessSummaryCard() {
+  const billing = getBillingSnapshot();
+  const status = billing.frozen
+    ? "Account frozen"
+    : billing.subscription_active
+      ? "Subscription active"
+      : billing.paid_attempts_remaining > 0
+        ? "Paid attempts available"
+        : billing.free_exam_available
+          ? "Free exam available"
+          : "Upgrade required";
+  const plan = billing.current_plan || "free";
+  return `
+    <section class="billing-summary-card">
+      <div>
+        <p class="eyebrow">Access</p>
+        <h3>${escapeHtml(status)}</h3>
+        <p>Plan: <strong>${escapeHtml(plan)}</strong> · Free exam remaining: <strong>${billing.free_exam_available ? "1" : "0"}</strong> · Paid attempts: <strong>${escapeHtml(billing.paid_attempts_remaining ?? 0)}</strong> · AI credits: <strong>${escapeHtml(billing.ai_credits_remaining ?? 0)}</strong></p>
+      </div>
+      <div class="billing-summary-actions">
+        <button type="button" data-billing-action="open-billing">Open billing</button>
+        <button type="button" data-billing-action="refresh-billing">Refresh access</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderUpgradePrompt(context = "home") {
+  const billing = getBillingSnapshot();
+  const shouldPrompt = billing.frozen || (!billing.free_exam_available && billing.paid_attempts_remaining <= 0);
+  if (!shouldPrompt) return "";
+  const title = billing.frozen ? "Access paused" : "Free exam finished";
+  const body = billing.frozen
+    ? "This account is frozen because a refund, dispute, or manual freeze removed the active entitlement."
+    : "The configured free exam has been used. Upgrade to unlock more attempts or the monthly subscription.";
+  return `
+    <section class="upgrade-prompt ${context}">
+      <div>
+        <p class="eyebrow">Upgrade</p>
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(body)}</p>
+      </div>
+      <div class="upgrade-actions">
+        <button type="button" data-billing-action="checkout" data-product="single_exam">Buy one exam</button>
+        <button type="button" data-billing-action="checkout" data-product="exam_pack">Buy pack</button>
+        <button type="button" data-billing-action="checkout" data-product="monthly_subscription">Subscribe monthly</button>
+      </div>
     </section>
   `;
 }
@@ -1192,6 +1336,9 @@ function bindFlowEvents() {
   document.querySelectorAll("[data-flow-action]").forEach(button => {
     button.addEventListener("click", () => handleFlowAction(button.dataset));
   });
+  document.querySelectorAll("[data-billing-action]").forEach(button => {
+    button.addEventListener("click", () => handleBillingAction(button.dataset.billingAction, button.dataset.product));
+  });
   document.querySelectorAll("[data-flow-exam-select]").forEach(select => {
     select.addEventListener("change", event => {
       loadExam(event.target.value);
@@ -1243,6 +1390,9 @@ function handleFlowAction(dataset) {
   if (flowAction === "open-submission") {
     renderSubmission();
     setView("submission");
+  }
+  if (flowAction === "open-billing") {
+    setView("billing");
   }
 }
 
@@ -1819,6 +1969,9 @@ function bindRunnerEvents() {
   document.querySelectorAll("[data-action]").forEach(button => {
     button.addEventListener("click", () => handleRunnerAction(button.dataset));
   });
+  document.querySelectorAll("[data-billing-action]").forEach(button => {
+    button.addEventListener("click", () => handleBillingAction(button.dataset.billingAction, button.dataset.product));
+  });
   document.querySelectorAll("[data-answer]").forEach(field => {
     field.addEventListener("input", handleAnswerInput);
     field.addEventListener("change", handleAnswerInput);
@@ -1851,11 +2004,19 @@ function handleRunnerAction(dataset) {
     return;
   }
   if (action === "submit-exam") {
-    submitAnswers();
+    submitAnswers().catch(error => {
+      console.error(error);
+      state.billing.error = error.message;
+      renderBilling();
+    });
     return;
   }
   if (action === "evaluate-exam") {
-    evaluateSubmissionWithAi();
+    evaluateSubmissionWithAi().catch(error => {
+      console.error(error);
+      state.billing.error = error.message;
+      renderBilling();
+    });
     return;
   }
   if (action === "show-results") {
@@ -2295,7 +2456,7 @@ function buildQualityChecks() {
   ];
 }
 
-function submitAnswers() {
+async function submitAnswers() {
   if (state.auth.status !== "authenticated") {
     setView("auth");
     showToast("Sign in required");
@@ -2304,12 +2465,36 @@ function submitAnswers() {
   for (const timer of Object.values(state.runner.timers)) {
     timer.running = false;
   }
+  const examId = state.exam.id;
+  const response = await fetch("/api/billing/consume-exam", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      learner_id: state.billing.learnerId,
+      exam_id: examId,
+      source_reference: `local-${examId}-${Date.now()}`
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.allowed) {
+    state.billing.state = payload.state || state.billing.state;
+    state.billing.error = payload.reason === "account_frozen"
+      ? "This account is frozen. Open Billing to resolve the entitlement."
+      : "You have used the free exam. Open Billing to buy more access.";
+    renderBilling();
+    renderRunner();
+    setView("billing");
+    showToast("Upgrade required");
+    return;
+  }
+  state.billing.state = payload.state || state.billing.state;
   state.submission = buildSubmission("submitted");
   persistSubmission(state.submission);
   syncAttemptToServer();
   state.evaluation = null;
   renderRunner();
   renderSubmission();
+  renderBilling();
   setView("submission");
   showToast("Answers submitted locally");
 }
@@ -2323,6 +2508,12 @@ async function evaluateSubmissionWithAi() {
   }
   for (const timer of Object.values(state.runner.timers)) {
     timer.running = false;
+  }
+  if (!state.submission || state.submission.status !== "submitted") {
+    await submitAnswers();
+    if (!state.submission || state.submission.status !== "submitted") {
+      return;
+    }
   }
   state.submission = buildSubmission("submitted");
   state.evaluating = true;
@@ -2339,7 +2530,9 @@ async function evaluateSubmissionWithAi() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         submission: buildEvaluationSubmission(state.submission),
-        exam_markdown: state.markdown
+        exam_markdown: state.markdown,
+        learner_id: state.billing.learnerId,
+        email: state.billing.email
       })
     });
     const payload = await response.json().catch(() => ({}));
@@ -2387,6 +2580,8 @@ function buildSubmission(status = "draft") {
     language: "lv",
     source_path: state.exam.sourcePath,
     exam_url: window.location.href,
+    learner_id: state.billing.learnerId,
+    learner_email: state.billing.email || "",
     created_at: now,
     submitted_at: status === "submitted" ? now : null,
     pass_rule: {
@@ -2597,7 +2792,7 @@ function renderSubmission() {
     </div>
     <div class="submission-actions">
       <button type="button" data-submission-action="submit">${submission.status === "submitted" ? "Resubmit answers" : "Submit answers"}</button>
-      <button type="button" data-submission-action="evaluate" ${state.evaluating ? "disabled" : ""}>${state.evaluating ? "Scoring..." : "AI score and corrections"}</button>
+      <button type="button" data-submission-action="evaluate" ${state.evaluating || !canRunAiScoring() ? "disabled" : ""}>${state.evaluating ? "Scoring..." : canRunAiScoring() ? "AI score and corrections" : "Buy AI credits"}</button>
       <button type="button" data-submission-action="copy">Copy JSON</button>
       <button type="button" data-submission-action="download">Download JSON</button>
     </div>
@@ -2608,6 +2803,82 @@ function renderSubmission() {
     button.addEventListener("click", () => handleSubmissionAction(button.dataset.submissionAction));
   });
   syncEvaluationButtons();
+}
+
+function renderBilling() {
+  if (!els.billingOutput) return;
+  const billing = getBillingSnapshot();
+  const config = state.billing.config || { products: [] };
+  const products = Array.isArray(config.products) ? config.products : [];
+  els.billingOutput.innerHTML = `
+    <section class="billing-hero">
+      <div>
+        <p class="eyebrow">Billing</p>
+        <h2>Access, checkout, and entitlements</h2>
+        <p>Stable learner ID: <code>${escapeHtml(state.billing.learnerId || "generating…")}</code></p>
+      </div>
+      <div class="billing-state-chip ${billing.frozen ? "bad" : ""}">${escapeHtml(billing.current_plan || "free")}</div>
+    </section>
+    <section class="billing-grid">
+      <article class="billing-card">
+        <h3>Current access</h3>
+        <ul>
+          <li>Free exam available: <strong>${billing.free_exam_available ? "yes" : "no"}</strong></li>
+          <li>Paid attempts remaining: <strong>${escapeHtml(billing.paid_attempts_remaining ?? 0)}</strong></li>
+          <li>AI credits remaining: <strong>${escapeHtml(billing.ai_credits_remaining ?? 0)}</strong></li>
+          <li>Subscription active: <strong>${billing.subscription_active ? "yes" : "no"}</strong></li>
+          <li>Frozen: <strong>${billing.frozen ? "yes" : "no"}</strong></li>
+        </ul>
+        <label class="billing-input">
+          Email for checkout
+          <input name="billing-email" value="${escapeHtml(state.billing.email || "")}" placeholder="learner@example.com" autocomplete="email">
+        </label>
+        <div class="billing-actions">
+          <button type="button" data-billing-action="refresh-billing">Refresh from server</button>
+          <button type="button" data-billing-action="open-audit">View audit log</button>
+        </div>
+      </article>
+      <article class="billing-card billing-products">
+        <h3>Purchase options</h3>
+        <div class="billing-product-list">
+          ${products.map(product => `
+            <section class="billing-product">
+              <div>
+                <strong>${escapeHtml(product.name)}</strong>
+                <p>${product.mode === "subscription" ? "Monthly subscription" : "One-time purchase"}</p>
+                <small>${escapeHtml(product.grants_attempts || 0)} exam attempts · ${escapeHtml(product.grants_ai_credits || 0)} AI credits</small>
+              </div>
+              <button type="button" data-billing-action="checkout" data-product="${escapeHtml(product.key)}">${product.price_id ? "Checkout" : "Configure Stripe"}</button>
+            </section>
+          `).join("")}
+        </div>
+      </article>
+      <article class="billing-card billing-card-audit">
+        <h3>Recent billing events</h3>
+        ${billing.recent_events?.length ? `
+          <ul class="billing-events">
+            ${billing.recent_events.slice(0, 5).map(event => `
+              <li>
+                <strong>${escapeHtml(event.event_type)}</strong>
+                <span>${escapeHtml(event.created_at)}</span>
+              </li>
+            `).join("")}
+          </ul>
+        ` : "<p>No billing events recorded yet.</p>"}
+      </article>
+    </section>
+    ${state.billing.error ? `<p class="billing-error">${escapeHtml(state.billing.error)}</p>` : ""}
+  `;
+  els.billingOutput.querySelectorAll("[data-billing-action]").forEach(button => {
+    button.addEventListener("click", () => handleBillingAction(button.dataset.billingAction, button.dataset.product));
+  });
+  const emailField = els.billingOutput.querySelector('input[name="billing-email"]');
+  if (emailField) {
+    emailField.addEventListener("change", () => {
+      saveLearnerIdentity({ email: emailField.value.trim() });
+      renderBilling();
+    });
+  }
 }
 
 function renderSkillScore(part, score) {
@@ -2627,6 +2898,15 @@ function renderAiEvaluationPanel() {
       <section class="ai-evaluation-panel pending">
         <h3>AI scoring</h3>
         <p>Reviewing the submitted answers with the configured LLM provider. This can take a minute.</p>
+      </section>
+    `;
+  }
+  if (!canRunAiScoring()) {
+    return `
+      <section class="ai-evaluation-panel warning">
+        <h3>AI scoring needs credits</h3>
+        <p>Buy AI scoring credits or start a monthly subscription to unlock automatic corrections.</p>
+        ${renderUpgradePrompt("submission")}
       </section>
     `;
   }
@@ -2710,11 +2990,19 @@ function renderFeedbackList(title, items) {
 
 function handleSubmissionAction(action) {
   if (action === "submit") {
-    submitAnswers();
+    submitAnswers().catch(error => {
+      console.error(error);
+      state.billing.error = error.message;
+      renderBilling();
+    });
     return;
   }
   if (action === "evaluate") {
-    evaluateSubmissionWithAi();
+    evaluateSubmissionWithAi().catch(error => {
+      console.error(error);
+      state.billing.error = error.message;
+      renderBilling();
+    });
     return;
   }
   const submission = ensureSubmission("draft");
@@ -2727,11 +3015,69 @@ function handleSubmissionAction(action) {
   }
 }
 
+async function handleBillingAction(action, productKey) {
+  if (action === "refresh-billing") {
+    await loadBillingContext();
+    return;
+  }
+  if (action === "open-billing" || action === "open-audit") {
+    setView("billing");
+    await loadBillingContext();
+    return;
+  }
+  if (action === "checkout" && productKey) {
+    await startCheckout(productKey);
+  }
+}
+
+async function startCheckout(productKey) {
+  const config = state.billing.config || { products: [] };
+  const product = (config.products || []).find(item => item.key === productKey);
+  if (!product) {
+    showToast("Billing config is not loaded yet.");
+    return;
+  }
+  if (!product.price_id) {
+    showToast("Stripe price ID missing for this product.");
+    return;
+  }
+  const email = state.billing.email || "";
+  const payload = {
+    learner_id: state.billing.learnerId,
+    email,
+    product_key: productKey,
+    success_url: `${window.location.origin}${window.location.pathname}?view=billing&checkout=success`,
+    cancel_url: `${window.location.origin}${window.location.pathname}?view=billing&checkout=cancel`
+  };
+  try {
+    const response = await fetch("/api/billing/checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(result.error || `Checkout failed with HTTP ${response.status}`);
+    }
+    state.billing.lastCheckout = result;
+    renderBilling();
+    if (result.checkout_url) {
+      window.location.assign(result.checkout_url);
+      return;
+    }
+    showToast("Checkout session created.");
+  } catch (error) {
+    state.billing.error = error.message;
+    renderBilling();
+    showToast("Could not start checkout");
+  }
+}
+
 function syncEvaluationButtons() {
   const sidebarButton = document.querySelector("#evaluate-submission");
   if (!sidebarButton) return;
-  sidebarButton.disabled = state.evaluating;
-  sidebarButton.textContent = state.evaluating ? "Scoring..." : "AI Score";
+  sidebarButton.disabled = state.evaluating || !canRunAiScoring();
+  sidebarButton.textContent = state.evaluating ? "Scoring..." : canRunAiScoring() ? "AI Score" : "AI credits needed";
 }
 
 function cloneJson(value) {
@@ -2758,6 +3104,12 @@ function buildExportJson() {
     answer_key: answerKey,
     latest_submission: state.submission,
     latest_ai_evaluation: state.evaluation,
+    billing: {
+      learner_id: state.billing.learnerId,
+      email: state.billing.email,
+      config: state.billing.config,
+      state: state.billing.state
+    },
     submission_schema: {
       storage: "localStorage:latvian_a2_exam_submissions",
       status_values: ["draft", "submitted"],
@@ -2788,6 +3140,7 @@ function setView(viewName) {
     dashboard: "Dashboard",
     runner: "Exam Runner",
     submission: "Submission",
+    billing: "Billing",
     exam: state.exam.title,
     markdown: "Raw Markdown",
     json: "Structured JSON",
