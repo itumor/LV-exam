@@ -86,6 +86,25 @@ What to change first if you customize it:
 - Output folder
 - Brief template structure
 
+## 4. Multica issue-driven delivery loop
+
+Use Multica as the task tracker for vault changes and keep each change tied to an issue.
+
+Workflow:
+
+- Start with `multica issue get <id> --output json` and read the full comment history.
+- Mark the issue `in_progress` before editing files.
+- Keep the implementation small, reviewable, and traceable to the issue scope.
+- Use `gh` for branch, PR, and CI status checks before marking work ready.
+- Post a concise completion comment with the changed files, tests, and PR link.
+- Create a follow-up issue when you discover a blocker or a separate piece of work.
+
+Guardrails:
+
+- Do not merge without passing checks.
+- Do not leave Multica status stale.
+- Do not treat the vault as a scratchpad; preserve the note structure and links.
+
 ## Risks and guardrails
 
 - Community plugins are not first-party integrations, so update behavior can change.
