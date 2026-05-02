@@ -2346,6 +2346,9 @@ async function evaluateSubmissionWithAi() {
     if (!response.ok) {
       throw new Error(payload.error || payload.detail || `Evaluation failed with HTTP ${response.status}`);
     }
+    if (!payload || typeof payload !== "object" || !payload.evaluation || typeof payload.evaluation !== "object" || !payload.evaluation.scores) {
+      throw new Error("AI scoring response was invalid.");
+    }
     state.evaluation = payload;
     state.submission.ai_evaluation = payload;
     persistSubmission(state.submission);
@@ -2826,4 +2829,54 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function setupTestHooks() {
+  window.__a2TestHooks = {
+    loadExam,
+    renderAll,
+    submitAnswers,
+    evaluateSubmissionWithAi,
+    setFlowScreen: (screen) => setFlowScreen(screen),
+    setFlowMode: (mode) => {
+      state.flow.mode = mode;
+      renderRunner();
+    },
+    setActivePart: (partKey) => {
+      state.runner.activePart = partKey;
+      renderRunner();
+    },
+    setTimerRemaining: (partKey, remainingSeconds) => {
+      const timer = state.runner.timers[partKey];
+      if (!timer) return;
+      timer.remaining = Math.max(0, Number(remainingSeconds) || 0);
+      timer.running = timer.remaining > 0 && timer.running;
+      renderTimersOnly();
+    },
+    startTimer: (partKey) => {
+      startOnlyTimer(partKey);
+      renderTimersOnly();
+    },
+    stopTimers: () => {
+      for (const timer of Object.values(state.runner.timers)) {
+        timer.running = false;
+      }
+      renderTimersOnly();
+    },
+    setAnswer: (partKey, taskKey, index, value) => {
+      ensureAnswerSlot(partKey, taskKey, index);
+      state.answers[partKey][taskKey][index] = value;
+      renderProgressOnly();
+    },
+    getState: () => cloneJson({
+      exam: state.exam,
+      flow: state.flow,
+      runner: state.runner,
+      answers: state.answers,
+      submission: state.submission,
+      evaluation: state.evaluation
+    }),
+    getSubmission: () => buildSubmission(state.submission?.status || "draft")
+  };
+}
+
+setupTestHooks();
 init();
