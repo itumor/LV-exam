@@ -1,0 +1,12 @@
+{
+  "config": {},
+  "content": "\n# Latvian A2 DevOps Security\n\nUse platform-managed environment variables. Add structured logs, Sentry monitoring, alerts for API errors, scoring failures, payment webhook failures, login failures, and high LLM cost. Add database backups, admin-only access controls, rate limiting, abuse protection, privacy policy, terms of service, and unofficial simulator disclaimer.",
+  "created_at": "2026-05-01T12:52:16Z",
+  "created_by": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "description": "Deploy and operate the paid exam simulator safely with HTTPS, secrets, monitoring, backups, rate limits, and legal pages.",
+  "files": [],
+  "id": "346bc3d6-9a95-4099-a011-39b45e124e61",
+  "name": "latvian-a2-devops-security",
+  "updated_at": "2026-05-01T12:52:16Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

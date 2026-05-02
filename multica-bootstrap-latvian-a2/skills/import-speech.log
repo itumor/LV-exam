@@ -1,0 +1,1 @@
+Error: import skill: POST /api/skills/import returned 500: {"error":"failed to create skill: ERROR: invalid byte sequence for encoding \"UTF8\": 0x89 (SQLSTATE 22021)"}
