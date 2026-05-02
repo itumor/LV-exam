@@ -769,6 +769,40 @@ body[data-flow-screen="register"] .exam-appbar-inner {
   font-size: 14px;
 }
 
+.legal-note {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+  padding: 16px 18px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 4px;
+  background: var(--surface-container-lowest);
+  color: var(--on-surface-variant);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.legal-note strong {
+  color: var(--on-surface);
+  font-size: 15px;
+}
+
+.legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.legal-links a {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.legal-links a:hover {
+  text-decoration: underline;
+}
+
 .flow-register {
   width: min(100%, 600px);
   padding: 44px 40px;
@@ -991,6 +1025,11 @@ body[data-flow-screen="register"] .exam-appbar-inner {
   color: #b8c8e3;
   font-size: 18px;
   line-height: 1.5;
+}
+
+.results-flow .legal-note {
+  margin-top: 0;
+  margin-bottom: 26px;
 }
 
 .results-action {

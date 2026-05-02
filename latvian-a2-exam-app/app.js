@@ -52,6 +52,11 @@ const PART_CONFIG = [
 ];
 
 const FLOW_SCREENS = new Set(["home", "register", "instructions", "exam", "results"]);
+const LEGAL_DOCS = [
+  { label: "Privātuma politika", href: "/docs/privacy-policy.md" },
+  { label: "Lietošanas noteikumi", href: "/docs/terms-of-service.md" },
+  { label: "Neoficiāla simulatora atruna", href: "/docs/unofficial-disclaimer.md" }
+];
 
 const TASK_CONFIG = {
   listening: [
@@ -343,12 +348,24 @@ function renderFlowScreen() {
   return renderHomeScreen();
 }
 
+function renderLegalNotice() {
+  return `
+    <aside class="legal-note" aria-label="Legal and privacy notice">
+      <strong>Neoficiāls prakses simulators.</strong>
+      <span>Rezultāti ir sagatavoti mācību nolūkiem un nav oficiāls eksāmena rezultāts.</span>
+      <div class="legal-links">
+        ${LEGAL_DOCS.map(doc => `<a href="${doc.href}">${doc.label}</a>`).join("")}
+      </div>
+    </aside>
+  `;
+}
+
 function renderHomeScreen() {
   return `
     <section class="flow-card flow-home">
       <div class="flow-emblem" aria-hidden="true"></div>
       <h1>Valsts valodas prasmes pārbaude - A2 līmenis</h1>
-      <p>Oficiāls valsts valodas prasmes pārbaudes simulators, kas sagatavots atbilstoši izglītības un satura standartiem.</p>
+      <p>Neoficiāls valsts valodas prasmes pārbaudes simulators, kas sagatavots atbilstoši izglītības un satura standartiem.</p>
       ${renderFlowExamPicker()}
       <div class="mode-switch" role="group" aria-label="Režīms">
         <button type="button" data-flow-action="set-mode" data-mode="exam" class="${state.flow.mode === "exam" ? "active" : ""}">Eksāmena režīms</button>
@@ -362,7 +379,8 @@ function renderHomeScreen() {
         <button type="button" data-flow-action="results">Skatīt rezultātus</button>
         <button type="button" data-flow-action="instructions">Norādījumi</button>
       </div>
-      <p class="flow-version">Sistēmas versija 1.2.0 • Oficiālais simulators</p>
+      ${renderLegalNotice()}
+      <p class="flow-version">Sistēmas versija 1.2.0 • Neoficiāls prakses simulators</p>
     </section>
   `;
 }
@@ -391,6 +409,7 @@ function renderRegistrationScreen() {
         <button type="submit" class="flow-success-button">Sākt pārbaudi</button>
       </form>
       <p class="form-note">Lūdzu, ievadiet datus tieši tā, kā norādīts jūsu eksāmena lapā.</p>
+      ${renderLegalNotice()}
     </section>
   `;
 }
@@ -468,8 +487,9 @@ function renderResultsScreen() {
       <div class="final-status ${passed ? "passed" : "failed"}">
         <p>Noslēguma statuss</p>
         <h2>Kopējais rezultāts: ${passed ? "nokārtots" : "nav nokārtots"}</h2>
-        <span>Minimums ir 9 punkti katrā prasmē. Šis pārskats izmanto lokālo objektīvo vērtējumu un saglabā rakstīšanas/runāšanas darbus pārbaudei.</span>
+        <span>Minimums ir 9 punkti katrā prasmē. Šis pārskats ir prakses novērtējums, nevis oficiāls eksāmena rezultāts.</span>
       </div>
+      ${renderLegalNotice()}
       <button type="button" class="flow-primary-button results-action" data-flow-action="open-submission">Skatīt detalizētu pārskatu</button>
     </section>
   `;

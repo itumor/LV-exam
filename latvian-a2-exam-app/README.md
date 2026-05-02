@@ -12,6 +12,8 @@ python3 server.py
 
 Then open `http://localhost:4173/latvian-a2-exam-app/`.
 
+The server also exposes `GET /healthz` for container and load balancer checks.
+
 The legacy static server still renders exams, but AI scoring requires `server.py` because the browser must not hold provider credentials.
 
 ## AI scoring
@@ -110,6 +112,14 @@ CODEX_MODEL=gpt-5.2
 The container listens on port `80`; publish that port from your cloud Compose service or load balancer.
 
 Codex CLI scoring inside Docker requires `CODEX_REMOTE_URL` unless the image is extended to install and authenticate Codex CLI inside the container.
+
+See also:
+
+- `docs/deployment-runbook.md`
+- `docs/privacy-policy.md`
+- `docs/terms-of-service.md`
+- `docs/unofficial-disclaimer.md`
+- `docs/security-review.md`
 
 ## Scope
 

@@ -13,12 +13,18 @@ import tempfile
 import threading
 import time
 import hashlib
+import ipaddress
 import urllib.error
 import urllib.request
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+
+try:
+    import sentry_sdk
+except ImportError:  # pragma: no cover - optional dependency.
+    sentry_sdk = None
 
 
 ROOT = Path(__file__).resolve().parent
@@ -27,8 +33,13 @@ DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_CODEX_MODEL = "gpt-5.2"
 CODEX_OSS_DEFAULT_MODEL_LABEL = "codex-oss-default"
 CODEX_TIMEOUT_SECONDS = 300
+EVALUATE_RATE_LIMIT_PER_MINUTE = int(os.getenv("EVALUATE_RATE_LIMIT_PER_MINUTE", "20"))
+EVALUATE_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("EVALUATE_RATE_LIMIT_WINDOW_SECONDS", "60"))
+START_TIME = time.time()
 EVALUATION_CACHE: dict[str, dict[str, Any]] = {}
 EVALUATION_CACHE_LOCK = threading.Lock()
+RATE_LIMITS: dict[str, list[float]] = {}
+RATE_LIMIT_LOCK = threading.Lock()
 
 
 def load_dotenv(path: Path) -> None:
@@ -44,13 +55,29 @@ def load_dotenv(path: Path) -> None:
         os.environ.setdefault(key, value)
 
 
-def json_response(handler: SimpleHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
+def json_response(
+    handler: SimpleHTTPRequestHandler,
+    status: int,
+    payload: dict[str, Any],
+    extra_headers: dict[str, str] | None = None,
+) -> None:
     body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.send_header("Content-Length", str(len(body)))
+    for key, value in (extra_headers or {}).items():
+        handler.send_header(key, value)
     handler.end_headers()
     handler.wfile.write(body)
+
+
+def log_event(event: str, **fields: Any) -> None:
+    payload = {
+        "event": event,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        **fields,
+    }
+    print(json.dumps(payload, ensure_ascii=False, sort_keys=True), flush=True)
 
 
 def safe_read_json(handler: SimpleHTTPRequestHandler) -> dict[str, Any]:
@@ -135,6 +162,29 @@ def compact_submission(submission: dict[str, Any]) -> dict[str, Any]:
 
 def env_flag(name: str) -> bool:
     return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def normalize_client_ip(value: str | None) -> str:
+    if not value:
+        return "unknown"
+    try:
+        return str(ipaddress.ip_address(value))
+    except ValueError:
+        return value
+
+
+def allow_evaluate_request(client_ip: str) -> tuple[bool, int]:
+    now = time.time()
+    with RATE_LIMIT_LOCK:
+        bucket = RATE_LIMITS.setdefault(client_ip, [])
+        cutoff = now - EVALUATE_RATE_LIMIT_WINDOW_SECONDS
+        while bucket and bucket[0] < cutoff:
+            bucket.pop(0)
+        if len(bucket) >= EVALUATE_RATE_LIMIT_PER_MINUTE:
+            retry_after = max(1, int(EVALUATE_RATE_LIMIT_WINDOW_SECONDS - (now - bucket[0])))
+            return False, retry_after
+        bucket.append(now)
+        return True, 0
 
 
 def provider_config() -> dict[str, Any]:
@@ -427,9 +477,50 @@ def provider_error_message(status_code: int, detail: str) -> str:
     return "LLM provider request failed."
 
 
+def init_sentry() -> None:
+    dsn = os.getenv("SENTRY_DSN", "").strip()
+    if not dsn:
+        return
+    if sentry_sdk is None:
+        log_event("sentry_unavailable", reason="sentry_sdk not installed")
+        return
+    sentry_sdk.init(
+        dsn=dsn,
+        environment=os.getenv("APP_ENV", "production"),
+        release=os.getenv("APP_RELEASE", "unknown"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0")),
+    )
+    log_event("sentry_enabled", environment=os.getenv("APP_ENV", "production"))
+
+
 class AppHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, directory=str(ROOT), **kwargs)
+
+    def log_request(self, code: Any = "-", size: Any = "-") -> None:
+        log_event(
+            "http_request",
+            method=self.command,
+            path=self.path,
+            status=code,
+            size=size,
+            remote_ip=normalize_client_ip(self.client_address[0] if self.client_address else None),
+        )
+
+    def do_GET(self) -> None:
+        if self.path == "/healthz":
+            json_response(
+                self,
+                HTTPStatus.OK,
+                {
+                    "status": "ok",
+                    "service": "latvian-a2-exam-app",
+                    "uptime_seconds": round(time.time() - START_TIME, 2),
+                    "cache_entries": len(EVALUATION_CACHE),
+                },
+            )
+            return
+        super().do_GET()
 
     def do_POST(self) -> None:
         if self.path != "/api/evaluate":
@@ -437,6 +528,19 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
 
         try:
+            client_ip = normalize_client_ip(self.client_address[0] if self.client_address else None)
+            allowed, retry_after = allow_evaluate_request(client_ip)
+            if not allowed:
+                json_response(
+                    self,
+                    HTTPStatus.TOO_MANY_REQUESTS,
+                    {"error": "Evaluation rate limit exceeded. Please try again shortly."},
+                    {"Retry-After": str(retry_after)},
+                )
+                log_event("evaluate_rate_limited", remote_ip=client_ip, retry_after_seconds=retry_after)
+                return
+
+            started_at = time.time()
             payload = safe_read_json(self)
             submission = payload.get("submission")
             exam_markdown = payload.get("exam_markdown", "")
@@ -446,10 +550,26 @@ class AppHandler(SimpleHTTPRequestHandler):
                 raise ValueError("Payload must include exam_markdown text.")
             result = evaluate_submission(submission, exam_markdown)
             json_response(self, HTTPStatus.OK, result)
+            log_event(
+                "evaluate_success",
+                remote_ip=client_ip,
+                provider=result.get("provider"),
+                model=result.get("model"),
+                duration_ms=round((time.time() - started_at) * 1000, 2),
+            )
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")
+            log_event(
+                "evaluate_provider_error",
+                remote_ip=normalize_client_ip(self.client_address[0] if self.client_address else None),
+                status=error.code,
+                detail=detail[:500],
+            )
             json_response(self, error.code, {"error": provider_error_message(error.code, detail), "detail": detail})
         except Exception as error:  # noqa: BLE001 - this endpoint should always return JSON.
+            if sentry_sdk is not None:
+                sentry_sdk.capture_exception(error)
+            log_event("evaluate_error", remote_ip=normalize_client_ip(self.client_address[0] if self.client_address else None), error=str(error))
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
 
@@ -463,6 +583,7 @@ class DualStackServer(ThreadingHTTPServer):
 
 def main() -> int:
     load_dotenv(ROOT / ".env")
+    init_sentry()
     port = int(os.getenv("PORT", "4173"))
     server = DualStackServer(("::", port), AppHandler)
     print(f"Serving Latvian A2 app at http://localhost:{port}/latvian-a2-exam-app/", flush=True)
