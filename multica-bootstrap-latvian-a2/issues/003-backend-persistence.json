@@ -1,0 +1,20 @@
+{
+  "assignee_id": "f0b43271-90b5-4be2-bef6-9a35c67ba754",
+  "assignee_type": "agent",
+  "created_at": "2026-05-01T12:53:40Z",
+  "creator_id": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "creator_type": "member",
+  "description": "Tasks:\n1. Replace browser-only attempt persistence with backend API.\n2. Add Postgres schema and migrations for users, exams, attempts, answers, scores, AI evaluations, payments/subscriptions, entitlements.\n3. Implement attempt lifecycle: started, in_progress, submitted, scored, expired.\n4. Store exam content version per attempt.\n5. Move objective scoring server-side.\n6. Add structured API errors and rate limits for scoring endpoints.\n\nAcceptance criteria:\n- API supports start attempt, save answer, submit attempt, get scored attempt, list attempt history.\n- Objective scoring works from structured answer keys.\n- Historical attempt remains reproducible even after exam content changes.\n- Tests cover lifecycle transitions, invalid transitions, scoring, and rate limits.",
+  "due_date": null,
+  "id": "9a6f2f92-7b8e-4023-b691-3ef072e6738b",
+  "identifier": "HUM-9",
+  "number": 9,
+  "parent_issue_id": null,
+  "position": 0,
+  "priority": "high",
+  "project_id": "fadba75a-251e-45bb-bc18-d9e6494af677",
+  "status": "todo",
+  "title": "[Backend] Add persisted attempts, server-side scoring, and exam history API",
+  "updated_at": "2026-05-01T12:53:40Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

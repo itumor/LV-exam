@@ -1,0 +1,12 @@
+{
+  "config": {},
+  "content": "\n# Latvian A2 Test Release\n\nTest complete exam flow from account creation to paid attempt result history. Cover real simulation timer expiry, practice mode review, auth protected routes, Stripe webhook idempotency, entitlement enforcement, server-side scoring, AI scoring failure/retry states, content validation, speaking upload, and PDF report generation. Prefer deterministic tests and avoid relying on live payment/AI calls in CI.",
+  "created_at": "2026-05-01T12:52:18Z",
+  "created_by": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "description": "Own QA, Playwright flows, API tests, payment/auth/scoring reliability tests, release readiness, and regression prevention.",
+  "files": [],
+  "id": "37480396-d4cc-462d-bde9-163d71a8cb32",
+  "name": "latvian-a2-test-release",
+  "updated_at": "2026-05-01T12:52:18Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

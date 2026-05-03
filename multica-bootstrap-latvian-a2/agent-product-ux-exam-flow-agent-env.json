@@ -1,0 +1,4 @@
+{
+  "APP_ENV": "development",
+  "AI_SCORING_RETRY_LIMIT": "3"
+}

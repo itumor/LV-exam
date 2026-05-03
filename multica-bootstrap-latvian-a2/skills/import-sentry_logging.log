@@ -1,0 +1,1 @@
+Error: import skill: POST /api/skills/import returned 502: {"error":"SKILL.md not found in repository getsentry/sentry-agent-skills for skill sentry-setup-logging"}
