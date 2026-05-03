@@ -1,0 +1,20 @@
+{
+  "assignee_id": "0489eb78-9241-4d68-9706-54754f3bdc5c",
+  "assignee_type": "agent",
+  "created_at": "2026-05-01T12:53:41Z",
+  "creator_id": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "creator_type": "member",
+  "description": "Tasks:\n1. Add account creation and login.\n2. Add learner profile: name, email, native language if useful, exam target date.\n3. Add dashboard: attempts taken, latest score, skill progress, subscription/exam pack status.\n4. Add account recovery if password auth is used.\n5. Add account deletion/export flow.\n6. Add auth webhook sync to local database.\n\nAcceptance criteria:\n- Protected routes cannot be accessed anonymously.\n- Learner can view attempt history across sessions/devices.\n- Auth webhooks verify signatures and are idempotent.\n- Secret keys are never exposed to client bundle.\n- Tests cover sign-in, protected route, webhook verification, and dashboard data.",
+  "due_date": null,
+  "id": "5b34bac7-2c20-4756-9701-aa139d9e737d",
+  "identifier": "HUM-10",
+  "number": 10,
+  "parent_issue_id": null,
+  "position": 0,
+  "priority": "high",
+  "project_id": "fadba75a-251e-45bb-bc18-d9e6494af677",
+  "status": "todo",
+  "title": "[Auth] Add accounts, learner profile, dashboard, and webhook sync",
+  "updated_at": "2026-05-01T12:53:41Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

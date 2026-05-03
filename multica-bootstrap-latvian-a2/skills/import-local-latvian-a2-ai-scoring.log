@@ -1,0 +1,12 @@
+{
+  "config": {},
+  "content": "\n# Latvian A2 AI Scoring\n\nKeep LLM scoring focused on writing, speaking, and free-text answers. Use deterministic rubric prompts, schema-validated outputs, retries with failure states, per-user/per-plan limits, retry caps, request size limits, and cost telemetry. Store prompt version, model, token/cost estimate, rubric version, raw provider status, and final normalized score. Never present AI score as official exam result.",
+  "created_at": "2026-05-01T12:52:13Z",
+  "created_by": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "description": "Build reliable AI scoring for writing and speaking answers with rubrics, retries, quotas, cost controls, and auditability.",
+  "files": [],
+  "id": "c43f541e-9397-4f9d-bceb-c2a9961be152",
+  "name": "latvian-a2-ai-scoring",
+  "updated_at": "2026-05-01T12:52:13Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

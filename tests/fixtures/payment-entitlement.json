@@ -1,0 +1,11 @@
+{
+  "customer_id": "cus_123",
+  "product_id": "exam_pack_01",
+  "entitlement": "paid_exam_access",
+  "grant_event": "checkout.session.completed",
+  "revoke_events": [
+    "charge.refunded",
+    "charge.dispute.created"
+  ],
+  "verified": true
+}

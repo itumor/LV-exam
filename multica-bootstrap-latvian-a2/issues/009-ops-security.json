@@ -1,0 +1,20 @@
+{
+  "assignee_id": "7fe69da2-c169-4fd9-8f2c-24cd2225ecf5",
+  "assignee_type": "agent",
+  "created_at": "2026-05-01T12:53:47Z",
+  "creator_id": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "creator_type": "member",
+  "description": "Tasks:\n1. Prepare production deployment with HTTPS and custom domain.\n2. Store secrets in platform-managed environment variables.\n3. Add structured logs and Sentry monitoring.\n4. Alert on API errors, scoring failures, payment webhook failures, login failures, and high LLM cost.\n5. Configure database backups.\n6. Add admin-only access controls, rate limiting, and abuse protection.\n7. Add privacy policy, terms of service, and clear unofficial simulator disclaimer.\n\nAcceptance criteria:\n- Deployment docs exist with env var matrix.\n- Health checks and monitoring are configured.\n- Backups are documented and tested.\n- Legal pages and disclaimer are visible before payment and on results.\n- Security review documents key risks and mitigations.",
+  "due_date": null,
+  "id": "33289130-2171-447f-8e73-aed66617c707",
+  "identifier": "HUM-15",
+  "number": 15,
+  "parent_issue_id": null,
+  "position": 0,
+  "priority": "high",
+  "project_id": "fadba75a-251e-45bb-bc18-d9e6494af677",
+  "status": "todo",
+  "title": "[Ops] Deploy with HTTPS, monitoring, backups, rate limits, and legal pages",
+  "updated_at": "2026-05-01T12:53:47Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

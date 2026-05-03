@@ -1,0 +1,20 @@
+{
+  "assignee_id": "a28bed4b-eacf-430a-ae0e-2cd62f9b6759",
+  "assignee_type": "agent",
+  "created_at": "2026-05-01T12:53:46Z",
+  "creator_id": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "creator_type": "member",
+  "description": "Tasks:\n1. Add stricter real simulation controls: no pause, auto-submit on timeout, one final submit per section/attempt.\n2. Add optional listening playback count tracking.\n3. Add browser microphone recording for speaking tasks.\n4. Upload speaking audio to object storage.\n5. Add playback for review and optional speech-to-text path.\n6. Add candidate-style report and PDF export.\n\nAcceptance criteria:\n- Real simulation timer behavior is deterministic.\n- Speaking recording works with permission handling and failure states.\n- Audio upload uses signed URLs or secure server-mediated upload.\n- Candidate report includes total score, skill scores, pass/fail, corrections, recommendations, and disclaimer.\n- Tests cover timeout, upload failure, and report generation.",
+  "due_date": null,
+  "id": "f1023621-5ed6-491c-b244-0d2afe88f07d",
+  "identifier": "HUM-14",
+  "number": 14,
+  "parent_issue_id": null,
+  "position": 0,
+  "priority": "medium",
+  "project_id": "fadba75a-251e-45bb-bc18-d9e6494af677",
+  "status": "todo",
+  "title": "[Exam Realism] Add speaking recording, upload, playback controls, and PDF report",
+  "updated_at": "2026-05-01T12:53:46Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

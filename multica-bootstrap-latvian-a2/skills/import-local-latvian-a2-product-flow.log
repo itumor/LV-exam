@@ -1,0 +1,12 @@
+{
+  "config": {},
+  "content": "\n# Latvian A2 Product Flow\n\nOptimize for a realistic learner experience, not a developer studio. Hide Markdown, JSON, TTS, Images, Quality, and debug views from normal users. Real simulation mode must lock section order, prevent answer key exposure, block casual switching, auto-submit on timer expiry, and produce a single attempt record. Practice mode can allow section practice and review. Results must show score by skill, pass/fail per skill, total out of 60, weak areas, and suggested next practice.",
+  "created_at": "2026-05-01T12:52:06Z",
+  "created_by": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "description": "Design and implement learner-facing exam simulation UX for the Latvian A2 product. Use for hiding debug panels, real simulation mode, practice mode, timed flows, and results pages.",
+  "files": [],
+  "id": "a0af7bf5-81b4-4b6e-afd5-4bd635a0d019",
+  "name": "latvian-a2-product-flow",
+  "updated_at": "2026-05-01T12:52:06Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

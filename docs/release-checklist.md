@@ -6,6 +6,12 @@ Use this checklist as the final gate before the Latvian A2 exam simulator is tre
 
 If any item in the must-pass sections is incomplete, the release stays blocked.
 
+## Gate Metadata
+
+- Owner: QA Release Agent
+- Last reviewed: 2026-05-01
+- Gate rule: no launch unless every must-pass check is green and the regression suite is passing on the current commit.
+
 ## Must-Pass Product Checks
 
 - [ ] Learner can create or sign into an account.

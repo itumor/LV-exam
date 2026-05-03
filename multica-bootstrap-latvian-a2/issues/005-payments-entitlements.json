@@ -1,0 +1,20 @@
+{
+  "assignee_id": "03703f77-92d5-4a08-88dc-4541fbb7572c",
+  "assignee_type": "agent",
+  "created_at": "2026-05-01T12:53:42Z",
+  "creator_id": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "creator_type": "member",
+  "description": "Tasks:\n1. Define Stripe products: single exam simulation, exam pack, monthly subscription, optional AI scoring credits.\n2. Implement Stripe Checkout.\n3. Implement entitlements: free exam access, paid exam access, remaining attempts, remaining AI-scored submissions.\n4. Implement Stripe webhooks: payment succeeded, subscription created, renewed, canceled, refund, chargeback.\n5. Add billing page and upgrade prompts after free exam completion.\n\nAcceptance criteria:\n- Free user can take exactly the configured free exam.\n- Paid user gets correct exam pack/subscription entitlement.\n- Webhook handling is idempotent and auditable.\n- Refund/chargeback removes or freezes relevant entitlement.\n- Tests use Stripe test mode fixtures or mocked webhook signatures.",
+  "due_date": null,
+  "id": "72d90bee-a4bf-41e4-961a-c56d62f18418",
+  "identifier": "HUM-11",
+  "number": 11,
+  "parent_issue_id": null,
+  "position": 0,
+  "priority": "high",
+  "project_id": "fadba75a-251e-45bb-bc18-d9e6494af677",
+  "status": "todo",
+  "title": "[Payments] Add Stripe Checkout, subscriptions, exam packs, and entitlements",
+  "updated_at": "2026-05-01T12:53:42Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}
