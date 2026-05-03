@@ -1,0 +1,12 @@
+{
+  "config": {},
+  "content": "\n# Latvian A2 Content Quality\n\nConvert or mirror Markdown exams into structured JSON. Define schema metadata, sections, tasks, questions, answer options, correct answers, audio assets, image assets, scoring rules, and content version. Validate missing answer keys, broken audio links, broken image links, duplicate options, unexpected point totals, and missing scoring metadata. Support draft, review, published, and archived states.",
+  "created_at": "2026-05-01T12:52:14Z",
+  "created_by": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "description": "Create and validate the structured exam bank from Markdown exams, audio assets, images, answer keys, and scoring rules.",
+  "files": [],
+  "id": "03656c39-201f-4568-91bf-0968365b18b8",
+  "name": "latvian-a2-content-quality",
+  "updated_at": "2026-05-01T12:52:14Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

@@ -1,0 +1,12 @@
+{
+  "config": {},
+  "content": "\n# Latvian A2 Backend API\n\nModel users, exams, attempts, answers, scores, AI evaluations, payments/subscriptions, and entitlements. Attempt lifecycle must include started, in_progress, submitted, scored, and expired. Store exam content version per attempt. Move objective scoring server-side. Implement structured API errors, rate limits, idempotency for external webhooks, and auditable scoring records. Prefer async DB access, migrations, and tests for all business rules.",
+  "created_at": "2026-05-01T12:52:07Z",
+  "created_by": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "description": "Build the FastAPI/Postgres production backend for attempts, scoring, exam content, AI evaluations, payments, and history.",
+  "files": [],
+  "id": "56377b8d-338e-4aad-bcfb-f7139a9d4380",
+  "name": "latvian-a2-backend-api",
+  "updated_at": "2026-05-01T12:52:07Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

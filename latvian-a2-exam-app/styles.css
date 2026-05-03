@@ -258,6 +258,165 @@ body,
   transform: none;
 }
 
+.auth-shell,
+.dashboard-shell {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+  width: min(100%, 1024px);
+  margin: 0 auto;
+  padding: 24px 24px 40px;
+}
+
+.auth-card,
+.dashboard-card {
+  grid-column: span 6;
+  padding: 22px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 20px;
+  background: linear-gradient(180deg, var(--surface-container-lowest), var(--surface-container-low));
+  box-shadow: 0 16px 36px rgba(7, 27, 42, 0.08);
+}
+
+.auth-card.hero,
+.dashboard-card.hero {
+  grid-column: span 12;
+  background: linear-gradient(135deg, rgba(0, 30, 64, 0.96), rgba(0, 51, 102, 0.92));
+  color: #f5f8ff;
+}
+
+.auth-card.hero .eyebrow,
+.dashboard-card.hero .eyebrow {
+  color: rgba(245, 248, 255, 0.75);
+}
+
+.auth-card.hero h2,
+.dashboard-card.hero h2 {
+  margin: 8px 0 10px;
+  font-size: 28px;
+}
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--on-surface-variant);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.auth-form input,
+.auth-form select {
+  min-height: 40px;
+  padding: 10px 12px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 12px;
+  background: var(--surface-container-lowest);
+  color: var(--on-surface);
+}
+
+.auth-form button,
+.dashboard-actions button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}
+
+.auth-form.compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.auth-form.compact label:last-of-type,
+.auth-form.compact button {
+  grid-column: 1 / -1;
+}
+
+.auth-session-chip,
+.dashboard-metric,
+.dashboard-stat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+}
+
+.auth-error {
+  margin-top: 12px;
+  color: #ffd8d8;
+}
+
+.dashboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.dashboard-actions .danger {
+  background: var(--brick);
+}
+
+.dashboard-card.metrics,
+.dashboard-card.attempts {
+  grid-column: span 12;
+}
+
+.dashboard-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.dashboard-metric,
+.dashboard-stat {
+  border: 1px solid var(--outline-variant);
+  background: var(--surface-container-lowest);
+}
+
+.attempt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--outline-variant);
+}
+
+.attempt-row:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+body[data-authenticated="false"] .view:not(#auth-view) {
+  display: none;
+}
+
+body[data-authenticated="false"] .exam-tools,
+body[data-authenticated="false"] .workspace-bar {
+  display: none;
+}
+
+body[data-debug-mode="false"] .nav-list [data-view="markdown"],
+body[data-debug-mode="false"] .nav-list [data-view="json"],
+body[data-debug-mode="false"] .nav-list [data-view="tts"],
+body[data-debug-mode="false"] .nav-list [data-view="prompts"],
+body[data-debug-mode="false"] .nav-list [data-view="quality"],
+body[data-debug-mode="false"] [data-debug-control="true"] {
+  display: none;
+}
+
 .exam-tools .nav-list button.active,
 .exam-tools .button-grid button {
   border-color: var(--primary);
@@ -3325,6 +3484,7 @@ body {
   --error: #ba1a1a;
   --error-container: #fff2f0;
   --radius-control: 4px;
+  --radius-panel: 12px;
   --app-width: 1024px;
   --focus-ring: 0 0 0 3px rgba(0, 30, 64, 0.18);
 }
@@ -3825,6 +3985,131 @@ textarea:focus {
   background: var(--primary);
 }
 
+.billing-summary-card,
+.upgrade-prompt,
+.billing-hero,
+.billing-card,
+.billing-product,
+.billing-state-chip {
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-panel);
+  background: var(--surface-container-lowest);
+  box-shadow: var(--shadow);
+}
+
+.billing-summary-card,
+.upgrade-prompt,
+.billing-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+
+.billing-summary-actions,
+.upgrade-actions,
+.billing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.billing-summary-card button,
+.upgrade-prompt button,
+.billing-actions button,
+.billing-product button {
+  min-height: 40px;
+}
+
+.billing-grid,
+.billing-product-list {
+  display: grid;
+  gap: 16px;
+}
+
+.billing-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
+}
+
+.billing-card {
+  padding: 18px 20px;
+}
+
+.billing-card ul,
+.billing-events {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.billing-input {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.billing-input input {
+  min-height: 42px;
+  border-radius: var(--radius-control);
+}
+
+.billing-product-list {
+  margin-top: 12px;
+}
+
+.billing-product {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+}
+
+.billing-product p,
+.billing-product small,
+.billing-events span {
+  color: var(--on-surface-variant);
+}
+
+.billing-state-chip {
+  padding: 10px 14px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.billing-state-chip.bad,
+.billing-error {
+  color: var(--error);
+}
+
+.upgrade-prompt {
+  margin: 18px 0;
+  background: linear-gradient(135deg, rgba(0, 30, 64, 0.06), rgba(20, 107, 99, 0.06));
+}
+
+.billing-summary-card h3,
+.upgrade-prompt h3,
+.billing-hero h2 {
+  margin: 0;
+}
+
+.billing-summary-card p,
+.upgrade-prompt p,
+.billing-hero p {
+  margin: 6px 0 0;
+}
+
+.billing-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.billing-error {
+  margin-top: 14px;
+  font-weight: 600;
+}
+
 @media (max-width: 980px) {
   .exam-appbar-inner,
   .workspace,
@@ -3859,6 +4144,18 @@ textarea:focus {
   .submission-id {
     max-width: none;
   }
+
+  .billing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .billing-summary-card,
+  .upgrade-prompt,
+  .billing-hero,
+  .billing-product {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 640px) {
@@ -3888,6 +4185,13 @@ textarea:focus {
   .flow-register,
   .flow-instructions {
     padding: 26px 18px;
+  }
+
+  .billing-summary-card,
+  .upgrade-prompt,
+  .billing-hero,
+  .billing-card {
+    padding: 16px;
   }
 
   .part-navigation button,

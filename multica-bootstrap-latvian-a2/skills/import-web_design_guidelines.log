@@ -1,0 +1,12 @@
+{
+  "config": {},
+  "content": "---\nname: web-design-guidelines\ndescription: Review UI code for Web Interface Guidelines compliance. Use when asked to \"review my UI\", \"check accessibility\", \"audit design\", \"review UX\", or \"check my site against best practices\".\nmetadata:\n  author: vercel\n  version: \"1.0.0\"\n  argument-hint: \u003cfile-or-pattern\u003e\n---\n\n# Web Interface Guidelines\n\nReview files for compliance with Web Interface Guidelines.\n\n## How It Works\n\n1. Fetch the latest guidelines from the source URL below\n2. Read the specified files (or prompt user for files/pattern)\n3. Check against all rules in the fetched guidelines\n4. Output findings in the terse `file:line` format\n\n## Guidelines Source\n\nFetch fresh guidelines before each review:\n\n```\nhttps://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md\n```\n\nUse WebFetch to retrieve the latest rules. The fetched content contains all the rules and output format instructions.\n\n## Usage\n\nWhen a user provides a file or pattern argument:\n1. Fetch guidelines from the source URL above\n2. Read the specified files\n3. Apply all rules from the fetched guidelines\n4. Output findings using the format specified in the guidelines\n\nIf no files specified, ask the user which files to review.\n",
+  "created_at": "2026-05-01T12:51:52Z",
+  "created_by": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "description": "Review UI code for Web Interface Guidelines compliance. Use when asked to \"review my UI\", \"check accessibility\", \"audit design\", \"review UX\", or \"check my site against best practices\".",
+  "files": [],
+  "id": "efde98da-d161-47a6-b630-af50ad899be3",
+  "name": "web-design-guidelines",
+  "updated_at": "2026-05-01T12:51:52Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

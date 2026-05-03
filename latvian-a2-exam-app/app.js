@@ -11,12 +11,24 @@ const EXAMS = Array.from({ length: 10 }, (_, index) => {
   };
 });
 
+const flowCore = window.ExamFlowCore;
+if (!flowCore) {
+  throw new Error("ExamFlowCore helper script did not load before app.js");
+}
+
 const state = {
   exam: EXAMS[0],
   markdown: "",
   assets: {
     audio: [],
     images: []
+  },
+  auth: {
+    status: "loading",
+    account: null,
+    profile: null,
+    dashboard: null,
+    error: ""
   },
   runner: {
     activePart: "listening",
@@ -32,11 +44,21 @@ const state = {
   flow: {
     screen: "home",
     mode: "exam",
+    debugMode: false,
     candidate: {
       code: "",
       firstName: "",
       lastName: ""
     }
+  },
+  billing: {
+    config: null,
+    state: null,
+    loading: false,
+    error: "",
+    learnerId: "",
+    email: "",
+    lastCheckout: null
   },
   answers: {},
   submission: null,
@@ -52,6 +74,8 @@ const PART_CONFIG = [
 ];
 
 const FLOW_SCREENS = new Set(["home", "register", "instructions", "exam", "results"]);
+const DEBUG_VIEWS = new Set(["markdown", "json", "tts", "prompts", "quality"]);
+const PROTECTED_VIEWS = new Set(["runner", "submission", "markdown", "json", "tts", "prompts", "quality", "dashboard"]);
 
 const TASK_CONFIG = {
   listening: [
@@ -84,9 +108,12 @@ const els = {
   markdownOutput: document.querySelector("#markdown-output"),
   jsonOutput: document.querySelector("#json-output"),
   submissionOutput: document.querySelector("#submission-output"),
+  billingOutput: document.querySelector("#billing-output"),
   ttsOutput: document.querySelector("#tts-output"),
   promptOutput: document.querySelector("#prompt-output"),
   qualityOutput: document.querySelector("#quality-output"),
+  authOutput: document.querySelector("#auth-output"),
+  dashboardOutput: document.querySelector("#dashboard-output"),
   workspaceTitle: document.querySelector("#workspace-title"),
   validationPill: document.querySelector("#validation-pill"),
   globalPartNav: document.querySelector("#global-part-nav"),
@@ -95,7 +122,9 @@ const els = {
   toast: document.querySelector("#toast")
 };
 
-function init() {
+async function init() {
+  const params = new URLSearchParams(window.location.search);
+  state.flow.debugMode = params.get("debug") === "1" || params.get("debug") === "true";
   els.examSelect.innerHTML = EXAMS.map(exam => `<option value="${exam.id}">${exam.title}</option>`).join("");
   els.examSelect.addEventListener("change", () => loadExam(els.examSelect.value));
 
@@ -129,12 +158,30 @@ function init() {
     switchPart(button.dataset.globalPart);
   });
 
-  const params = new URLSearchParams(window.location.search);
-  const requestedScreen = params.get("screen");
-  const requestedPart = params.get("part");
+  const urlParams = new URLSearchParams(window.location.search);
+  const requestedScreen = urlParams.get("screen");
+  const requestedView = urlParams.get("view");
+  const requestedPart = urlParams.get("part");
   state.flow.screen = FLOW_SCREENS.has(requestedScreen) ? requestedScreen : (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
-  const requestedExam = params.get("exam");
-  loadExam(String(requestedExam || "01").padStart(2, "0"));
+  if (requestedView === "billing") {
+    setView("billing");
+  }
+  const requestedExam = urlParams.get("exam");
+  await bootstrapAuth();
+  if (state.auth.status === "authenticated") {
+    await loadDashboard();
+    await loadExam(String(requestedExam || "01").padStart(2, "0"));
+    state.flow.screen = FLOW_SCREENS.has(requestedScreen) ? requestedScreen : "exam";
+    const requestedOuterView = requestedScreen === "dashboard" ? "dashboard" : (requestedScreen ? "runner" : "dashboard");
+    setView(requestedOuterView);
+  } else {
+    state.flow.screen = "home";
+    setView("auth");
+  }
+  await loadBillingContext();
+  renderTopChrome();
+  renderAuth();
+  renderDashboard();
   setInterval(tickTimers, 1000);
 }
 
@@ -170,17 +217,354 @@ async function loadExam(examId) {
   }
 }
 
+async function bootstrapAuth() {
+  try {
+    const response = await fetch("/api/session", { credentials: "same-origin" });
+    const payload = await response.json();
+    state.auth.status = payload.authenticated ? "authenticated" : "anonymous";
+    state.auth.account = payload.account || null;
+    state.auth.profile = payload.profile || null;
+    state.auth.dashboard = null;
+    state.auth.error = "";
+  } catch (error) {
+    state.auth.status = "anonymous";
+    state.auth.account = null;
+    state.auth.profile = null;
+    state.auth.dashboard = null;
+    state.auth.error = error.message;
+  }
+}
+
+async function loadDashboard() {
+  if (state.auth.status !== "authenticated") return null;
+  const response = await fetch("/api/dashboard", { credentials: "same-origin" });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error || `Dashboard request failed with HTTP ${response.status}`);
+  }
+  state.auth.account = payload.account || state.auth.account;
+  state.auth.profile = payload.profile || state.auth.profile;
+  state.auth.dashboard = payload;
+  return payload;
+}
+
+async function handleAuthSubmit(event, mode) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const formData = new FormData(form);
+  const payload = {
+    email: String(formData.get("email") || "").trim(),
+    password: String(formData.get("password") || "")
+  };
+  if (mode === "register") {
+    payload.full_name = String(formData.get("full_name") || "").trim();
+    payload.native_language = String(formData.get("native_language") || "").trim();
+    payload.exam_target_date = String(formData.get("exam_target_date") || "").trim();
+  }
+  try {
+    const response = await fetch(`/api/auth/${mode}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(result.error || `Authentication failed with HTTP ${response.status}`);
+    }
+    state.auth.status = "authenticated";
+    state.auth.account = result.account || null;
+    state.auth.profile = result.profile || null;
+    state.auth.dashboard = result.dashboard || null;
+    state.auth.error = "";
+    await loadExam(state.exam.id || "01");
+    await loadDashboard().catch(() => {});
+    setView("dashboard");
+    renderAuth();
+    renderDashboard();
+    showToast(mode === "register" ? "Account created" : "Signed in");
+  } catch (error) {
+    state.auth.error = error.message;
+    renderAuth();
+    showToast(error.message);
+  }
+}
+
+async function handleProfileSubmit(event) {
+  event.preventDefault();
+  if (state.auth.status !== "authenticated") {
+    setView("auth");
+    return;
+  }
+  const formData = new FormData(event.currentTarget);
+  const payload = {
+    full_name: String(formData.get("full_name") || "").trim(),
+    native_language: String(formData.get("native_language") || "").trim(),
+    exam_target_date: String(formData.get("exam_target_date") || "").trim(),
+    exam_pack_status: String(formData.get("exam_pack_status") || "").trim()
+  };
+  const response = await fetch("/api/profile", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(payload)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    showToast(result.error || `Profile update failed with HTTP ${response.status}`);
+    return;
+  }
+  state.auth.profile = result.profile || state.auth.profile;
+  await loadDashboard().catch(() => {});
+  renderAuth();
+  renderDashboard();
+  showToast("Profile updated");
+}
+
+async function logout() {
+  await fetch("/api/auth/logout", {
+    method: "POST",
+    credentials: "same-origin"
+  });
+  state.auth = {
+    status: "anonymous",
+    account: null,
+    profile: null,
+    dashboard: null,
+    error: ""
+  };
+  state.flow.screen = "home";
+  state.runner.activePart = "listening";
+  state.submission = null;
+  state.evaluation = null;
+  setView("auth");
+  renderAuth();
+  renderDashboard();
+  showToast("Signed out");
+}
+
+async function deleteAccount() {
+  if (!window.confirm("Delete this account and its stored attempts?")) return;
+  const response = await fetch("/api/account/delete", {
+    method: "POST",
+    credentials: "same-origin"
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    showToast(payload.error || `Account deletion failed with HTTP ${response.status}`);
+    return;
+  }
+  await logout();
+  showToast("Account deleted");
+}
+
+async function exportAccount() {
+  const response = await fetch("/api/account/export", { credentials: "same-origin" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    showToast(payload.error || `Export failed with HTTP ${response.status}`);
+    return;
+  }
+  downloadFile(`a2-account-${state.auth.account?.id || "export"}.json`, JSON.stringify(payload, null, 2), "application/json");
+}
+
+function ensureLearnerIdentity() {
+  const storageKey = "latvian_a2_learner_identity";
+  let identity = {};
+  try {
+    identity = JSON.parse(localStorage.getItem(storageKey) || "{}");
+  } catch {
+    identity = {};
+  }
+  if (!identity.learnerId) {
+    identity.learnerId = crypto.randomUUID();
+    localStorage.setItem(storageKey, JSON.stringify(identity));
+  }
+  state.billing.learnerId = identity.learnerId;
+  state.billing.email = identity.email || "";
+  return identity;
+}
+
+function saveLearnerIdentity(partial) {
+  const storageKey = "latvian_a2_learner_identity";
+  const current = ensureLearnerIdentity();
+  const merged = { ...current, ...partial, learnerId: current.learnerId };
+  localStorage.setItem(storageKey, JSON.stringify(merged));
+  state.billing.learnerId = merged.learnerId;
+  state.billing.email = merged.email || "";
+  return merged;
+}
+
+async function loadBillingContext() {
+  ensureLearnerIdentity();
+  state.billing.loading = true;
+  state.billing.error = "";
+  try {
+    const [configResponse, stateResponse] = await Promise.all([
+      fetch("/api/billing/config", { cache: "no-store" }),
+      fetch(`/api/billing/state?learner_id=${encodeURIComponent(state.billing.learnerId)}`, { cache: "no-store" })
+    ]);
+    const config = await configResponse.json().catch(() => null);
+    const billingState = await stateResponse.json().catch(() => null);
+    if (!configResponse.ok) {
+      throw new Error(config?.error || `Failed to load billing config (${configResponse.status}).`);
+    }
+    if (!stateResponse.ok) {
+      throw new Error(billingState?.error || `Failed to load billing state (${stateResponse.status}).`);
+    }
+    state.billing.config = config;
+    state.billing.state = billingState.state;
+  } catch (error) {
+    state.billing.error = error.message;
+  } finally {
+    state.billing.loading = false;
+    renderBilling();
+    renderTopChrome();
+  }
+}
+
 function renderAll() {
   renderTopChrome();
+  renderAuth();
+  renderDashboard();
   renderRunner();
   els.examOutput.innerHTML = renderMarkdown(state.markdown, state.exam);
-  els.markdownOutput.textContent = state.markdown;
-  els.jsonOutput.textContent = JSON.stringify(buildExportJson(), null, 2);
+  if (flowCore.shouldShowDebugPanels(state.flow.debugMode)) {
+    els.markdownOutput.textContent = state.markdown;
+    els.jsonOutput.textContent = JSON.stringify(buildExportJson(), null, 2);
+  } else {
+    els.markdownOutput.textContent = "";
+    els.jsonOutput.textContent = "";
+  }
   renderSubmission();
-  renderTts();
-  renderImages();
-  renderQuality();
+  renderBilling();
+  if (flowCore.shouldShowDebugPanels(state.flow.debugMode)) {
+    renderTts();
+    renderImages();
+    renderQuality();
+  } else {
+    els.ttsOutput.innerHTML = "";
+    els.promptOutput.innerHTML = "";
+    els.qualityOutput.innerHTML = "";
+  }
   syncEvaluationButtons();
+}
+
+function renderAuth() {
+  if (!els.authOutput) return;
+  const sessionLabel = state.auth.status === "authenticated"
+    ? `${escapeHtml(state.auth.account?.email || "")}`
+    : "Guest";
+  els.authOutput.innerHTML = `
+    <section class="auth-shell">
+      <article class="auth-card hero">
+        <p class="eyebrow">Accounts</p>
+        <h2>Latvian A2 learner access</h2>
+        <p>Sign in to save attempts across sessions, protect exam routes, and track progress from the dashboard.</p>
+        <div class="auth-session-chip">${sessionLabel}</div>
+        ${state.auth.error ? `<p class="auth-error">${escapeHtml(state.auth.error)}</p>` : ""}
+      </article>
+      <article class="auth-card">
+        <h3>Sign in</h3>
+        <form id="login-form" class="auth-form">
+          <label>Email<input name="email" type="email" autocomplete="email" required></label>
+          <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+          <button type="submit">Sign in</button>
+        </form>
+      </article>
+      <article class="auth-card">
+        <h3>Create account</h3>
+        <form id="register-form" class="auth-form">
+          <label>Full name<input name="full_name" type="text" autocomplete="name" required></label>
+          <label>Email<input name="email" type="email" autocomplete="email" required></label>
+          <label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+          <label>Native language<input name="native_language" type="text" autocomplete="off" placeholder="Optional"></label>
+          <label>Exam target date<input name="exam_target_date" type="date"></label>
+          <button type="submit">Create account</button>
+        </form>
+      </article>
+    </section>
+  `;
+  els.authOutput.querySelector("#login-form")?.addEventListener("submit", event => handleAuthSubmit(event, "login"));
+  els.authOutput.querySelector("#register-form")?.addEventListener("submit", event => handleAuthSubmit(event, "register"));
+}
+
+function renderDashboard() {
+  if (!els.dashboardOutput) return;
+  if (state.auth.status !== "authenticated") {
+    els.dashboardOutput.innerHTML = `
+      <section class="dashboard-shell empty">
+        <h2>Protected dashboard</h2>
+        <p>Sign in to see attempts, latest score, and account controls.</p>
+      </section>
+    `;
+    return;
+  }
+  const dashboard = state.auth.dashboard || {};
+  const summary = dashboard.summary || {};
+  const attempts = Array.isArray(dashboard.attempts) ? dashboard.attempts : [];
+  const profile = state.auth.profile || dashboard.profile || {};
+  const latestScore = summary.latest_score ?? "—";
+  const skillCards = Object.entries(summary.skill_progress || {}).map(([skill, values]) => `
+    <article class="dashboard-stat">
+      <span>${escapeHtml(skill)}</span>
+      <strong>${escapeHtml(values.objective_correct || 0)} / ${escapeHtml(values.objective_possible || 0)}</strong>
+    </article>
+  `).join("");
+  els.dashboardOutput.innerHTML = `
+    <section class="dashboard-shell">
+      <article class="dashboard-card hero">
+        <p class="eyebrow">Dashboard</p>
+        <h2>${escapeHtml(profile.full_name || state.auth.account?.email || "Learner")}</h2>
+        <p>${escapeHtml(state.auth.account?.email || "")}</p>
+        <div class="dashboard-actions">
+          <button id="logout-button" type="button">Sign out</button>
+          <button id="export-account-button" type="button">Export account</button>
+          <button id="delete-account-button" type="button" class="danger">Delete account</button>
+        </div>
+      </article>
+      <article class="dashboard-card">
+        <h3>Profile</h3>
+        <form id="profile-form" class="auth-form compact">
+          <label>Full name<input name="full_name" type="text" value="${escapeHtml(profile.full_name || "")}" required></label>
+          <label>Native language<input name="native_language" type="text" value="${escapeHtml(profile.native_language || "")}"></label>
+          <label>Exam target date<input name="exam_target_date" type="date" value="${escapeHtml(profile.exam_target_date || "")}"></label>
+          <label>Exam pack status
+            <select name="exam_pack_status">
+              ${["free", "paid", "trial"].map(value => `<option value="${value}" ${String(profile.exam_pack_status || "free") === value ? "selected" : ""}>${value}</option>`).join("")}
+            </select>
+          </label>
+          <button type="submit">Save profile</button>
+        </form>
+      </article>
+      <article class="dashboard-card metrics">
+        <div class="dashboard-metric"><span>Attempts taken</span><strong>${escapeHtml(summary.attempts_taken ?? 0)}</strong></div>
+        <div class="dashboard-metric"><span>Latest score</span><strong>${escapeHtml(latestScore)}</strong></div>
+        <div class="dashboard-metric"><span>Subscription</span><strong>${escapeHtml(summary.subscription_status || "free")}</strong></div>
+        <div class="dashboard-metric"><span>Protected access</span><strong>${state.auth.status === "authenticated" ? "On" : "Off"}</strong></div>
+      </article>
+      <article class="dashboard-card">
+        <h3>Skill progress</h3>
+        <div class="dashboard-stats-grid">${skillCards || "<p>No attempts saved yet.</p>"}</div>
+      </article>
+      <article class="dashboard-card attempts">
+        <h3>Recent attempts</h3>
+        ${attempts.length ? attempts.map(attempt => `
+          <div class="attempt-row">
+            <div>
+              <strong>${escapeHtml(attempt.exam_title)}</strong>
+              <p>${escapeHtml(attempt.submitted_at)}</p>
+            </div>
+            <span>${escapeHtml(attempt.score_total ?? "—")} points</span>
+          </div>
+        `).join("") : "<p>No server-backed attempts yet.</p>"}
+      </article>
+    </section>
+  `;
+  els.dashboardOutput.querySelector("#logout-button")?.addEventListener("click", () => logout());
+  els.dashboardOutput.querySelector("#delete-account-button")?.addEventListener("click", () => deleteAccount());
+  els.dashboardOutput.querySelector("#export-account-button")?.addEventListener("click", () => exportAccount());
+  els.dashboardOutput.querySelector("#profile-form")?.addEventListener("submit", handleProfileSubmit);
 }
 
 function renderLoadError(error) {
@@ -291,7 +675,20 @@ function tickTimers() {
     changed = true;
     if (timer.remaining === 0) timer.running = false;
   }
-  if (changed) renderTimersOnly();
+  if (!changed) return;
+  if (state.flow.screen === "exam" && state.flow.mode === "exam" && !isAnyTimerRunning()) {
+    const outcome = flowCore.advanceExamOnTimer(state.flow, state.runner, PART_CONFIG.map(part => part.key));
+    state.flow = outcome.flow;
+    state.runner = outcome.runner;
+    if (outcome.action === "submit") {
+      submitAnswers({ autoSubmitted: true });
+      return;
+    }
+    updateExamUrl();
+    renderRunner();
+    return;
+  }
+  renderTimersOnly();
 }
 
 function renderRunner() {
@@ -330,6 +727,7 @@ function renderRunner() {
         <button type="button" data-action="open-submission">Review submission</button>
       </div>
     </section>
+    ${renderUpgradePrompt("runner")}
   `;
   bindRunnerEvents();
   renderTimersOnly();
@@ -349,6 +747,7 @@ function renderHomeScreen() {
       <div class="flow-emblem" aria-hidden="true"></div>
       <h1>Valsts valodas prasmes pārbaude - A2 līmenis</h1>
       <p>Oficiāls valsts valodas prasmes pārbaudes simulators, kas sagatavots atbilstoši izglītības un satura standartiem.</p>
+      ${renderAccessSummaryCard()}
       ${renderFlowExamPicker()}
       <div class="mode-switch" role="group" aria-label="Režīms">
         <button type="button" data-flow-action="set-mode" data-mode="exam" class="${state.flow.mode === "exam" ? "active" : ""}">Eksāmena režīms</button>
@@ -437,40 +836,128 @@ function renderFlowExamPicker(label = "Izvēlieties eksāmenu") {
 
 function renderResultsScreen() {
   const submission = ensureSubmission("draft");
-  const skills = PART_CONFIG.map(part => {
-    const score = submission.scoring.by_skill[part.key] || { correct: 0, possible: 15 };
-    const points = Math.min(15, Math.round((Number(score.correct || 0) / Math.max(1, Number(score.possible || 15))) * 15));
-    return {
-      part,
-      points,
-      percent: Math.round((points / 15) * 100),
-      passed: points >= 9
-    };
+  const summary = flowCore.buildResultsSummary({
+    submission,
+    evaluation: state.evaluation,
+    partConfig: PART_CONFIG,
+    skillLabels: {
+      listening: "Klausīšanās",
+      reading: "Lasīšana",
+      writing: "Rakstīšana",
+      speaking: "Runāšana"
+    }
   });
-  const passed = skills.every(item => item.passed);
   return `
     <section class="results-flow">
       <h1>Eksāmena Rezultāti</h1>
       <p>Jūsu snieguma kopsavilkums pa pārbaudījuma daļām.</p>
+      <div class="results-total">
+        <strong>${summary.total} / ${summary.totalMax}</strong>
+        <span>${summary.passed ? "Nokārtots" : "Jātrenējas"}</span>
+      </div>
       <div class="results-table" role="table" aria-label="Eksāmena rezultāti">
         <div class="results-row results-head" role="row">
           <span>Sadaļa</span><span>Punkti</span><span>Procenti</span><span>Statuss</span>
         </div>
-        ${skills.map(({ part, points, percent, passed }) => `
+        ${summary.scores.map(score => {
+          const part = PART_CONFIG.find(item => item.key === score.key) || { title: score.label };
+          const percent = Math.round((score.points / 15) * 100);
+          return `
           <div class="results-row" role="row">
             <span>${part.title}</span>
-            <span>${points} / 15</span>
+            <span>${score.points} / 15</span>
             <span><b>${percent}%</b><i style="--value:${percent}%"></i></span>
-            <span class="${passed ? "status-pass" : "status-fail"}">${passed ? "Nokārtots" : "Jātrenējas"}</span>
+            <span class="${score.passed ? "status-pass" : "status-fail"}">${score.passed ? "Nokārtots" : "Jātrenējas"}</span>
           </div>
-        `).join("")}
+        `; }).join("")}
       </div>
-      <div class="final-status ${passed ? "passed" : "failed"}">
+      <div class="final-status ${summary.passed ? "passed" : "failed"}">
         <p>Noslēguma statuss</p>
-        <h2>Kopējais rezultāts: ${passed ? "nokārtots" : "nav nokārtots"}</h2>
+        <h2>Kopējais rezultāts: ${summary.passed ? "nokārtots" : "nav nokārtots"}</h2>
         <span>Minimums ir 9 punkti katrā prasmē. Šis pārskats izmanto lokālo objektīvo vērtējumu un saglabā rakstīšanas/runāšanas darbus pārbaudei.</span>
       </div>
+      <div class="results-insights">
+        <article>
+          <h3>Weak areas</h3>
+          <p>${summary.weakAreas.length ? summary.weakAreas.join(", ") : "None"}</p>
+        </article>
+        <article>
+          <h3>Suggested next practice</h3>
+          <p>${summary.nextPractice.length ? summary.nextPractice.join(", ") : "Review the weakest skills."}</p>
+        </article>
+      </div>
+      ${renderUpgradePrompt("results")}
       <button type="button" class="flow-primary-button results-action" data-flow-action="open-submission">Skatīt detalizētu pārskatu</button>
+    </section>
+  `;
+}
+
+function getBillingSnapshot() {
+  return state.billing.state || {
+    free_exam_available: true,
+    free_exam_taken: 0,
+    paid_attempts_remaining: 0,
+    ai_credits_remaining: 0,
+    subscription_active: false,
+    frozen: false,
+    current_plan: "free",
+    recent_events: [],
+    recent_activity: []
+  };
+}
+
+function canRunAiScoring() {
+  const billing = getBillingSnapshot();
+  return !billing.frozen && (billing.subscription_active || (billing.ai_credits_remaining || 0) > 0);
+}
+
+function renderAccessSummaryCard() {
+  const billing = getBillingSnapshot();
+  const status = billing.frozen
+    ? "Account frozen"
+    : billing.subscription_active
+      ? "Subscription active"
+      : billing.paid_attempts_remaining > 0
+        ? "Paid attempts available"
+        : billing.free_exam_available
+          ? "Free exam available"
+          : "Upgrade required";
+  const plan = billing.current_plan || "free";
+  return `
+    <section class="billing-summary-card">
+      <div>
+        <p class="eyebrow">Access</p>
+        <h3>${escapeHtml(status)}</h3>
+        <p>Plan: <strong>${escapeHtml(plan)}</strong> · Free exam remaining: <strong>${billing.free_exam_available ? "1" : "0"}</strong> · Paid attempts: <strong>${escapeHtml(billing.paid_attempts_remaining ?? 0)}</strong> · AI credits: <strong>${escapeHtml(billing.ai_credits_remaining ?? 0)}</strong></p>
+      </div>
+      <div class="billing-summary-actions">
+        <button type="button" data-billing-action="open-billing">Open billing</button>
+        <button type="button" data-billing-action="refresh-billing">Refresh access</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderUpgradePrompt(context = "home") {
+  const billing = getBillingSnapshot();
+  const shouldPrompt = billing.frozen || (!billing.free_exam_available && billing.paid_attempts_remaining <= 0);
+  if (!shouldPrompt) return "";
+  const title = billing.frozen ? "Access paused" : "Free exam finished";
+  const body = billing.frozen
+    ? "This account is frozen because a refund, dispute, or manual freeze removed the active entitlement."
+    : "The configured free exam has been used. Upgrade to unlock more attempts or the monthly subscription.";
+  return `
+    <section class="upgrade-prompt ${context}">
+      <div>
+        <p class="eyebrow">Upgrade</p>
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(body)}</p>
+      </div>
+      <div class="upgrade-actions">
+        <button type="button" data-billing-action="checkout" data-product="single_exam">Buy one exam</button>
+        <button type="button" data-billing-action="checkout" data-product="exam_pack">Buy pack</button>
+        <button type="button" data-billing-action="checkout" data-product="monthly_subscription">Subscribe monthly</button>
+      </div>
     </section>
   `;
 }
@@ -763,6 +1250,10 @@ function getPartConfig(partKey) {
 
 function switchPart(partKey) {
   if (!PART_CONFIG.some(part => part.key === partKey)) return;
+  if (!flowCore.canSwitchPart(state.flow.mode, state.runner.activePart, partKey, PART_CONFIG.map(part => part.key))) {
+    showToast("In exam mode, follow the fixed section order.");
+    return;
+  }
   const keepTimerRunning = state.flow.screen === "exam" && state.flow.mode === "exam" && isAnyTimerRunning();
   state.runner.activePart = partKey;
   if (keepTimerRunning) {
@@ -776,6 +1267,10 @@ function switchPart(partKey) {
 
 function setFlowScreen(screen, options = {}) {
   if (!FLOW_SCREENS.has(screen)) return;
+  if (state.auth.status !== "authenticated" && screen !== "home") {
+    setView("auth");
+    return;
+  }
   state.flow.screen = screen;
   if (screen === "exam") {
     setView("runner");
@@ -827,18 +1322,24 @@ function renderTopChrome() {
   const examProgress = getExamProgress();
   const activePart = getPartConfig(state.runner.activePart);
   document.body.dataset.flowScreen = state.flow.screen;
-  els.globalPartNav.innerHTML = ["home", "register", "results"].includes(state.flow.screen) ? "" : PART_CONFIG.map(part => `
+  document.body.dataset.authenticated = String(state.auth.status === "authenticated");
+  document.body.dataset.debugMode = String(flowCore.shouldShowDebugPanels(state.flow.debugMode));
+  els.globalPartNav.innerHTML = state.auth.status !== "authenticated" || ["home", "register", "results"].includes(state.flow.screen) ? "" : PART_CONFIG.map(part => `
     <button type="button" data-global-part="${part.key}" class="${part.key === state.runner.activePart ? "active" : ""}">
       ${part.title}
     </button>
   `).join("");
   if (els.topbarTimer) {
-    els.topbarTimer.textContent = state.flow.screen === "exam"
+    els.topbarTimer.textContent = state.auth.status !== "authenticated"
+      ? "Sign in"
+      : state.flow.screen === "exam"
       ? formatTime(state.runner.timers[activePart.key].remaining)
       : formatLongTime(45 * 60);
   }
   if (els.progressFill) {
-    const percent = examProgress.total ? Math.round((examProgress.answered / examProgress.total) * 100) : 0;
+    const percent = state.auth.status === "authenticated" && examProgress.total
+      ? Math.round((examProgress.answered / examProgress.total) * 100)
+      : 0;
     els.progressFill.style.width = `${percent}%`;
   }
 }
@@ -848,7 +1349,7 @@ function renderPartMoveButton(direction) {
   const nextIndex = direction === "next" ? currentIndex + 1 : currentIndex - 1;
   const part = PART_CONFIG[nextIndex];
   if (!part && direction === "next") {
-    return `<button type="button" data-action="show-results">Pabeigt</button>`;
+    return `<button type="button" data-action="${state.flow.mode === "exam" ? "submit-exam" : "show-results"}">Pabeigt</button>`;
   }
   if (!part) return "<span></span>";
   const label = direction === "next" ? `Next: ${part.title}` : `Previous: ${part.title}`;
@@ -890,6 +1391,9 @@ function bindFlowEvents() {
   document.querySelectorAll("[data-flow-action]").forEach(button => {
     button.addEventListener("click", () => handleFlowAction(button.dataset));
   });
+  document.querySelectorAll("[data-billing-action]").forEach(button => {
+    button.addEventListener("click", () => handleBillingAction(button.dataset.billingAction, button.dataset.product));
+  });
   document.querySelectorAll("[data-flow-exam-select]").forEach(select => {
     select.addEventListener("change", event => {
       loadExam(event.target.value);
@@ -913,7 +1417,7 @@ function bindFlowEvents() {
 function handleFlowAction(dataset) {
   const { flowAction } = dataset;
   if (flowAction === "set-mode") {
-    state.flow.mode = dataset.mode || "exam";
+    state.flow = flowCore.switchFlowMode(state.flow, dataset.mode || "exam");
     renderRunner();
     return;
   }
@@ -922,7 +1426,7 @@ function handleFlowAction(dataset) {
     return;
   }
   if (flowAction === "start-practice") {
-    state.flow.mode = "practice";
+    state.flow = flowCore.switchFlowMode(state.flow, "practice");
     setFlowScreen("instructions");
     return;
   }
@@ -941,6 +1445,9 @@ function handleFlowAction(dataset) {
   if (flowAction === "open-submission") {
     renderSubmission();
     setView("submission");
+  }
+  if (flowAction === "open-billing") {
+    setView("billing");
   }
 }
 
@@ -1517,6 +2024,9 @@ function bindRunnerEvents() {
   document.querySelectorAll("[data-action]").forEach(button => {
     button.addEventListener("click", () => handleRunnerAction(button.dataset));
   });
+  document.querySelectorAll("[data-billing-action]").forEach(button => {
+    button.addEventListener("click", () => handleBillingAction(button.dataset.billingAction, button.dataset.product));
+  });
   document.querySelectorAll("[data-answer]").forEach(field => {
     field.addEventListener("input", handleAnswerInput);
     field.addEventListener("change", handleAnswerInput);
@@ -1549,11 +2059,19 @@ function handleRunnerAction(dataset) {
     return;
   }
   if (action === "submit-exam") {
-    submitAnswers();
+    submitAnswers().catch(error => {
+      console.error(error);
+      state.billing.error = error.message;
+      renderBilling();
+    });
     return;
   }
   if (action === "evaluate-exam") {
-    evaluateSubmissionWithAi();
+    evaluateSubmissionWithAi().catch(error => {
+      console.error(error);
+      state.billing.error = error.message;
+      renderBilling();
+    });
     return;
   }
   if (action === "show-results") {
@@ -1993,23 +2511,67 @@ function buildQualityChecks() {
   ];
 }
 
-function submitAnswers() {
+async function submitAnswers(options = {}) {
+  if (state.auth.status !== "authenticated") {
+    setView("auth");
+    showToast("Sign in required");
+    return;
+  }
   for (const timer of Object.values(state.runner.timers)) {
     timer.running = false;
   }
+  const examId = state.exam.id;
+  const response = await fetch("/api/billing/consume-exam", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      learner_id: state.billing.learnerId,
+      exam_id: examId,
+      source_reference: `local-${examId}-${Date.now()}`
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.allowed) {
+    state.billing.state = payload.state || state.billing.state;
+    state.billing.error = payload.reason === "account_frozen"
+      ? "This account is frozen. Open Billing to resolve the entitlement."
+      : "You have used the free exam. Open Billing to buy more access.";
+    renderBilling();
+    renderRunner();
+    setView("billing");
+    showToast("Upgrade required");
+    return;
+  }
+  state.billing.state = payload.state || state.billing.state;
   state.submission = buildSubmission("submitted");
   persistSubmission(state.submission);
+  syncAttemptToServer();
   state.evaluation = null;
   renderRunner();
   renderSubmission();
-  setView("submission");
+  renderBilling();
+  setFlowScreen("results");
+  if (!options.autoSubmitted) {
+    setView("submission");
+  }
   showToast("Answers submitted locally");
 }
 
 async function evaluateSubmissionWithAi() {
   if (state.evaluating) return;
+  if (state.auth.status !== "authenticated") {
+    setView("auth");
+    showToast("Sign in required");
+    return;
+  }
   for (const timer of Object.values(state.runner.timers)) {
     timer.running = false;
+  }
+  if (!state.submission || state.submission.status !== "submitted") {
+    await submitAnswers();
+    if (!state.submission || state.submission.status !== "submitted") {
+      return;
+    }
   }
   state.submission = buildSubmission("submitted");
   state.evaluating = true;
@@ -2026,16 +2588,22 @@ async function evaluateSubmissionWithAi() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         submission: buildEvaluationSubmission(state.submission),
-        exam_markdown: state.markdown
+        exam_markdown: state.markdown,
+        learner_id: state.billing.learnerId,
+        email: state.billing.email
       })
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(payload.error || payload.detail || `Evaluation failed with HTTP ${response.status}`);
     }
+    if (!payload || typeof payload !== "object" || !payload.evaluation || typeof payload.evaluation !== "object" || !payload.evaluation.scores) {
+      throw new Error("AI scoring response was invalid.");
+    }
     state.evaluation = payload;
     state.submission.ai_evaluation = payload;
     persistSubmission(state.submission);
+    syncAttemptToServer();
     showToast("AI score complete");
   } catch (error) {
     state.evaluation = {
@@ -2070,10 +2638,8 @@ function buildSubmission(status = "draft") {
     language: "lv",
     source_path: state.exam.sourcePath,
     exam_url: window.location.href,
-    candidate: {
-      code: state.flow.candidate.code.trim()
-    },
-    plan: "free",
+    learner_id: state.billing.learnerId,
+    learner_email: state.billing.email || "",
     created_at: now,
     submitted_at: status === "submitted" ? now : null,
     pass_rule: {
@@ -2095,8 +2661,6 @@ function buildSubmission(status = "draft") {
 function buildEvaluationSubmission(submission) {
   return {
     submission_id: submission.submission_id,
-    candidate: submission.candidate,
-    plan: submission.plan,
     exam_id: submission.exam_id,
     exam_title: submission.exam_title,
     level: submission.level,
@@ -2118,9 +2682,6 @@ function buildEvaluationSubmission(submission) {
 
 function evaluationErrorHint(message) {
   const lower = String(message || "").toLowerCase();
-  if (lower.includes("quota") || lower.includes("budget") || lower.includes("too many")) {
-    return "AI scoring quota was reached for this account or plan. Try again tomorrow or upgrade the plan.";
-  }
   if (lower.includes("rate limit") || lower.includes("429")) {
     return "Groq is rate limiting this key. Wait a little and click AI Score once.";
   }
@@ -2259,9 +2820,25 @@ function persistSubmission(submission) {
   }
 }
 
+function syncAttemptToServer() {
+  if (state.auth.status !== "authenticated" || !state.submission) return;
+  const submission = cloneJson(state.submission);
+  const evaluation = state.evaluation && !state.evaluation.error ? cloneJson(state.evaluation) : null;
+  fetch("/api/attempts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    keepalive: true,
+    body: JSON.stringify({ submission, evaluation })
+  }).catch(() => {});
+}
+
 function renderSubmission() {
   const submission = state.submission || buildSubmission("draft");
   const score = submission.scoring;
+  const visibleSubmission = flowCore.shouldShowDebugPanels(state.flow.debugMode)
+    ? submission
+    : flowCore.sanitizeSubmissionForLearner(submission);
   els.submissionOutput.innerHTML = `
     <section class="submission-hero">
       <div>
@@ -2276,17 +2853,93 @@ function renderSubmission() {
     </div>
     <div class="submission-actions">
       <button type="button" data-submission-action="submit">${submission.status === "submitted" ? "Resubmit answers" : "Submit answers"}</button>
-      <button type="button" data-submission-action="evaluate" ${state.evaluating ? "disabled" : ""}>${state.evaluating ? "Scoring..." : "AI score and corrections"}</button>
+      <button type="button" data-submission-action="evaluate" ${state.evaluating || !canRunAiScoring() ? "disabled" : ""}>${state.evaluating ? "Scoring..." : canRunAiScoring() ? "AI score and corrections" : "Buy AI credits"}</button>
       <button type="button" data-submission-action="copy">Copy JSON</button>
       <button type="button" data-submission-action="download">Download JSON</button>
     </div>
     ${renderAiEvaluationPanel()}
-    <pre class="code-panel submission-json">${escapeHtml(JSON.stringify(submission, null, 2))}</pre>
+    <pre class="code-panel submission-json">${escapeHtml(JSON.stringify(visibleSubmission, null, 2))}</pre>
   `;
   els.submissionOutput.querySelectorAll("[data-submission-action]").forEach(button => {
     button.addEventListener("click", () => handleSubmissionAction(button.dataset.submissionAction));
   });
   syncEvaluationButtons();
+}
+
+function renderBilling() {
+  if (!els.billingOutput) return;
+  const billing = getBillingSnapshot();
+  const config = state.billing.config || { products: [] };
+  const products = Array.isArray(config.products) ? config.products : [];
+  els.billingOutput.innerHTML = `
+    <section class="billing-hero">
+      <div>
+        <p class="eyebrow">Billing</p>
+        <h2>Access, checkout, and entitlements</h2>
+        <p>Stable learner ID: <code>${escapeHtml(state.billing.learnerId || "generating…")}</code></p>
+      </div>
+      <div class="billing-state-chip ${billing.frozen ? "bad" : ""}">${escapeHtml(billing.current_plan || "free")}</div>
+    </section>
+    <section class="billing-grid">
+      <article class="billing-card">
+        <h3>Current access</h3>
+        <ul>
+          <li>Free exam available: <strong>${billing.free_exam_available ? "yes" : "no"}</strong></li>
+          <li>Paid attempts remaining: <strong>${escapeHtml(billing.paid_attempts_remaining ?? 0)}</strong></li>
+          <li>AI credits remaining: <strong>${escapeHtml(billing.ai_credits_remaining ?? 0)}</strong></li>
+          <li>Subscription active: <strong>${billing.subscription_active ? "yes" : "no"}</strong></li>
+          <li>Frozen: <strong>${billing.frozen ? "yes" : "no"}</strong></li>
+        </ul>
+        <label class="billing-input">
+          Email for checkout
+          <input name="billing-email" value="${escapeHtml(state.billing.email || "")}" placeholder="learner@example.com" autocomplete="email">
+        </label>
+        <div class="billing-actions">
+          <button type="button" data-billing-action="refresh-billing">Refresh from server</button>
+          <button type="button" data-billing-action="open-audit">View audit log</button>
+        </div>
+      </article>
+      <article class="billing-card billing-products">
+        <h3>Purchase options</h3>
+        <div class="billing-product-list">
+          ${products.map(product => `
+            <section class="billing-product">
+              <div>
+                <strong>${escapeHtml(product.name)}</strong>
+                <p>${product.mode === "subscription" ? "Monthly subscription" : "One-time purchase"}</p>
+                <small>${escapeHtml(product.grants_attempts || 0)} exam attempts · ${escapeHtml(product.grants_ai_credits || 0)} AI credits</small>
+              </div>
+              <button type="button" data-billing-action="checkout" data-product="${escapeHtml(product.key)}">${product.price_id ? "Checkout" : "Configure Stripe"}</button>
+            </section>
+          `).join("")}
+        </div>
+      </article>
+      <article class="billing-card billing-card-audit">
+        <h3>Recent billing events</h3>
+        ${billing.recent_events?.length ? `
+          <ul class="billing-events">
+            ${billing.recent_events.slice(0, 5).map(event => `
+              <li>
+                <strong>${escapeHtml(event.event_type)}</strong>
+                <span>${escapeHtml(event.created_at)}</span>
+              </li>
+            `).join("")}
+          </ul>
+        ` : "<p>No billing events recorded yet.</p>"}
+      </article>
+    </section>
+    ${state.billing.error ? `<p class="billing-error">${escapeHtml(state.billing.error)}</p>` : ""}
+  `;
+  els.billingOutput.querySelectorAll("[data-billing-action]").forEach(button => {
+    button.addEventListener("click", () => handleBillingAction(button.dataset.billingAction, button.dataset.product));
+  });
+  const emailField = els.billingOutput.querySelector('input[name="billing-email"]');
+  if (emailField) {
+    emailField.addEventListener("change", () => {
+      saveLearnerIdentity({ email: emailField.value.trim() });
+      renderBilling();
+    });
+  }
 }
 
 function renderSkillScore(part, score) {
@@ -2305,7 +2958,16 @@ function renderAiEvaluationPanel() {
     return `
       <section class="ai-evaluation-panel pending">
         <h3>AI scoring</h3>
-        <p>Reviewing the submitted answers with the configured LLM provider. This is a practice estimate, not an official exam result.</p>
+        <p>Reviewing the submitted answers with the configured LLM provider. This can take a minute.</p>
+      </section>
+    `;
+  }
+  if (!canRunAiScoring()) {
+    return `
+      <section class="ai-evaluation-panel warning">
+        <h3>AI scoring needs credits</h3>
+        <p>Buy AI scoring credits or start a monthly subscription to unlock automatic corrections.</p>
+        ${renderUpgradePrompt("submission")}
       </section>
     `;
   }
@@ -2313,7 +2975,7 @@ function renderAiEvaluationPanel() {
     return `
       <section class="ai-evaluation-panel">
         <h3>AI scoring</h3>
-        <p>Submit the answers, then use AI score and corrections to validate writing and speaking responses. The output is a practice estimate, not an official exam result.</p>
+        <p>Submit the answers, then use AI score and corrections to validate writing and speaking responses.</p>
       </section>
     `;
   }
@@ -2389,28 +3051,100 @@ function renderFeedbackList(title, items) {
 
 function handleSubmissionAction(action) {
   if (action === "submit") {
-    submitAnswers();
+    submitAnswers().catch(error => {
+      console.error(error);
+      state.billing.error = error.message;
+      renderBilling();
+    });
     return;
   }
   if (action === "evaluate") {
-    evaluateSubmissionWithAi();
+    evaluateSubmissionWithAi().catch(error => {
+      console.error(error);
+      state.billing.error = error.message;
+      renderBilling();
+    });
     return;
   }
   const submission = ensureSubmission("draft");
   if (action === "copy") {
-    copyText(JSON.stringify(submission, null, 2), "Submission copied");
+    const visibleSubmission = flowCore.shouldShowDebugPanels(state.flow.debugMode)
+      ? submission
+      : flowCore.sanitizeSubmissionForLearner(submission);
+    copyText(JSON.stringify(visibleSubmission, null, 2), "Submission copied");
     return;
   }
   if (action === "download") {
-    downloadFile(`${submission.submission_id}.json`, JSON.stringify(submission, null, 2), "application/json");
+    const visibleSubmission = flowCore.shouldShowDebugPanels(state.flow.debugMode)
+      ? submission
+      : flowCore.sanitizeSubmissionForLearner(submission);
+    downloadFile(`${submission.submission_id}.json`, JSON.stringify(visibleSubmission, null, 2), "application/json");
+  }
+}
+
+async function handleBillingAction(action, productKey) {
+  if (action === "refresh-billing") {
+    await loadBillingContext();
+    return;
+  }
+  if (action === "open-billing" || action === "open-audit") {
+    setView("billing");
+    await loadBillingContext();
+    return;
+  }
+  if (action === "checkout" && productKey) {
+    await startCheckout(productKey);
+  }
+}
+
+async function startCheckout(productKey) {
+  const config = state.billing.config || { products: [] };
+  const product = (config.products || []).find(item => item.key === productKey);
+  if (!product) {
+    showToast("Billing config is not loaded yet.");
+    return;
+  }
+  if (!product.price_id) {
+    showToast("Stripe price ID missing for this product.");
+    return;
+  }
+  const email = state.billing.email || "";
+  const payload = {
+    learner_id: state.billing.learnerId,
+    email,
+    product_key: productKey,
+    success_url: `${window.location.origin}${window.location.pathname}?view=billing&checkout=success`,
+    cancel_url: `${window.location.origin}${window.location.pathname}?view=billing&checkout=cancel`
+  };
+  try {
+    const response = await fetch("/api/billing/checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(result.error || `Checkout failed with HTTP ${response.status}`);
+    }
+    state.billing.lastCheckout = result;
+    renderBilling();
+    if (result.checkout_url) {
+      window.location.assign(result.checkout_url);
+      return;
+    }
+    showToast("Checkout session created.");
+  } catch (error) {
+    state.billing.error = error.message;
+    renderBilling();
+    showToast("Could not start checkout");
   }
 }
 
 function syncEvaluationButtons() {
   const sidebarButton = document.querySelector("#evaluate-submission");
   if (!sidebarButton) return;
-  sidebarButton.disabled = state.evaluating;
-  sidebarButton.textContent = state.evaluating ? "Scoring..." : "AI Score";
+  sidebarButton.disabled = state.evaluating || !canRunAiScoring();
+  sidebarButton.textContent = state.evaluating ? "Scoring..." : canRunAiScoring() ? "AI Score" : "AI credits needed";
 }
 
 function cloneJson(value) {
@@ -2437,6 +3171,12 @@ function buildExportJson() {
     answer_key: answerKey,
     latest_submission: state.submission,
     latest_ai_evaluation: state.evaluation,
+    billing: {
+      learner_id: state.billing.learnerId,
+      email: state.billing.email,
+      config: state.billing.config,
+      state: state.billing.state
+    },
     submission_schema: {
       storage: "localStorage:latvian_a2_exam_submissions",
       status_values: ["draft", "submitted"],
@@ -2454,14 +3194,25 @@ function buildExportJson() {
 }
 
 function setView(viewName) {
+  if (DEBUG_VIEWS.has(viewName) && !flowCore.shouldShowDebugPanels(state.flow.debugMode)) {
+    viewName = state.auth.status === "authenticated" ? "runner" : "auth";
+  }
+  if (PROTECTED_VIEWS.has(viewName) && state.auth.status !== "authenticated") {
+    viewName = "auth";
+  }
   document.querySelectorAll(".view").forEach(view => view.classList.remove("active"));
   document.querySelector(`#${viewName}-view`).classList.add("active");
   document.querySelectorAll(".nav-list button").forEach(button => {
+    const showButton = !DEBUG_VIEWS.has(button.dataset.view) || flowCore.shouldShowDebugPanels(state.flow.debugMode);
+    button.hidden = !showButton;
     button.classList.toggle("active", button.dataset.view === viewName);
   });
   const titles = {
+    auth: "Account access",
+    dashboard: "Dashboard",
     runner: "Exam Runner",
     submission: "Submission",
+    billing: "Billing",
     exam: state.exam.title,
     markdown: "Raw Markdown",
     json: "Structured JSON",
@@ -2503,4 +3254,54 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function setupTestHooks() {
+  window.__a2TestHooks = {
+    loadExam,
+    renderAll,
+    submitAnswers,
+    evaluateSubmissionWithAi,
+    setFlowScreen: (screen) => setFlowScreen(screen),
+    setFlowMode: (mode) => {
+      state.flow.mode = mode;
+      renderRunner();
+    },
+    setActivePart: (partKey) => {
+      state.runner.activePart = partKey;
+      renderRunner();
+    },
+    setTimerRemaining: (partKey, remainingSeconds) => {
+      const timer = state.runner.timers[partKey];
+      if (!timer) return;
+      timer.remaining = Math.max(0, Number(remainingSeconds) || 0);
+      timer.running = timer.remaining > 0 && timer.running;
+      renderTimersOnly();
+    },
+    startTimer: (partKey) => {
+      startOnlyTimer(partKey);
+      renderTimersOnly();
+    },
+    stopTimers: () => {
+      for (const timer of Object.values(state.runner.timers)) {
+        timer.running = false;
+      }
+      renderTimersOnly();
+    },
+    setAnswer: (partKey, taskKey, index, value) => {
+      ensureAnswerSlot(partKey, taskKey, index);
+      state.answers[partKey][taskKey][index] = value;
+      renderProgressOnly();
+    },
+    getState: () => cloneJson({
+      exam: state.exam,
+      flow: state.flow,
+      runner: state.runner,
+      answers: state.answers,
+      submission: state.submission,
+      evaluation: state.evaluation
+    }),
+    getSubmission: () => buildSubmission(state.submission?.status || "draft")
+  };
+}
+
+setupTestHooks();
 init();
