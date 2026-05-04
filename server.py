@@ -1000,6 +1000,10 @@ class AppHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
     def do_GET(self) -> None:
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/healthz":
+            json_response(self, HTTPStatus.OK, {"status": "ok"})
+            return
         if self.path == "/api/session":
             session = current_session_record(self)
             json_response(self, HTTPStatus.OK, {"authenticated": bool(session), **(session or {})})
