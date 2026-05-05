@@ -454,6 +454,23 @@ AUTH_DB_PATH = ROOT / ".multica" / "auth.sqlite3"
 AUTH_SESSION_COOKIE = "a2_session"
 AUTH_SESSION_TTL_DAYS = 30
 AUTH_WEBHOOK_SECRET = os.getenv("AUTH_WEBHOOK_SECRET", "").strip()
+ATTEMPT_STATUSES = {"started", "in_progress", "submitted", "scored", "expired"}
+MUTABLE_ATTEMPT_STATUSES = {"started", "in_progress"}
+SCORING_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("SCORING_RATE_LIMIT_WINDOW_SECONDS", "60"))
+SCORING_RATE_LIMIT_MAX_REQUESTS = int(os.getenv("SCORING_RATE_LIMIT_MAX_REQUESTS", "5"))
+SCORING_RATE_LIMITS: dict[str, list[float]] = {}
+SCORING_RATE_LIMIT_LOCK = threading.Lock()
+
+
+class ApiError(Exception):
+    def __init__(self, status_code: int, code: str, message: str, details: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.code = code
+        self.message = message
+        self.details = details or {}
+
+
 RATE_LIMIT_LOCK = threading.Lock()
 RATE_LIMIT_BUCKETS: dict[str, list[float]] = {}
 SENTRY_SDK: Any | None = None
@@ -479,6 +496,18 @@ def json_response(handler: SimpleHTTPRequestHandler, status: int, payload: dict[
     handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
     handler.wfile.write(body)
+
+
+def api_error_response(handler: SimpleHTTPRequestHandler, error: ApiError) -> None:
+    payload: dict[str, Any] = {
+        "error": {
+            "code": error.code,
+            "message": error.message,
+        }
+    }
+    if error.details:
+        payload["error"]["details"] = error.details
+    json_response(handler, error.status_code, payload)
 
 
 def init_sentry() -> None:
@@ -636,6 +665,16 @@ def init_auth_store() -> None:
     with db_connection() as conn:
         conn.executescript(
             """
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                account_id TEXT REFERENCES accounts(id) ON DELETE CASCADE,
+                email TEXT NOT NULL UNIQUE,
+                display_name TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS accounts (
                 id TEXT PRIMARY KEY,
                 email TEXT NOT NULL UNIQUE,
@@ -678,6 +717,87 @@ def init_auth_store() -> None:
                 updated_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS exams (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                content_version INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'published',
+                manifest_payload TEXT NOT NULL,
+                answer_key_payload TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS attempt_answers (
+                id TEXT PRIMARY KEY,
+                attempt_id TEXT NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
+                account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+                skill TEXT NOT NULL,
+                task_key TEXT NOT NULL,
+                item_index INTEGER NOT NULL,
+                answer_payload TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(attempt_id, skill, task_key, item_index)
+            );
+
+            CREATE TABLE IF NOT EXISTS attempt_scores (
+                id TEXT PRIMARY KEY,
+                attempt_id TEXT NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
+                account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+                scoring_version TEXT NOT NULL,
+                score_total INTEGER NOT NULL,
+                score_payload TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS ai_evaluations (
+                id TEXT PRIMARY KEY,
+                attempt_id TEXT NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
+                account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+                provider TEXT NOT NULL,
+                model TEXT NOT NULL,
+                status TEXT NOT NULL,
+                evaluation_payload TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS payments (
+                id TEXT PRIMARY KEY,
+                account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+                provider TEXT NOT NULL,
+                provider_reference TEXT NOT NULL UNIQUE,
+                status TEXT NOT NULL,
+                amount_cents INTEGER,
+                currency TEXT,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+                provider TEXT NOT NULL,
+                provider_reference TEXT NOT NULL UNIQUE,
+                status TEXT NOT NULL,
+                current_period_end TEXT,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS entitlements (
+                id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+                entitlement_type TEXT NOT NULL,
+                source_reference TEXT,
+                starts_at TEXT NOT NULL,
+                expires_at TEXT,
+                consumed_at TEXT,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS auth_webhook_events (
                 event_id TEXT PRIMARY KEY,
                 event_type TEXT NOT NULL,
@@ -687,8 +807,26 @@ def init_auth_store() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_attempts_account_submitted_at
             ON attempts(account_id, submitted_at DESC);
+
+            CREATE INDEX IF NOT EXISTS idx_attempt_answers_attempt
+            ON attempt_answers(attempt_id, skill, task_key, item_index);
+
+            CREATE INDEX IF NOT EXISTS idx_attempt_scores_attempt
+            ON attempt_scores(attempt_id, created_at DESC);
             """
         )
+        ensure_column(conn, "attempts", "content_version", "INTEGER NOT NULL DEFAULT 1")
+        ensure_column(conn, "attempts", "exam_snapshot_payload", "TEXT NOT NULL DEFAULT '{}'")
+        ensure_column(conn, "attempts", "answer_payload", "TEXT NOT NULL DEFAULT '{}'")
+        ensure_column(conn, "attempts", "started_at", "TEXT")
+        ensure_column(conn, "attempts", "expires_at", "TEXT")
+        ensure_column(conn, "attempts", "scored_at", "TEXT")
+
+
+def ensure_column(conn: sqlite3.Connection, table_name: str, column_name: str, definition: str) -> None:
+    columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()}
+    if column_name not in columns:
+        conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
 
 
 def normalize_email(email: str) -> str:
@@ -765,19 +903,112 @@ def serialize_profile(row: sqlite3.Row | None) -> dict[str, Any] | None:
 def serialize_attempt(row: sqlite3.Row) -> dict[str, Any]:
     score_payload = json.loads(row["score_payload"])
     submission_payload = json.loads(row["submission_payload"])
+    exam_snapshot_payload = json.loads(row["exam_snapshot_payload"] or "{}")
+    answer_payload = json.loads(row["answer_payload"] or "{}")
     return {
         "id": row["id"],
         "account_id": row["account_id"],
         "exam_id": row["exam_id"],
         "exam_title": row["exam_title"],
         "status": row["status"],
+        "content_version": row["content_version"],
+        "exam_snapshot": exam_snapshot_payload,
+        "answers": answer_payload,
         "submitted_at": row["submitted_at"],
+        "started_at": row["started_at"],
+        "expires_at": row["expires_at"],
+        "scored_at": row["scored_at"],
         "score_total": row["score_total"],
         "score_payload": score_payload,
         "submission_payload": submission_payload,
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
+
+
+def parse_json_object(value: Any, default: dict[str, Any] | None = None) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if not value:
+        return default or {}
+    try:
+        parsed = json.loads(str(value))
+    except json.JSONDecodeError:
+        return default or {}
+    return parsed if isinstance(parsed, dict) else (default or {})
+
+
+def normalize_answer(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip().lower())
+
+
+def compute_objective_score(answer_key: dict[str, Any], answers: dict[str, Any]) -> dict[str, Any]:
+    by_skill: dict[str, dict[str, Any]] = {}
+    items: list[dict[str, Any]] = []
+    for skill in ("listening", "reading", "writing", "speaking"):
+        skill_score = {
+            "objective_correct": 0,
+            "objective_possible": 0,
+            "manual_review_possible": 15,
+            "max_points": 15,
+            "minimum_to_pass": 9,
+        }
+        by_skill[skill] = skill_score
+        for task_key, expected_answers in (answer_key.get(skill) or {}).items():
+            if not isinstance(expected_answers, list):
+                continue
+            for index, expected in enumerate(expected_answers):
+                actual = ((answers.get(skill) or {}).get(task_key) or [])
+                actual_value = actual[index] if isinstance(actual, list) and index < len(actual) else ""
+                correct = normalize_answer(actual_value) == normalize_answer(expected)
+                skill_score["objective_possible"] += 1
+                skill_score["objective_correct"] += 1 if correct else 0
+                items.append(
+                    {
+                        "skill": skill,
+                        "task": task_key,
+                        "item": index + 1,
+                        "expected": expected,
+                        "actual": actual_value,
+                        "correct": correct,
+                        "scoring": "objective",
+                    }
+                )
+        skill_score["manual_review_possible"] = max(0, 15 - skill_score["objective_possible"])
+    objective_correct = sum(skill["objective_correct"] for skill in by_skill.values())
+    objective_possible = sum(skill["objective_possible"] for skill in by_skill.values())
+    manual_possible = sum(skill["manual_review_possible"] for skill in by_skill.values())
+    return {
+        "mode": "server_objective",
+        "scoring_version": "objective-v1",
+        "objective_correct": objective_correct,
+        "objective_possible": objective_possible,
+        "manual_review_possible": manual_possible,
+        "estimated_minimum_points": objective_correct,
+        "estimated_maximum_points_after_review": objective_correct + manual_possible,
+        "by_skill": by_skill,
+        "items": items,
+    }
+
+
+def check_scoring_rate_limit(identity: str) -> None:
+    now = time.time()
+    with SCORING_RATE_LIMIT_LOCK:
+        recent = [
+            timestamp
+            for timestamp in SCORING_RATE_LIMITS.get(identity, [])
+            if now - timestamp < SCORING_RATE_LIMIT_WINDOW_SECONDS
+        ]
+        if len(recent) >= SCORING_RATE_LIMIT_MAX_REQUESTS:
+            retry_after = max(1, int(SCORING_RATE_LIMIT_WINDOW_SECONDS - (now - recent[0])))
+            raise ApiError(
+                HTTPStatus.TOO_MANY_REQUESTS,
+                "rate_limit_exceeded",
+                "Scoring rate limit exceeded. Please wait before trying again.",
+                {"retry_after_seconds": retry_after},
+            )
+        recent.append(now)
+        SCORING_RATE_LIMITS[identity] = recent
 
 
 def current_session_record(handler: SimpleHTTPRequestHandler) -> dict[str, Any] | None:
@@ -967,7 +1198,18 @@ def persist_attempt(payload: dict[str, Any], session: dict[str, Any]) -> dict[st
     exam_id = str(submission.get("exam_id") or "unknown_exam")
     exam_title = str(submission.get("exam_title") or "Untitled exam")
     status = str(submission.get("status") or "draft")
+    if status not in ATTEMPT_STATUSES and status != "draft":
+        status = "submitted" if submission.get("submitted_at") else "started"
     submitted_at = str(submission.get("submitted_at") or now_iso())
+    content_version = int(submission.get("content_version") or payload.get("content_version") or 1)
+    exam_snapshot = parse_json_object(payload.get("exam_snapshot")) or {
+        "exam_id": exam_id,
+        "exam_title": exam_title,
+        "content_version": content_version,
+        "source_path": submission.get("source_path"),
+        "answer_key": submission.get("answer_key") or {},
+    }
+    answer_payload = parse_json_object(submission.get("answers"))
     score_payload = payload.get("evaluation") or submission.get("ai_evaluation")
     score_total = None
     if isinstance(score_payload, dict):
@@ -985,15 +1227,20 @@ def persist_attempt(payload: dict[str, Any], session: dict[str, Any]) -> dict[st
             """
             INSERT INTO attempts (
                 id, account_id, exam_id, exam_title, status, submitted_at,
-                score_total, score_payload, submission_payload, created_at, updated_at
+                score_total, score_payload, submission_payload, created_at, updated_at,
+                content_version, exam_snapshot_payload, answer_payload, started_at, expires_at, scored_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 status = excluded.status,
                 submitted_at = excluded.submitted_at,
                 score_total = excluded.score_total,
                 score_payload = excluded.score_payload,
                 submission_payload = excluded.submission_payload,
+                content_version = excluded.content_version,
+                exam_snapshot_payload = excluded.exam_snapshot_payload,
+                answer_payload = excluded.answer_payload,
+                scored_at = excluded.scored_at,
                 updated_at = excluded.updated_at
             """,
             (
@@ -1008,10 +1255,223 @@ def persist_attempt(payload: dict[str, Any], session: dict[str, Any]) -> dict[st
                 json.dumps(submission, ensure_ascii=False),
                 now_iso(),
                 now_iso(),
+                content_version,
+                json.dumps(exam_snapshot, ensure_ascii=False),
+                json.dumps(answer_payload, ensure_ascii=False),
+                submission.get("created_at") or now_iso(),
+                submission.get("expires_at"),
+                now_iso() if score_total is not None else None,
             ),
         )
         attempt = conn.execute("SELECT * FROM attempts WHERE id = ?", (attempt_id,)).fetchone()
     return {"attempt": serialize_attempt(attempt)}
+
+
+def start_attempt(payload: dict[str, Any], session: dict[str, Any]) -> dict[str, Any]:
+    exam_id = str(payload.get("exam_id", "")).strip()
+    if not exam_id:
+        raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_request", "exam_id is required.")
+    exam_title = str(payload.get("exam_title") or payload.get("title") or "Untitled exam")
+    content_version = int(payload.get("content_version") or 1)
+    answer_key = parse_json_object(payload.get("answer_key"))
+    exam_snapshot = parse_json_object(payload.get("exam_snapshot")) or {
+        "exam_id": exam_id,
+        "exam_title": exam_title,
+        "content_version": content_version,
+        "answer_key": answer_key,
+        "manifest": payload.get("manifest") if isinstance(payload.get("manifest"), dict) else {},
+    }
+    if "answer_key" not in exam_snapshot:
+        exam_snapshot["answer_key"] = answer_key
+    now = now_iso()
+    attempt_id = str(payload.get("attempt_id") or f"attempt_{secrets.token_hex(8)}")
+    expires_at = str(payload.get("expires_at") or "")
+    with db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO exams (id, title, content_version, status, manifest_payload, answer_key_payload, created_at, updated_at)
+            VALUES (?, ?, ?, 'published', ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                title = excluded.title,
+                content_version = excluded.content_version,
+                manifest_payload = excluded.manifest_payload,
+                answer_key_payload = excluded.answer_key_payload,
+                updated_at = excluded.updated_at
+            """,
+            (
+                exam_id,
+                exam_title,
+                content_version,
+                json.dumps(exam_snapshot.get("manifest") or exam_snapshot, ensure_ascii=False),
+                json.dumps(exam_snapshot.get("answer_key") or {}, ensure_ascii=False),
+                now,
+                now,
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO attempts (
+                id, account_id, exam_id, exam_title, status, submitted_at,
+                score_total, score_payload, submission_payload, created_at, updated_at,
+                content_version, exam_snapshot_payload, answer_payload, started_at, expires_at, scored_at
+            )
+            VALUES (?, ?, ?, ?, 'started', ?, NULL, '{}', '{}', ?, ?, ?, ?, '{}', ?, ?, NULL)
+            """,
+            (
+                attempt_id,
+                session["account"]["id"],
+                exam_id,
+                exam_title,
+                now,
+                now,
+                now,
+                content_version,
+                json.dumps(exam_snapshot, ensure_ascii=False),
+                now,
+                expires_at or None,
+            ),
+        )
+        attempt = conn.execute("SELECT * FROM attempts WHERE id = ?", (attempt_id,)).fetchone()
+    return {"attempt": serialize_attempt(attempt)}
+
+
+def load_owned_attempt(conn: sqlite3.Connection, attempt_id: str, session: dict[str, Any]) -> sqlite3.Row:
+    row = conn.execute(
+        "SELECT * FROM attempts WHERE id = ? AND account_id = ?",
+        (attempt_id, session["account"]["id"]),
+    ).fetchone()
+    if row is None:
+        raise ApiError(HTTPStatus.NOT_FOUND, "attempt_not_found", "Attempt not found.")
+    return row
+
+
+def save_attempt_answer(attempt_id: str, payload: dict[str, Any], session: dict[str, Any]) -> dict[str, Any]:
+    skill = str(payload.get("skill", "")).strip()
+    task_key = str(payload.get("task_key") or payload.get("task") or "").strip()
+    if not skill or not task_key:
+        raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_request", "skill and task_key are required.")
+    try:
+        item_index = int(payload.get("item_index", payload.get("item", 1))) - 1
+    except (TypeError, ValueError) as error:
+        raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_request", "item_index must be an integer.") from error
+    if item_index < 0:
+        raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_request", "item_index must be at least 1.")
+    answer_value = payload.get("answer", payload.get("value", ""))
+    now = now_iso()
+    with db_connection() as conn:
+        attempt = load_owned_attempt(conn, attempt_id, session)
+        if attempt["status"] not in MUTABLE_ATTEMPT_STATUSES:
+            raise ApiError(
+                HTTPStatus.CONFLICT,
+                "invalid_attempt_transition",
+                f"Cannot save answers when attempt status is {attempt['status']}.",
+            )
+        answers = parse_json_object(attempt["answer_payload"])
+        skill_answers = answers.setdefault(skill, {})
+        task_answers = skill_answers.setdefault(task_key, [])
+        while len(task_answers) <= item_index:
+            task_answers.append("")
+        task_answers[item_index] = answer_value
+        answer_id = f"answer_{hashlib.sha256(f'{attempt_id}:{skill}:{task_key}:{item_index}'.encode('utf-8')).hexdigest()[:24]}"
+        conn.execute(
+            """
+            INSERT INTO attempt_answers (id, attempt_id, account_id, skill, task_key, item_index, answer_payload, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(attempt_id, skill, task_key, item_index) DO UPDATE SET
+                answer_payload = excluded.answer_payload,
+                updated_at = excluded.updated_at
+            """,
+            (
+                answer_id,
+                attempt_id,
+                session["account"]["id"],
+                skill,
+                task_key,
+                item_index,
+                json.dumps({"answer": answer_value}, ensure_ascii=False),
+                now,
+                now,
+            ),
+        )
+        conn.execute(
+            "UPDATE attempts SET status = 'in_progress', answer_payload = ?, updated_at = ? WHERE id = ?",
+            (json.dumps(answers, ensure_ascii=False), now, attempt_id),
+        )
+        updated = conn.execute("SELECT * FROM attempts WHERE id = ?", (attempt_id,)).fetchone()
+    return {"attempt": serialize_attempt(updated)}
+
+
+def submit_attempt(attempt_id: str, session: dict[str, Any]) -> dict[str, Any]:
+    check_scoring_rate_limit(session["account"]["id"])
+    now = now_iso()
+    with db_connection() as conn:
+        attempt = load_owned_attempt(conn, attempt_id, session)
+        if attempt["status"] not in MUTABLE_ATTEMPT_STATUSES:
+            raise ApiError(
+                HTTPStatus.CONFLICT,
+                "invalid_attempt_transition",
+                f"Cannot submit attempt when status is {attempt['status']}.",
+            )
+        snapshot = parse_json_object(attempt["exam_snapshot_payload"])
+        answer_key = parse_json_object(snapshot.get("answer_key"))
+        answers = parse_json_object(attempt["answer_payload"])
+        scoring = compute_objective_score(answer_key, answers)
+        score_total = int(scoring["objective_correct"])
+        score_id = f"score_{secrets.token_hex(8)}"
+        conn.execute(
+            """
+            INSERT INTO attempt_scores (id, attempt_id, account_id, scoring_version, score_total, score_payload, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                score_id,
+                attempt_id,
+                session["account"]["id"],
+                scoring["scoring_version"],
+                score_total,
+                json.dumps(scoring, ensure_ascii=False),
+                now,
+            ),
+        )
+        conn.execute(
+            """
+            UPDATE attempts
+            SET status = 'scored',
+                submitted_at = ?,
+                scored_at = ?,
+                score_total = ?,
+                score_payload = ?,
+                submission_payload = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                now,
+                now,
+                score_total,
+                json.dumps({"scoring": scoring}, ensure_ascii=False),
+                json.dumps({"answers": answers, "scoring": scoring}, ensure_ascii=False),
+                now,
+                attempt_id,
+            ),
+        )
+        updated = conn.execute("SELECT * FROM attempts WHERE id = ?", (attempt_id,)).fetchone()
+    return {"attempt": serialize_attempt(updated), "score": scoring}
+
+
+def expire_attempt(attempt_id: str, session: dict[str, Any]) -> dict[str, Any]:
+    now = now_iso()
+    with db_connection() as conn:
+        attempt = load_owned_attempt(conn, attempt_id, session)
+        if attempt["status"] in {"submitted", "scored"}:
+            raise ApiError(
+                HTTPStatus.CONFLICT,
+                "invalid_attempt_transition",
+                f"Cannot expire attempt when status is {attempt['status']}.",
+            )
+        conn.execute("UPDATE attempts SET status = 'expired', updated_at = ? WHERE id = ?", (now, attempt_id))
+        updated = conn.execute("SELECT * FROM attempts WHERE id = ?", (attempt_id,)).fetchone()
+    return {"attempt": serialize_attempt(updated)}
 
 
 def update_profile(payload: dict[str, Any], session: dict[str, Any]) -> dict[str, Any]:
@@ -1521,6 +1981,70 @@ def call_codex_remote(config: dict[str, Any], submission_context: dict[str, Any]
     return result
 
 
+def provider_call_once(config: dict[str, Any], submission_context: dict[str, Any], exam_context: str) -> dict[str, Any]:
+    if config["provider"] == "groq":
+        return call_groq(config, submission_context, exam_context)
+    if config["provider"] == "codex" and config.get("mode") == "remote":
+        return call_codex_remote(config, submission_context, exam_context)
+    if config["provider"] == "codex":
+        return call_codex(config, submission_context, exam_context)
+    raise RuntimeError("Unsupported LLM provider.")
+
+
+def plan_request_limit(plan: str) -> int:
+    limits = {"free": 3, "paid": 30, "exam_pack": 30, "monthly": 100, "subscription": 100}
+    return limits.get((plan or "free").strip().lower(), 10)
+
+
+def submission_user_key(submission: dict[str, Any]) -> str:
+    candidate = submission.get("candidate") if isinstance(submission.get("candidate"), dict) else {}
+    return str(
+        submission.get("learner_id")
+        or submission.get("learner_email")
+        or candidate.get("code")
+        or submission.get("submission_id")
+        or "anonymous"
+    )
+
+
+def enforce_scoring_quota(submission: dict[str, Any]) -> dict[str, Any]:
+    plan = str(submission.get("plan") or "free")
+    user_key = submission_user_key(submission)
+    limit = plan_request_limit(plan)
+    usage = QUOTA_USAGE.setdefault(user_key, {"requests": 0})
+    if usage["requests"] >= limit:
+        raise QuotaExceededError()
+    usage["requests"] += 1
+    return {"plan": plan, "user_key": user_key, "usage": dict(usage), "limit": limit}
+
+
+def normalize_evaluation_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    evaluation = payload.get("evaluation")
+    if not isinstance(evaluation, dict) or evaluation.get("status") != "evaluated":
+        raise EvaluationError("LLM scoring response was invalid.", status_code=502, retry_state="retryable")
+    scores = evaluation.get("scores")
+    if not isinstance(scores, dict):
+        raise EvaluationError("LLM scoring response did not include scores.", status_code=502, retry_state="retryable")
+    total = 0
+    passed = True
+    for skill in ("listening", "reading", "writing", "speaking"):
+        skill_score = scores.get(skill)
+        if not isinstance(skill_score, dict):
+            raise EvaluationError(f"LLM scoring response did not include {skill} score.", status_code=502, retry_state="retryable")
+        points = int(skill_score.get("points") or 0)
+        max_points = int(skill_score.get("max_points") or 15)
+        skill_score["points"] = max(0, min(points, max_points))
+        skill_score["max_points"] = max_points
+        skill_score["passed"] = skill_score["points"] >= 9
+        total += skill_score["points"]
+        passed = passed and bool(skill_score["passed"])
+    scores["total"] = total
+    scores["passed"] = passed
+    payload["status"] = "evaluated"
+    payload["evaluation"] = evaluation
+    return payload
+
+
 def evaluate_submission(submission: dict[str, Any], exam_markdown: str) -> dict[str, Any]:
     config = provider_config()
     exam_context = compact_exam_context(exam_markdown)
@@ -1809,6 +2333,18 @@ class AppHandler(SimpleHTTPRequestHandler):
             except PermissionError as error:
                 json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
             return
+        attempt_match = re.fullmatch(r"/api/attempts/([^/]+)", parsed.path)
+        if attempt_match:
+            try:
+                session = require_session(self)
+                with db_connection() as conn:
+                    attempt = load_owned_attempt(conn, attempt_match.group(1), session)
+                json_response(self, HTTPStatus.OK, {"attempt": serialize_attempt(attempt)})
+            except ApiError as error:
+                api_error_response(self, error)
+            except PermissionError as error:
+                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            return
         if self.path.startswith("/api/billing/config"):
             payload = {
                 "free_exam_id": FREE_EXAM_ID,
@@ -1891,6 +2427,7 @@ class AppHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         try:
+            parsed = urllib.parse.urlparse(self.path)
             if self.path == "/api/auth/register":
                 payload = safe_read_json(self)
                 response, token = create_account_record(payload)
@@ -1917,6 +2454,27 @@ class AppHandler(SimpleHTTPRequestHandler):
                 payload = safe_read_json(self)
                 session = require_session(self)
                 json_response(self, HTTPStatus.OK, persist_attempt(payload, session))
+                return
+            if self.path == "/api/attempts/start":
+                payload = safe_read_json(self)
+                session = require_session(self)
+                json_response(self, HTTPStatus.CREATED, start_attempt(payload, session))
+                return
+            answer_match = re.fullmatch(r"/api/attempts/([^/]+)/answers", parsed.path)
+            if answer_match:
+                payload = safe_read_json(self)
+                session = require_session(self)
+                json_response(self, HTTPStatus.OK, save_attempt_answer(answer_match.group(1), payload, session))
+                return
+            submit_match = re.fullmatch(r"/api/attempts/([^/]+)/submit", parsed.path)
+            if submit_match:
+                session = require_session(self)
+                json_response(self, HTTPStatus.OK, submit_attempt(submit_match.group(1), session))
+                return
+            expire_match = re.fullmatch(r"/api/attempts/([^/]+)/expire", parsed.path)
+            if expire_match:
+                session = require_session(self)
+                json_response(self, HTTPStatus.OK, expire_attempt(expire_match.group(1), session))
                 return
             if self.path == "/api/account/delete":
                 session = require_session(self)
@@ -1963,6 +2521,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     raise ValueError("Payload must include exam_markdown text.")
                 if not learner_id:
                     raise ValueError("Payload must include learner_id text.")
+                check_scoring_rate_limit(learner_id)
                 store = get_billing_store()
                 store.ensure_learner(learner_id, email=str(payload.get("email", "")).strip() or None)
                 ai_credit_result = store.consume_ai_credit(learner_id, source_reference=submission.get("submission_id"), source_event_id=submission.get("submission_id"))
@@ -2020,6 +2579,8 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "telemetry": error.telemetry,
                 },
             )
+        except ApiError as error:
+            api_error_response(self, error)
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")
             capture_exception(error)
