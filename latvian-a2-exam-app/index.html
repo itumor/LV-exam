@@ -21,6 +21,85 @@
         <span class="profile-icon" aria-hidden="true"></span>
       </div>
          <div class="exam-appbar-actions">
+           <nav class="mega-nav" aria-label="Primary navigation">
+             <button id="mega-menu-trigger" class="btn btn-outline-primary btn-sm mega-trigger" type="button" aria-expanded="false" aria-controls="mega-dropdown-panel">
+               Menu
+               <span aria-hidden="true"></span>
+             </button>
+             <div id="mega-dropdown-panel" class="mega-dropdown" hidden>
+               <div class="mega-dropdown-rail" role="tablist" aria-label="Navigation groups">
+                 <button class="mega-rail-item active" type="button" role="tab" aria-selected="true" aria-controls="mega-panel-exams" id="mega-tab-exams" data-mega-panel="exams">Exams</button>
+                 <button class="mega-rail-item" type="button" role="tab" aria-selected="false" aria-controls="mega-panel-account" id="mega-tab-account" data-mega-panel="account">My Account</button>
+                 <button class="mega-rail-item" type="button" role="tab" aria-selected="false" aria-controls="mega-panel-payments" id="mega-tab-payments" data-mega-panel="payments">Payments</button>
+                 <button class="mega-rail-item" type="button" role="tab" aria-selected="false" aria-controls="mega-panel-help" id="mega-tab-help" data-mega-panel="help">Help</button>
+                 <button class="mega-rail-item" type="button" role="tab" aria-selected="false" aria-controls="mega-panel-admin" id="mega-tab-admin" data-mega-panel="admin" data-requires-admin>Administrator</button>
+               </div>
+               <div class="mega-dropdown-content">
+                 <section id="mega-panel-exams" class="mega-panel active" role="tabpanel" aria-labelledby="mega-tab-exams">
+                   <div class="mega-column">
+                     <h2>Exam Flow</h2>
+                     <button type="button" data-mega-destination="start-exam">Start Exam</button>
+                     <button type="button" data-mega-destination="runner">Exam Runner</button>
+                     <button type="button" data-mega-destination="part:listening">Listening</button>
+                     <button type="button" data-mega-destination="part:reading">Reading</button>
+                   </div>
+                   <div class="mega-column">
+                     <h2>Practice Sections</h2>
+                     <button type="button" data-mega-destination="part:writing">Writing</button>
+                     <button type="button" data-mega-destination="part:speaking">Speaking</button>
+                     <button type="button" data-mega-destination="submission">Submission</button>
+                   </div>
+                 </section>
+                 <section id="mega-panel-account" class="mega-panel" role="tabpanel" aria-labelledby="mega-tab-account" hidden>
+                   <div class="mega-column">
+                     <h2>Account</h2>
+                     <button type="button" data-mega-destination="dashboard">My Progress</button>
+                     <button type="button" data-mega-destination="auth">Profile</button>
+                     <button type="button" data-mega-destination="toggle-auth" id="mega-auth-toggle">Sign In</button>
+                   </div>
+                   <div class="mega-column">
+                     <h2>Results</h2>
+                     <button type="button" data-mega-destination="submission">Latest Attempt</button>
+                     <button type="button" data-mega-destination="submission">History</button>
+                     <button type="button" data-mega-destination="submission">Detailed Score</button>
+                   </div>
+                 </section>
+                 <section id="mega-panel-payments" class="mega-panel" role="tabpanel" aria-labelledby="mega-tab-payments" hidden>
+                   <div class="mega-column">
+                     <h2>Access</h2>
+                     <button type="button" data-mega-destination="billing:status">My Status</button>
+                     <button type="button" data-mega-destination="billing:purchase">Purchase</button>
+                     <button type="button" data-mega-destination="billing:history">Payment History</button>
+                   </div>
+                   <div class="mega-column">
+                     <h2>Exam Access</h2>
+                     <button type="button" data-mega-destination="start-exam">Use an Attempt</button>
+                     <button type="button" data-mega-destination="billing:purchase">Buy AI Credits</button>
+                   </div>
+                 </section>
+                 <section id="mega-panel-help" class="mega-panel" role="tabpanel" aria-labelledby="mega-tab-help" hidden>
+                   <div class="mega-column">
+                     <h2>Support</h2>
+                     <button type="button" data-mega-destination="help">User Manual</button>
+                     <button type="button" data-mega-destination="contact">Contact Support</button>
+                   </div>
+                 </section>
+                 <section id="mega-panel-admin" class="mega-panel" role="tabpanel" aria-labelledby="mega-tab-admin" hidden>
+                   <div class="mega-column">
+                     <h2>Administration</h2>
+                     <button type="button" data-mega-destination="admin:overview">Overview</button>
+                     <button type="button" data-mega-destination="admin:users">Users</button>
+                     <button type="button" data-mega-destination="admin:exams">Exam Management</button>
+                   </div>
+                   <div class="mega-column">
+                     <h2>Operations</h2>
+                     <button type="button" data-mega-destination="admin:submissions">Submissions</button>
+                     <button type="button" data-mega-destination="admin:settings">Settings</button>
+                   </div>
+                 </section>
+               </div>
+             </div>
+           </nav>
            <button id="quick-start-exam" class="btn btn-success btn-sm me-2" title="Start a new exam">Start Exam</button>
            <button id="quick-resume" class="btn btn-outline-success btn-sm me-2 d-none" title="Resume interrupted exam">Resume</button>
            <button id="quick-status" class="btn btn-outline-info btn-sm me-2" title="View my status">My Status</button>

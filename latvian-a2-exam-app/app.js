@@ -147,6 +147,8 @@ const els = {
   workspaceTitle: document.querySelector("#workspace-title"),
   validationPill: document.querySelector("#validation-pill"),
   globalPartNav: document.querySelector("#global-part-nav"),
+  megaTrigger: document.querySelector("#mega-menu-trigger"),
+  megaPanel: document.querySelector("#mega-dropdown-panel"),
   topbarTimer: document.querySelector("#topbar-timer"),
   progressFill: document.querySelector("#exam-progress-fill"),
   toast: document.querySelector("#toast")
@@ -210,6 +212,7 @@ async function init() {
   document.getElementById("quick-buy")?.addEventListener("click", () => { setView("billing"); handleSubView("billing", "purchase"); });
   document.getElementById("quick-help")?.addEventListener("click", () => showToast("Sazinieties ar atbalstu: support@codex.lv"));
   document.getElementById("quick-manual")?.addEventListener("click", () => showManual());
+  initializeMegaDropdown();
   document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
     document.querySelector(".sidebar")?.classList.toggle("open");
   });
