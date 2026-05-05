@@ -8,13 +8,13 @@ module.exports = defineConfig({
     timeout: 10000
   },
   use: {
-    baseURL: "http://127.0.0.1:4273/latvian-a2-exam-app/",
+    baseURL: "http://localhost:4173/latvian-a2-exam-app/",
     trace: "on-first-retry"
   },
   webServer: {
-    command: "PORT=4273 python3 server.py",
-    reuseExistingServer: false,
+    command: "python3 server.py",
+    reuseExistingServer: true,
     timeout: 120000,
-    url: "http://127.0.0.1:4273/latvian-a2-exam-app/"
+    url: "http://localhost:4173/latvian-a2-exam-app/"
   }
 });
