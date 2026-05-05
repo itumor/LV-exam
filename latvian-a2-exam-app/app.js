@@ -186,27 +186,28 @@ async function init() {
     button.addEventListener("click", () => setView(button.dataset.view));
   });
 
-   document.querySelectorAll(".sidebar-item").forEach(button => {
-     button.addEventListener("click", () => {
-       const view = button.dataset.view;
-       const sub = button.dataset.sub;
-       if (button.dataset.action === "toggle-auth") {
-         if (state.auth.status === "authenticated") {
-           logout();
-         } else {
-           setView("auth");
-         }
-         return;
-       }
-       if (view) {
-         // If this is a help button, set language
-         if (view === "help" && button.dataset.lang) {
-           state.helpLang = button.dataset.lang;
-         }
-         setView(view);
-       }
-     });
-   });
+  document.querySelectorAll(".sidebar-item").forEach(button => {
+    button.addEventListener("click", () => {
+      const view = button.dataset.view;
+      const sub = button.dataset.sub;
+      if (button.dataset.action === "toggle-auth") {
+        if (state.auth.status === "authenticated") {
+          logout();
+        } else {
+          setView("auth");
+        }
+        return;
+      }
+      if (view) {
+        if (view === "help" && button.dataset.lang) {
+          state.helpLang = button.dataset.lang;
+        }
+        setView(view);
+        if (sub) handleSubView(view, sub);
+      } else if (button.dataset.action === "start-exam") {
+        startExamFromMenu();
+      }
+    });
   });
 
   document.getElementById("quick-start-exam")?.addEventListener("click", () => startExamFromMenu());
