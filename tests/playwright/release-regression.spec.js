@@ -144,3 +144,47 @@ test("AI scoring rejects malformed success payloads", async ({ page }) => {
   await expect(page.locator(".ai-evaluation-panel.error h3")).toHaveText("AI scoring failed");
   await expect(page.locator(".ai-evaluation-panel.error")).toContainText(/invalid/i);
 });
+
+test("speaking recorder shows Latvian speech text and syncs the answer", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: async () => ({
+          getTracks: () => [{ stop: () => {} }]
+        })
+      }
+    });
+
+    class MockMediaRecorder extends EventTarget {
+      static isTypeSupported() { return true; }
+      start() {}
+      stop() { this.dispatchEvent(new Event("stop")); }
+    }
+    window.MediaRecorder = MockMediaRecorder;
+
+    class MockSpeechRecognition {
+      start() { window.__mockSpeechRecognition = this; }
+      stop() {
+        if (this.onend) this.onend();
+      }
+    }
+    window.SpeechRecognition = MockSpeechRecognition;
+  });
+
+  await enterExamFlow(page);
+  await page.evaluate(() => window.__a2TestHooks.setActivePart("speaking"));
+
+  await page.locator('button[data-action="start-recording"]').first().click();
+  await page.evaluate(() => {
+    const result = [{ transcript: "Es dzīvoju Rīgā." }];
+    result.isFinal = true;
+    window.__mockSpeechRecognition.onresult({
+      resultIndex: 0,
+      results: [result]
+    });
+  });
+
+  await expect(page.locator('[data-transcript-text="speaking.task1.0"]')).toHaveText("Es dzīvoju Rīgā.");
+  await expect(page.locator('[data-answer="speaking.task1.0"]')).toHaveValue("Es dzīvoju Rīgā.");
+});

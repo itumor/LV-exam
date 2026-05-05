@@ -4581,6 +4581,52 @@ textarea:focus {
   color: #64748b;
 }
 
+.recorder-transcript {
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.recorder-transcript-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: #475569;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.recorder-transcript p {
+  min-height: 1.35rem;
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.94rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.recorder-transcript.empty p {
+  color: #64748b;
+}
+
+.recorder-transcript-interim {
+  display: block;
+  margin-top: 0.2rem;
+  color: #64748b;
+  font-size: 0.86rem;
+  font-style: italic;
+}
+
+.recorder-transcript-error {
+  display: block;
+  margin-top: 0.3rem;
+  color: #b45309;
+  font-size: 0.8rem;
+}
+
 .recorder-mic-error {
   display: block;
   margin-top: 0.25rem;

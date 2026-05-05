@@ -109,7 +109,9 @@ def identity_from_submission(submission: dict[str, Any]) -> dict[str, str]:
     if isinstance(candidate, dict):
         candidate_code = str(candidate.get("code", "") or "").strip()
     user_key = (
-        str(submission.get("user_id", "") or "").strip()
+        str(submission.get("learner_id", "") or "").strip()
+        or str(submission.get("learner_email", "") or "").strip()
+        or str(submission.get("user_id", "") or "").strip()
         or str(submission.get("candidate_code", "") or "").strip()
         or candidate_code
         or str(submission.get("submission_id", "") or "").strip()
@@ -1942,6 +1944,8 @@ def compact_submission(submission: dict[str, Any]) -> dict[str, Any]:
         "submission_id": submission.get("submission_id"),
         "candidate": submission.get("candidate", {}),
         "candidate_code": submission.get("candidate_code"),
+        "learner_id": submission.get("learner_id"),
+        "learner_email": submission.get("learner_email"),
         "plan": submission.get("plan"),
         "access_plan": submission.get("access_plan"),
         "user_id": submission.get("user_id"),
@@ -1993,6 +1997,8 @@ def ai_scoring_submission(submission: dict[str, Any]) -> dict[str, Any]:
     return {
         "submission_id": submission.get("submission_id"),
         "candidate": submission.get("candidate", {}),
+        "learner_id": submission.get("learner_id"),
+        "learner_email": submission.get("learner_email"),
         "plan": submission.get("plan", DEFAULT_PLAN),
         "exam_id": submission.get("exam_id"),
         "exam_title": submission.get("exam_title"),
@@ -2036,6 +2042,13 @@ def scoring_input_hash(provider: str, model: str, submission: dict[str, Any], ex
 
 def env_flag(name: str) -> bool:
     return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def ai_scoring_requires_credit() -> bool:
+    explicit = os.getenv("AI_SCORING_REQUIRE_AI_CREDIT", "").strip()
+    if explicit:
+        return env_flag("AI_SCORING_REQUIRE_AI_CREDIT")
+    return bool(os.getenv("STRIPE_SECRET_KEY", "").strip())
 
 
 def provider_config() -> dict[str, Any]:
@@ -2310,60 +2323,6 @@ def provider_call_once(config: dict[str, Any], submission_context: dict[str, Any
     if config["provider"] == "codex":
         return call_codex(config, submission_context, exam_context)
     raise RuntimeError("Unsupported LLM provider.")
-
-
-def plan_request_limit(plan: str) -> int:
-    limits = {"free": 3, "paid": 30, "exam_pack": 30, "monthly": 100, "subscription": 100}
-    return limits.get((plan or "free").strip().lower(), 10)
-
-
-def submission_user_key(submission: dict[str, Any]) -> str:
-    candidate = submission.get("candidate") if isinstance(submission.get("candidate"), dict) else {}
-    return str(
-        submission.get("learner_id")
-        or submission.get("learner_email")
-        or candidate.get("code")
-        or submission.get("submission_id")
-        or "anonymous"
-    )
-
-
-def enforce_scoring_quota(submission: dict[str, Any]) -> dict[str, Any]:
-    plan = str(submission.get("plan") or "free")
-    user_key = submission_user_key(submission)
-    limit = plan_request_limit(plan)
-    usage = QUOTA_USAGE.setdefault(user_key, {"requests": 0})
-    if usage["requests"] >= limit:
-        raise QuotaExceededError()
-    usage["requests"] += 1
-    return {"plan": plan, "user_key": user_key, "usage": dict(usage), "limit": limit}
-
-
-def normalize_evaluation_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    evaluation = payload.get("evaluation")
-    if not isinstance(evaluation, dict) or evaluation.get("status") != "evaluated":
-        raise EvaluationError("LLM scoring response was invalid.", status_code=502, retry_state="retryable")
-    scores = evaluation.get("scores")
-    if not isinstance(scores, dict):
-        raise EvaluationError("LLM scoring response did not include scores.", status_code=502, retry_state="retryable")
-    total = 0
-    passed = True
-    for skill in ("listening", "reading", "writing", "speaking"):
-        skill_score = scores.get(skill)
-        if not isinstance(skill_score, dict):
-            raise EvaluationError(f"LLM scoring response did not include {skill} score.", status_code=502, retry_state="retryable")
-        points = int(skill_score.get("points") or 0)
-        max_points = int(skill_score.get("max_points") or 15)
-        skill_score["points"] = max(0, min(points, max_points))
-        skill_score["max_points"] = max_points
-        skill_score["passed"] = skill_score["points"] >= 9
-        total += skill_score["points"]
-        passed = passed and bool(skill_score["passed"])
-    scores["total"] = total
-    scores["passed"] = passed
-    payload["status"] = "evaluated"
-    payload["evaluation"] = evaluation
-    return payload
 
 
 def evaluate_submission(submission: dict[str, Any], exam_markdown: str) -> dict[str, Any]:
@@ -2932,32 +2891,49 @@ class AppHandler(SimpleHTTPRequestHandler):
                 submission = payload.get("submission")
                 exam_markdown = payload.get("exam_markdown", "")
                 learner_id = str(payload.get("learner_id", "")).strip()
+                learner_email = str(payload.get("email", "")).strip()
                 if not isinstance(submission, dict):
                     raise ValueError("Payload must include a submission object.")
                 if not isinstance(exam_markdown, str) or not exam_markdown.strip():
                     raise ValueError("Payload must include exam_markdown text.")
-                if not learner_id:
-                    raise ValueError("Payload must include learner_id text.")
+                submission = dict(submission)
+                if learner_id:
+                    submission["learner_id"] = learner_id
+                if learner_email:
+                    submission["learner_email"] = learner_email
                 check_scoring_rate_limit(learner_id)
-                store = get_billing_store()
-                store.ensure_learner(learner_id, email=str(payload.get("email", "")).strip() or None)
-                ai_credit_result = store.consume_ai_credit(learner_id, source_reference=submission.get("submission_id"), source_event_id=submission.get("submission_id"))
-                if not ai_credit_result["allowed"]:
-                    json_response(
-                        self,
-                        HTTPStatus.PAYMENT_REQUIRED,
-                        {
-                            "error": "AI scoring requires an available AI credit or active subscription.",
-                            "billing_state": ai_credit_result["state"],
-                        },
-                    )
-                    return
-                result = evaluate_submission(submission, exam_markdown)
-                result["billing"] = {
+                billing_result: dict[str, Any] = {
                     "learner_id": learner_id,
-                    "ai_credit_consumed": True,
-                    "billing_state": ai_credit_result["state"],
+                    "ai_credit_required": ai_scoring_requires_credit(),
+                    "ai_credit_consumed": False,
                 }
+                if learner_id:
+                    store = get_billing_store()
+                    store.ensure_learner(learner_id, email=learner_email or None)
+                    if billing_result["ai_credit_required"]:
+                        ai_credit_result = store.consume_ai_credit(
+                            learner_id,
+                            source_reference=submission.get("submission_id"),
+                            source_event_id=submission.get("submission_id"),
+                        )
+                        if not ai_credit_result["allowed"]:
+                            json_response(
+                                self,
+                                HTTPStatus.PAYMENT_REQUIRED,
+                                {
+                                    "error": "AI scoring requires an available AI credit or active subscription.",
+                                    "billing_state": ai_credit_result["state"],
+                                },
+                            )
+                            return
+                        billing_result["ai_credit_consumed"] = True
+                        billing_result["billing_state"] = ai_credit_result["state"]
+                    else:
+                        billing_result["billing_state"] = store.get_state(learner_id)
+                elif billing_result["ai_credit_required"]:
+                    raise ValueError("Payload must include learner_id text.")
+                result = evaluate_submission(submission, exam_markdown)
+                result["billing"] = billing_result
                 json_response(self, HTTPStatus.OK, result)
                 return
             # Speaking audio upload

@@ -76,10 +76,14 @@ const state = {
   evaluating: false,
   speaking: {
     recorder: null,
+    recognition: null,
     chunks: {},
     audioUrls: {},
     uploadIds: {},
-    recordingKey: null
+    recordingKey: null,
+    transcripts: {},
+    transcriptInterims: {},
+    transcriptErrors: {}
   },
   listenPlayCount: {}
 };
@@ -1367,6 +1371,7 @@ function getBillingSnapshot() {
 }
 
 function canRunAiScoring() {
+  if (!state.billing.config?.stripe_enabled) return true;
   if (state.auth.status !== "authenticated") return true;
   const billing = getBillingSnapshot();
   return !billing.frozen && (billing.subscription_active || (billing.ai_credits_remaining || 0) > 0);
@@ -2443,7 +2448,26 @@ function renderRecordingControls(key) {
         ` : ""}
       </div>
       ${statusText ? `<span class="recorder-status">${escapeHtml(statusText)}</span>` : ""}
+      ${renderSpeechTranscript(key)}
       <span class="recorder-mic-error" data-mic-error="${escapeHtml(key)}" hidden></span>
+    </div>
+  `;
+}
+
+function renderSpeechTranscript(key) {
+  const finalText = state.speaking.transcripts[key] || "";
+  const interimText = state.speaking.transcriptInterims[key] || "";
+  const errorText = state.speaking.transcriptErrors[key] || "";
+  const unsupported = !getSpeechRecognitionConstructor();
+  const bodyText = finalText || interimText || (unsupported
+    ? "Live speech text is not available in this browser."
+    : "Start recording to see your Latvian speech as text.");
+  return `
+    <div class="recorder-transcript ${finalText || interimText ? "" : "empty"}" data-transcript-key="${escapeHtml(key)}" aria-live="polite">
+      <span class="recorder-transcript-label">Recognized Latvian text</span>
+      <p data-transcript-text="${escapeHtml(key)}">${escapeHtml(bodyText)}</p>
+      <span class="recorder-transcript-interim" data-transcript-interim="${escapeHtml(key)}">${finalText && interimText ? escapeHtml(interimText) : ""}</span>
+      <span class="recorder-transcript-error" data-transcript-error="${escapeHtml(key)}" ${errorText ? "" : "hidden"}>${escapeHtml(errorText)}</span>
     </div>
   `;
 }
@@ -2688,14 +2712,143 @@ function isAnyTimerRunning() {
   return Object.values(state.runner.timers).some(timer => timer.running);
 }
 
+function getSpeechRecognitionConstructor() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function normalizeTranscriptText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function appendTranscriptText(current, next) {
+  const cleanNext = normalizeTranscriptText(next);
+  if (!cleanNext) return normalizeTranscriptText(current);
+  return normalizeTranscriptText(`${current || ""} ${cleanNext}`);
+}
+
+function speechRecognitionErrorMessage(error) {
+  if (error === "not-allowed" || error === "service-not-allowed") {
+    return "Speech text permission was denied. Audio recording can still continue.";
+  }
+  if (error === "no-speech") {
+    return "No speech was detected yet. Try speaking a little louder or closer to the microphone.";
+  }
+  if (error === "language-not-supported") {
+    return "Latvian speech recognition is not supported by this browser.";
+  }
+  return "Speech text is temporarily unavailable. Audio recording can still continue.";
+}
+
+function setSpeakingTranscriptError(key, message) {
+  state.speaking.transcriptErrors[key] = message;
+  const errEl = document.querySelector(`[data-transcript-error="${CSS.escape(key)}"]`);
+  if (errEl) {
+    errEl.textContent = message;
+    errEl.hidden = !message;
+  }
+}
+
+function updateSpeakingTranscriptUi(key) {
+  const finalText = state.speaking.transcripts[key] || "";
+  const interimText = state.speaking.transcriptInterims[key] || "";
+  const displayText = normalizeTranscriptText(`${finalText} ${interimText}`) || "Listening for Latvian speech...";
+  const textEl = document.querySelector(`[data-transcript-text="${CSS.escape(key)}"]`);
+  if (textEl) textEl.textContent = displayText;
+  const interimEl = document.querySelector(`[data-transcript-interim="${CSS.escape(key)}"]`);
+  if (interimEl) interimEl.textContent = finalText && interimText ? interimText : "";
+  const box = document.querySelector(`[data-transcript-key="${CSS.escape(key)}"]`);
+  if (box) box.classList.toggle("empty", !finalText && !interimText);
+}
+
+function syncSpeakingTranscriptAnswer(key) {
+  const [section, task, indexValue] = key.split(".");
+  const index = Number(indexValue);
+  if (!section || !task || !Number.isInteger(index)) return;
+  const text = normalizeTranscriptText(`${state.speaking.transcripts[key] || ""} ${state.speaking.transcriptInterims[key] || ""}`);
+  ensureAnswerSlot(section, task, index);
+  state.answers[section][task][index] = text;
+  state.submission = null;
+  state.evaluation = null;
+  const field = document.querySelector(`[data-answer="${CSS.escape(key)}"]`);
+  if (field && field.value !== text) field.value = text;
+  renderProgressOnly();
+}
+
+function startSpeechRecognition(key) {
+  const Recognition = getSpeechRecognitionConstructor();
+  if (!Recognition) {
+    setSpeakingTranscriptError(key, "Live speech text is not available in this browser.");
+    return null;
+  }
+  const recognition = new Recognition();
+  recognition.lang = "lv-LV";
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+  recognition.onresult = event => {
+    let finalText = state.speaking.transcripts[key] || "";
+    let interimText = "";
+    for (let index = event.resultIndex || 0; index < event.results.length; index += 1) {
+      const result = event.results[index];
+      const text = result[0]?.transcript || "";
+      if (result.isFinal) {
+        finalText = appendTranscriptText(finalText, text);
+      } else {
+        interimText = appendTranscriptText(interimText, text);
+      }
+    }
+    state.speaking.transcripts[key] = finalText;
+    state.speaking.transcriptInterims[key] = interimText;
+    state.speaking.transcriptErrors[key] = "";
+    updateSpeakingTranscriptUi(key);
+    syncSpeakingTranscriptAnswer(key);
+  };
+  recognition.onerror = event => {
+    setSpeakingTranscriptError(key, speechRecognitionErrorMessage(event.error));
+  };
+  recognition.onend = () => {
+    if (state.speaking.recognition === recognition) {
+      state.speaking.recognition = null;
+    }
+    state.speaking.transcriptInterims[key] = "";
+    updateSpeakingTranscriptUi(key);
+    syncSpeakingTranscriptAnswer(key);
+  };
+  try {
+    recognition.start();
+    state.speaking.recognition = recognition;
+    return recognition;
+  } catch (error) {
+    setSpeakingTranscriptError(key, "Could not start live speech text: " + error.message);
+    return null;
+  }
+}
+
+function stopSpeechRecognition() {
+  if (!state.speaking.recognition) return;
+  const recognition = state.speaking.recognition;
+  state.speaking.recognition = null;
+  try {
+    recognition.stop();
+  } catch (error) {
+    console.warn("Could not stop speech recognition", error);
+  }
+}
+
 async function startMicRecording(key) {
   const errEl = document.querySelector(`[data-mic-error="${CSS.escape(key)}"]`);
   if (errEl) { errEl.textContent = ""; errEl.hidden = true; }
   try {
+    if (state.speaking.recordingKey && state.speaking.recordingKey !== key) {
+      stopMicRecording(state.speaking.recordingKey);
+    }
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
     const recorder = new MediaRecorder(stream, { mimeType });
     state.speaking.chunks[key] = [];
+    state.speaking.transcripts[key] = "";
+    state.speaking.transcriptInterims[key] = "";
+    state.speaking.transcriptErrors[key] = "";
     recorder.addEventListener("dataavailable", event => {
       if (event.data.size > 0) state.speaking.chunks[key].push(event.data);
     });
@@ -2707,12 +2860,14 @@ async function startMicRecording(key) {
       state.speaking.audioUrls[key] = url;
       state.speaking.recordingKey = null;
       state.speaking.uploadIds[key] = null;
+      stopSpeechRecognition();
       renderRunner();
     });
     state.speaking.recorder = recorder;
     state.speaking.recordingKey = key;
     recorder.start(200);
     renderRunner();
+    startSpeechRecognition(key);
   } catch (error) {
     const msg = error.name === "NotAllowedError"
       ? "Microphone access denied. Please allow microphone in browser settings."
@@ -2724,6 +2879,7 @@ async function startMicRecording(key) {
 
 function stopMicRecording(key) {
   if (state.speaking.recorder && state.speaking.recordingKey === key) {
+    stopSpeechRecognition();
     state.speaking.recorder.stop();
     state.speaking.recorder = null;
   }
@@ -3226,17 +3382,12 @@ async function evaluateSubmissionWithAi() {
   setView("submission");
   showToast("Sending answers for AI scoring...");
 
-  const evaluatePayload = state.auth.status === "authenticated"
-    ? {
-        submission: buildEvaluationSubmission(state.submission),
-        exam_markdown: state.markdown,
-        learner_id: state.billing.learnerId,
-        email: state.billing.email
-      }
-    : {
-        submission: buildEvaluationSubmission(state.submission),
-        exam_markdown: state.markdown
-      };
+  const evaluatePayload = {
+    submission: buildEvaluationSubmission(state.submission),
+    exam_markdown: state.markdown,
+    learner_id: state.billing.learnerId,
+    email: state.billing.email
+  };
 
   try {
     const response = await fetch("/api/evaluate", {
@@ -3319,6 +3470,8 @@ function buildSubmission(status = "draft") {
 function buildEvaluationSubmission(submission) {
   return {
     submission_id: submission.submission_id,
+    learner_id: submission.learner_id,
+    learner_email: submission.learner_email,
     exam_id: submission.exam_id,
     exam_title: submission.exam_title,
     level: submission.level,

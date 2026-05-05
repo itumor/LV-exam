@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -55,6 +56,18 @@ class ServerContractTests(unittest.TestCase):
         self.assertIn("rate limit", server.provider_error_message(429, "").lower())
         self.assertIn("temporarily unavailable", server.provider_error_message(503, "").lower())
 
+    def test_plan_request_limit_honors_env_override(self) -> None:
+        with patch.dict(os.environ, {"AI_SCORING_DAILY_REQUEST_LIMIT_FREE": "7"}):
+            self.assertEqual(server.plan_request_limit("free"), 7)
+
+    def test_ai_scoring_credit_requirement_defaults_to_live_stripe_only(self) -> None:
+        with patch.dict(os.environ, {"STRIPE_SECRET_KEY": "", "AI_SCORING_REQUIRE_AI_CREDIT": ""}):
+            self.assertFalse(server.ai_scoring_requires_credit())
+        with patch.dict(os.environ, {"STRIPE_SECRET_KEY": "sk_live_fixture", "AI_SCORING_REQUIRE_AI_CREDIT": ""}):
+            self.assertTrue(server.ai_scoring_requires_credit())
+        with patch.dict(os.environ, {"STRIPE_SECRET_KEY": "sk_live_fixture", "AI_SCORING_REQUIRE_AI_CREDIT": "false"}):
+            self.assertFalse(server.ai_scoring_requires_credit())
+
     def test_call_groq_retries_transient_errors_before_succeeding(self) -> None:
         config = {
             "provider": "groq",
@@ -62,7 +75,7 @@ class ServerContractTests(unittest.TestCase):
             "model": "fixture-model",
             "base_url": "https://example.test",
         }
-        submission = {"submission_id": "sub-1"}
+        submission = {"submission_id": "sub-1", "learner_id": "learner-1"}
         exam_context = "### Klausīšanās prasmes pārbaude"
         attempts = {"count": 0}
 
@@ -139,7 +152,7 @@ class ServerContractTests(unittest.TestCase):
         self.assertEqual([call.args[0] for call in sleep_mock.call_args_list], [1, 2])
 
     def test_evaluate_submission_uses_cache_for_identical_requests(self) -> None:
-        submission = {"submission_id": "sub-1"}
+        submission = {"submission_id": "sub-1", "learner_id": "learner-1"}
         exam_markdown = (FIXTURES / "exam-smoke.md").read_text(encoding="utf-8")
         config = {
             "provider": "groq",
@@ -181,6 +194,7 @@ class ServerContractTests(unittest.TestCase):
 
         self.assertEqual(first["evaluation"]["scores"]["total"], 30)
         self.assertEqual(second["evaluation"]["scores"]["total"], 30)
+        self.assertEqual(first["telemetry"]["identity"]["user_key"], "learner-1")
         self.assertEqual(call_groq_mock.call_count, 1)
 
 
