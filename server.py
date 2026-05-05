@@ -33,7 +33,9 @@ from billing import BillingStore, FREE_EXAM_ID, DEFAULT_PRODUCTS, StripeClient
 
 
 ROOT = Path(__file__).resolve().parent
+UPLOAD_ROOT = ROOT / "data" / "uploads"
 MAX_BODY_BYTES = 1_500_000
+MAX_AUDIO_BYTES = 20_000_000
 DEFAULT_BILLING_DB_PATH = ROOT / "data" / "billing.sqlite3"
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_CODEX_MODEL = "gpt-5.2"
@@ -1057,6 +1059,56 @@ def provider_error_message(status_code: int, detail: str) -> str:
     return "LLM provider request failed."
 
 
+def upload_storage_for_id(upload_id: str) -> Path:
+    """Return the path to the JSON metadata file for a given upload_id."""
+    safe_id = re.sub(r"[^a-zA-Z0-9_\-]", "_", upload_id)
+    return UPLOAD_ROOT / "speaking" / f"{safe_id}.meta.json"
+
+
+def store_speaking_upload(
+    content: bytes,
+    content_type: str,
+    query: dict[str, list[str]],
+) -> dict[str, Any]:
+    """Persist a speaking audio upload and return metadata."""
+    submission_id = (query.get("submission_id") or [""])[0].strip()
+    task = (query.get("task") or [""])[0].strip()
+    exam_id = (query.get("exam_id") or [""])[0].strip()
+
+    if not submission_id:
+        raise ValueError("submission_id is required")
+
+    upload_id = secrets.token_urlsafe(16)
+    ext = "webm" if "webm" in content_type else ("ogg" if "ogg" in content_type else "bin")
+    audio_filename = f"{upload_id}.{ext}"
+
+    speaking_dir = UPLOAD_ROOT / "speaking"
+    speaking_dir.mkdir(parents=True, exist_ok=True)
+
+    audio_path = speaking_dir / audio_filename
+    audio_path.write_bytes(content)
+
+    metadata = {
+        "upload_id": upload_id,
+        "submission_id": submission_id,
+        "task": task,
+        "exam_id": exam_id,
+        "content_type": content_type,
+        "audio_filename": audio_filename,
+        "size_bytes": len(content),
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    meta_path = upload_storage_for_id(upload_id)
+    meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    return {
+        "upload_id": upload_id,
+        "submission_id": submission_id,
+        "task": task,
+        "upload_url": f"/api/uploads/speaking/{upload_id}",
+    }
+
+
 class AppHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -1174,6 +1226,28 @@ class AppHandler(SimpleHTTPRequestHandler):
             )
             return
 
+        # Speaking audio playback
+        parsed_path = urllib.parse.urlparse(self.path).path
+        if parsed_path.startswith("/api/uploads/speaking/"):
+            upload_id = parsed_path[len("/api/uploads/speaking/"):]
+            meta_path = upload_storage_for_id(upload_id)
+            if not meta_path.exists():
+                json_response(self, HTTPStatus.NOT_FOUND, {"error": "Upload not found."})
+                return
+            metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+            audio_path = UPLOAD_ROOT / "speaking" / metadata["audio_filename"]
+            if not audio_path.exists():
+                json_response(self, HTTPStatus.NOT_FOUND, {"error": "Audio file not found."})
+                return
+            audio_bytes = audio_path.read_bytes()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", metadata.get("content_type", "audio/webm"))
+            self.send_header("Content-Length", str(len(audio_bytes)))
+            self.send_header("Accept-Ranges", "bytes")
+            self.end_headers()
+            self.wfile.write(audio_bytes)
+            return
+
         super().do_GET()
 
     def do_POST(self) -> None:
@@ -1270,6 +1344,19 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "billing_state": ai_credit_result["state"],
                 }
                 json_response(self, HTTPStatus.OK, result)
+                return
+            # Speaking audio upload
+            parsed_path = urllib.parse.urlparse(self.path)
+            if parsed_path.path == "/api/uploads/speaking":
+                content_length = int(self.headers.get("Content-Length", 0))
+                if content_length > MAX_AUDIO_BYTES:
+                    json_response(self, HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"error": "Audio file too large."})
+                    return
+                content = self.rfile.read(content_length) if content_length > 0 else b""
+                content_type = self.headers.get("Content-Type", "audio/webm")
+                query = urllib.parse.parse_qs(parsed_path.query)
+                result = store_speaking_upload(content=content, content_type=content_type, query=query)
+                json_response(self, HTTPStatus.CREATED, result)
                 return
             json_response(self, HTTPStatus.NOT_FOUND, {"error": "Unknown endpoint."})
             return

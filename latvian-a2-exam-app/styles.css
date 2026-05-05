@@ -4371,3 +4371,127 @@ textarea:focus {
     margin-left: 0;
   }
 }
+
+/* Speaking recorder controls */
+.speaking-recorder {
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.recorder-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.recorder-start, .recorder-stop {
+  padding: 0.35rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.recorder-start {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.recorder-start:hover { background: #2563eb; }
+
+.recorder-stop {
+  background: #ef4444;
+  color: #fff;
+}
+
+.recorder-stop:hover { background: #dc2626; }
+
+.recorder-upload {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #6b7280;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.recorder-upload:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.recorder-playback {
+  height: 32px;
+  max-width: 200px;
+}
+
+.recorder-status {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.recorder-mic-error {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: #dc2626;
+}
+
+/* Play count badge for listening */
+.stitch-audio-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.play-count {
+  font-size: 0.8rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+/* Candidate report */
+.candidate-report-wrapper {
+  margin-top: 1.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1.25rem;
+  background: #fff;
+}
+
+.candidate-report header {
+  margin-bottom: 1rem;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 0.75rem;
+}
+
+.candidate-report h1 { font-size: 1.4rem; margin: 0 0 0.25rem; }
+
+.report-scores table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.9rem; }
+.report-scores th, .report-scores td { border: 1px solid #e2e8f0; padding: 0.4rem 0.6rem; text-align: left; }
+.report-scores th { background: #f8fafc; }
+.report-scores .pass { color: #16a34a; font-weight: 600; }
+.report-scores .fail { color: #dc2626; font-weight: 600; }
+
+.report-corrections ul { padding-left: 1.2rem; }
+.report-disclaimer {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.results-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}

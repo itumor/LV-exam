@@ -63,7 +63,15 @@ const state = {
   answers: {},
   submission: null,
   evaluation: null,
-  evaluating: false
+  evaluating: false,
+  speaking: {
+    recorder: null,
+    chunks: {},
+    audioUrls: {},
+    uploadIds: {},
+    recordingKey: null
+  },
+  listenPlayCount: {}
 };
 
 const PART_CONFIG = [
@@ -924,9 +932,26 @@ function renderResultsScreen() {
         </article>
       </div>
       ${renderUpgradePrompt("results")}
-      <button type="button" class="flow-primary-button results-action" data-flow-action="open-submission">Skatīt detalizētu pārskatu</button>
+      <div class="results-actions">
+        <button type="button" class="flow-primary-button results-action" data-flow-action="open-submission">Skatīt detalizētu pārskatu</button>
+        <button type="button" class="flow-secondary-button" data-flow-action="view-candidate-report">Kandidāta pārskats</button>
+        <button type="button" class="flow-secondary-button" data-flow-action="download-pdf-report">⬇ Lejupielādēt PDF</button>
+      </div>
+      ${renderCandidateReport()}
     </section>
   `;
+}
+
+function renderCandidateReport() {
+  if (!state.evaluation) return "";
+  const submission = ensureSubmission("draft");
+  const report = flowCore.buildCandidateReportModel({
+    submission,
+    evaluation: state.evaluation.evaluation || state.evaluation,
+    candidate: state.flow.candidate
+  });
+  const html = flowCore.buildCandidateReportHtml(report);
+  return `<div class="candidate-report-wrapper" id="candidate-report-section">${html}</div>`;
 }
 
 function getBillingSnapshot() {
@@ -1389,6 +1414,9 @@ function renderPartMoveButton(direction) {
     return `<button type="button" data-action="${state.flow.mode === "exam" ? "submit-exam" : "show-results"}">Pabeigt</button>`;
   }
   if (!part) return "<span></span>";
+  if (direction === "previous" && state.flow.mode === "exam") {
+    return `<button type="button" disabled title="Navigation is forward-only in exam mode">← ${part.title}</button>`;
+  }
   const label = direction === "next" ? `Next: ${part.title}` : `Previous: ${part.title}`;
   return `<button type="button" data-action="switch-part" data-part="${part.key}">${label}</button>`;
 }
@@ -1487,6 +1515,48 @@ function handleFlowAction(dataset) {
   if (flowAction === "open-billing") {
     setView("billing");
   }
+  if (flowAction === "view-candidate-report") {
+    const reportSection = document.querySelector("#candidate-report-section");
+    if (reportSection) reportSection.scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+  if (flowAction === "download-pdf-report") {
+    downloadCandidateReportPdf();
+    return;
+  }
+}
+
+function downloadCandidateReportPdf() {
+  const reportSection = document.querySelector("#candidate-report-section");
+  const submission = ensureSubmission("draft");
+  const report = state.evaluation
+    ? flowCore.buildCandidateReportModel({
+        submission,
+        evaluation: state.evaluation.evaluation || state.evaluation,
+        candidate: state.flow.candidate
+      })
+    : null;
+  const html = report ? flowCore.buildCandidateReportHtml(report) : "<p>No AI evaluation available. Run AI scoring first.</p>";
+  const full = `<!DOCTYPE html>
+<html lang="lv"><head><meta charset="UTF-8"><title>Kandidāta pārskats</title>
+<style>
+  body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 1rem; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ccc; padding: .4rem .6rem; text-align: left; }
+  .pass { color: green; } .fail { color: red; }
+  footer { margin-top: 2rem; font-size: 0.8rem; color: #666; border-top: 1px solid #ccc; padding-top: 1rem; }
+</style>
+</head><body>${html}</body></html>`;
+  const blob = new Blob([full], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `kandidata-parskats-${submission.submission_id || "draft"}.html`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  showToast("Report downloaded as HTML — open in browser and use Print > Save as PDF.");
 }
 
 function formatLongTime(seconds) {
@@ -1503,6 +1573,7 @@ function formatTaskProgress(progress) {
 
 function renderPartTimer(part, label, minutes) {
   const timer = state.runner.timers[part];
+  const isExamMode = state.flow.mode === "exam";
   const startLabel = timer.running ? "Running" : (timer.remaining < timer.total ? "Resume" : "Start");
   return `
     <article class="timer-card ${state.runner.activePart === part ? "active" : ""}">
@@ -1513,8 +1584,8 @@ function renderPartTimer(part, label, minutes) {
       <div class="timer-display" data-timer="${part}">${formatTime(timer.remaining)}</div>
       <div class="timer-actions">
         <button type="button" data-action="start" data-part="${part}" ${timer.running ? "disabled" : ""}>${startLabel}</button>
-        <button type="button" data-action="pause" data-part="${part}">Pause</button>
-        <button type="button" data-action="reset" data-part="${part}">Reset</button>
+        ${isExamMode ? "" : `<button type="button" data-action="pause" data-part="${part}">Pause</button>`}
+        ${isExamMode ? "" : `<button type="button" data-action="reset" data-part="${part}">Reset</button>`}
       </div>
     </article>
   `;
@@ -1549,10 +1620,12 @@ function renderChoiceQuestion(section, task, question, index, useReadingBox, aud
 }
 
 function renderCardAudio(audioSrc, index) {
+  const trackKey = `listening.${index}`;
+  const playCount = state.listenPlayCount[trackKey] || 0;
   return `
     <div class="stitch-audio-card">
-      <audio controls preload="none" src="${escapeHtml(toAssetUrl(audioSrc))}" aria-label="Audio ${index + 1}"></audio>
-      <span>${index < 4 ? "1. reize" : "0. reize"}</span>
+      <audio controls preload="none" src="${escapeHtml(toAssetUrl(audioSrc))}" aria-label="Audio ${index + 1}" data-listen-track="${escapeHtml(trackKey)}"></audio>
+      <span class="play-count" data-play-count="${escapeHtml(trackKey)}">${playCount > 0 ? playCount + "× played" : "Not yet played"}</span>
     </div>
   `;
 }
@@ -1886,6 +1959,7 @@ function renderOralInterviewTask(section, task, questions) {
             <span>${index + 1}. ${escapeHtml(stripLeadingNumber(question.lines.join(" ")))}</span>
             <textarea data-answer="${name}" rows="${task.rows || 2}" placeholder="${escapeHtml(task.placeholder || "Atbildiet")}">${escapeHtml(value)}</textarea>
           </label>
+          ${renderRecordingControls(name)}
         `;
       }).join("")}
     </div>
@@ -1908,6 +1982,7 @@ function renderOralPicturesTask(section, task, questions, introLines) {
             <span>${renderMarkdown(question.lines.join("\n"), state.exam)}</span>
             <textarea data-answer="${name}" rows="${task.rows || 4}" placeholder="${escapeHtml(task.placeholder || "Aprakstiet attēlu")}">${escapeHtml(value)}</textarea>
           </label>
+          ${renderRecordingControls(name)}
         `;
       }).join("")}
     </div>
@@ -1927,8 +2002,40 @@ function renderOralQuestionTask(section, task, questions) {
             <span>${renderMarkdown(question.lines.join("\n"), state.exam)}</span>
             <input type="text" data-answer="${name}" value="${escapeHtml(value)}" placeholder="${escapeHtml(task.placeholder || "Uzdodiet jautājumu")}">
           </label>
+          ${renderRecordingControls(name)}
         `;
       }).join("")}
+    </div>
+  `;
+}
+
+function renderRecordingControls(key) {
+  const isRecording = state.speaking.recordingKey === key;
+  const audioUrl = state.speaking.audioUrls[key];
+  const uploadId = state.speaking.uploadIds[key];
+  const statusText = isRecording
+    ? "Recording..."
+    : uploadId
+      ? "Uploaded ✓"
+      : audioUrl
+        ? "Recorded (not uploaded)"
+        : "";
+  return `
+    <div class="speaking-recorder" data-recorder-key="${escapeHtml(key)}">
+      <div class="recorder-controls">
+        ${isRecording
+          ? `<button type="button" class="recorder-stop" data-action="stop-recording" data-key="${escapeHtml(key)}" aria-label="Stop recording">⏹ Stop</button>`
+          : `<button type="button" class="recorder-start" data-action="start-recording" data-key="${escapeHtml(key)}" aria-label="Start recording">🎙 Record</button>`
+        }
+        ${audioUrl ? `
+          <audio controls class="recorder-playback" src="${escapeHtml(audioUrl)}" aria-label="Playback recording for ${escapeHtml(key)}"></audio>
+          <button type="button" class="recorder-upload" data-action="upload-recording" data-key="${escapeHtml(key)}" ${uploadId ? "disabled" : ""} aria-label="Upload recording">
+            ${uploadId ? "Uploaded ✓" : "⬆ Upload"}
+          </button>
+        ` : ""}
+      </div>
+      ${statusText ? `<span class="recorder-status">${escapeHtml(statusText)}</span>` : ""}
+      <span class="recorder-mic-error" data-mic-error="${escapeHtml(key)}" hidden></span>
     </div>
   `;
 }
@@ -2082,6 +2189,15 @@ function bindRunnerEvents() {
     target.addEventListener("dragleave", handleDropDragLeave);
     target.addEventListener("drop", handleDrop);
   });
+  // Track listening playback counts
+  document.querySelectorAll("audio[data-listen-track]").forEach(audio => {
+    audio.addEventListener("play", () => {
+      const key = audio.dataset.listenTrack;
+      state.listenPlayCount[key] = (state.listenPlayCount[key] || 0) + 1;
+      const counter = document.querySelector(`[data-play-count="${CSS.escape(key)}"]`);
+      if (counter) counter.textContent = state.listenPlayCount[key] + "× played";
+    });
+  });
 }
 
 function handleRunnerAction(dataset) {
@@ -2121,6 +2237,18 @@ function handleRunnerAction(dataset) {
     setView("submission");
     return;
   }
+  if (action === "start-recording") {
+    startMicRecording(dataset.key);
+    return;
+  }
+  if (action === "stop-recording") {
+    stopMicRecording(dataset.key);
+    return;
+  }
+  if (action === "upload-recording") {
+    uploadSpeakingAudio(dataset.key).catch(error => showToast("Upload failed: " + error.message));
+    return;
+  }
   handleTimerAction(action, part);
 }
 
@@ -2150,6 +2278,72 @@ function startOnlyTimer(part) {
 
 function isAnyTimerRunning() {
   return Object.values(state.runner.timers).some(timer => timer.running);
+}
+
+async function startMicRecording(key) {
+  const errEl = document.querySelector(`[data-mic-error="${CSS.escape(key)}"]`);
+  if (errEl) { errEl.textContent = ""; errEl.hidden = true; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
+    const recorder = new MediaRecorder(stream, { mimeType });
+    state.speaking.chunks[key] = [];
+    recorder.addEventListener("dataavailable", event => {
+      if (event.data.size > 0) state.speaking.chunks[key].push(event.data);
+    });
+    recorder.addEventListener("stop", () => {
+      stream.getTracks().forEach(track => track.stop());
+      const blob = new Blob(state.speaking.chunks[key], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      if (state.speaking.audioUrls[key]) URL.revokeObjectURL(state.speaking.audioUrls[key]);
+      state.speaking.audioUrls[key] = url;
+      state.speaking.recordingKey = null;
+      state.speaking.uploadIds[key] = null;
+      renderRunner();
+    });
+    state.speaking.recorder = recorder;
+    state.speaking.recordingKey = key;
+    recorder.start(200);
+    renderRunner();
+  } catch (error) {
+    const msg = error.name === "NotAllowedError"
+      ? "Microphone access denied. Please allow microphone in browser settings."
+      : "Could not start recording: " + error.message;
+    if (errEl) { errEl.textContent = msg; errEl.hidden = false; }
+    showToast(msg);
+  }
+}
+
+function stopMicRecording(key) {
+  if (state.speaking.recorder && state.speaking.recordingKey === key) {
+    state.speaking.recorder.stop();
+    state.speaking.recorder = null;
+  }
+}
+
+async function uploadSpeakingAudio(key) {
+  const blob = new Blob(state.speaking.chunks[key] || [], { type: "audio/webm" });
+  if (!blob.size) { showToast("No audio to upload."); return; }
+  const submission = state.submission || {};
+  const [section, task] = key.split(".");
+  const params = new URLSearchParams({
+    submission_id: submission.submission_id || "draft",
+    task: task || key,
+    exam_id: state.exam.id
+  });
+  const response = await fetch(`/api/uploads/speaking?${params.toString()}`, {
+    method: "POST",
+    headers: { "Content-Type": "audio/webm" },
+    body: blob
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: "Upload failed" }));
+    throw new Error(err.error || "Upload failed");
+  }
+  const result = await response.json();
+  state.speaking.uploadIds[key] = result.upload_id;
+  showToast("Audio uploaded successfully.");
+  renderRunner();
 }
 
 function handleAnswerInput(event) {
