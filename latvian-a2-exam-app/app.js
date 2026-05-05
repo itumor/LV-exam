@@ -75,7 +75,14 @@ const PART_CONFIG = [
 
 const FLOW_SCREENS = new Set(["home", "register", "instructions", "exam", "results"]);
 const DEBUG_VIEWS = new Set(["markdown", "json", "tts", "prompts", "quality"]);
-const PROTECTED_VIEWS = new Set(["runner", "submission", "markdown", "json", "tts", "prompts", "quality", "dashboard"]);
+const PROTECTED_VIEWS = new Set(["dashboard", "billing"]);
+
+function normalizeIncomingFlowScreen(screen) {
+  if (!screen) return "";
+  const aliases = { welcome: "home", candidate: "register" };
+  const mapped = aliases[screen] || screen;
+  return FLOW_SCREENS.has(mapped) ? mapped : "";
+}
 
 const TASK_CONFIG = {
   listening: [
@@ -159,10 +166,11 @@ async function init() {
   });
 
   const urlParams = new URLSearchParams(window.location.search);
-  const requestedScreen = urlParams.get("screen");
+  const requestedScreenRaw = urlParams.get("screen");
+  const requestedScreen = normalizeIncomingFlowScreen(requestedScreenRaw);
   const requestedView = urlParams.get("view");
   const requestedPart = urlParams.get("part");
-  state.flow.screen = FLOW_SCREENS.has(requestedScreen) ? requestedScreen : (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
+  state.flow.screen = requestedScreen || (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
   if (requestedView === "billing") {
     setView("billing");
   }
@@ -171,12 +179,13 @@ async function init() {
   if (state.auth.status === "authenticated") {
     await loadDashboard();
     await loadExam(String(requestedExam || "01").padStart(2, "0"));
-    state.flow.screen = FLOW_SCREENS.has(requestedScreen) ? requestedScreen : "exam";
-    const requestedOuterView = requestedScreen === "dashboard" ? "dashboard" : (requestedScreen ? "runner" : "dashboard");
+    state.flow.screen = requestedScreen || (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
+    const requestedOuterView = requestedScreenRaw === "dashboard" ? "dashboard" : (requestedScreenRaw ? "runner" : "dashboard");
     setView(requestedOuterView);
   } else {
-    state.flow.screen = "home";
-    setView("auth");
+    await loadExam(String(requestedExam || "01").padStart(2, "0"));
+    state.flow.screen = requestedScreen || (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
+    setView("runner");
   }
   await loadBillingContext();
   renderTopChrome();
@@ -748,6 +757,8 @@ function renderHomeScreen() {
       <h1>Valsts valodas prasmes pārbaude - A2 līmenis</h1>
       <p>Oficiāls valsts valodas prasmes pārbaudes simulators, kas sagatavots atbilstoši izglītības un satura standartiem.</p>
       ${renderAccessSummaryCard()}
+      ${renderModeBadge()}
+      ${renderFlowStepper("welcome")}
       ${renderFlowExamPicker()}
       <div class="mode-switch" role="group" aria-label="Režīms">
         <button type="button" data-flow-action="set-mode" data-mode="exam" class="${state.flow.mode === "exam" ? "active" : ""}">Eksāmena režīms</button>
@@ -773,6 +784,8 @@ function renderRegistrationScreen() {
       <div class="flow-emblem" aria-hidden="true"></div>
       <h1>Kandidāta reģistrācija</h1>
       <p>A2 Valsts valodas pārbaudes simulators</p>
+      ${renderModeBadge()}
+      ${renderFlowStepper("candidate")}
       ${renderFlowExamPicker("Izvēlētais eksāmens")}
       <form class="candidate-form" data-candidate-form>
         <label>
@@ -809,6 +822,8 @@ function renderInstructionsScreen() {
     <section class="flow-card flow-instructions">
       <h1>Pārbaudes norādījumi</h1>
       <p>Lūdzu, uzmanīgi iepazīstieties ar biežāk sastopamajām norādēm un darbībām, kas būs jāveic eksāmena laikā.</p>
+      ${renderModeBadge()}
+      ${renderFlowStepper("instructions")}
       ${renderFlowExamPicker("Eksāmens")}
       <div class="instruction-panel">
         ${commands.map(([icon, label]) => `
@@ -834,6 +849,26 @@ function renderFlowExamPicker(label = "Izvēlieties eksāmenu") {
   `;
 }
 
+function renderFlowStepper(activeKey) {
+  return `
+    <ol class="flow-stepper" aria-label="Exam flow">
+      ${flowCore.FLOW_STEPS.map(step => `
+        <li class="${step.key === activeKey ? "active" : ""}">
+          <span>${step.label}</span>
+        </li>
+      `).join("")}
+    </ol>
+  `;
+}
+
+function renderModeBadge() {
+  return `
+    <div class="mode-badge ${state.flow.mode === "practice" ? "practice" : "exam"}" aria-label="Current mode">
+      ${state.flow.mode === "practice" ? "Practice mode" : "Real simulation mode"}
+    </div>
+  `;
+}
+
 function renderResultsScreen() {
   const submission = ensureSubmission("draft");
   const summary = flowCore.buildResultsSummary({
@@ -851,6 +886,8 @@ function renderResultsScreen() {
     <section class="results-flow">
       <h1>Eksāmena Rezultāti</h1>
       <p>Jūsu snieguma kopsavilkums pa pārbaudījuma daļām.</p>
+      ${renderModeBadge()}
+      ${renderFlowStepper("results")}
       <div class="results-total">
         <strong>${summary.total} / ${summary.totalMax}</strong>
         <span>${summary.passed ? "Nokārtots" : "Jātrenējas"}</span>
@@ -907,6 +944,7 @@ function getBillingSnapshot() {
 }
 
 function canRunAiScoring() {
+  if (state.auth.status !== "authenticated") return true;
   const billing = getBillingSnapshot();
   return !billing.frozen && (billing.subscription_active || (billing.ai_credits_remaining || 0) > 0);
 }
@@ -1267,10 +1305,6 @@ function switchPart(partKey) {
 
 function setFlowScreen(screen, options = {}) {
   if (!FLOW_SCREENS.has(screen)) return;
-  if (state.auth.status !== "authenticated" && screen !== "home") {
-    setView("auth");
-    return;
-  }
   state.flow.screen = screen;
   if (screen === "exam") {
     setView("runner");
@@ -1324,20 +1358,23 @@ function renderTopChrome() {
   document.body.dataset.flowScreen = state.flow.screen;
   document.body.dataset.authenticated = String(state.auth.status === "authenticated");
   document.body.dataset.debugMode = String(flowCore.shouldShowDebugPanels(state.flow.debugMode));
-  els.globalPartNav.innerHTML = state.auth.status !== "authenticated" || ["home", "register", "results"].includes(state.flow.screen) ? "" : PART_CONFIG.map(part => `
+  const allowPartNav = state.flow.screen === "exam" && state.flow.mode === "practice";
+  els.globalPartNav.innerHTML = allowPartNav ? PART_CONFIG.map(part => `
     <button type="button" data-global-part="${part.key}" class="${part.key === state.runner.activePart ? "active" : ""}">
       ${part.title}
     </button>
-  `).join("");
+  `).join("") : "";
   if (els.topbarTimer) {
-    els.topbarTimer.textContent = state.auth.status !== "authenticated"
-      ? "Sign in"
-      : state.flow.screen === "exam"
-      ? formatTime(state.runner.timers[activePart.key].remaining)
-      : formatLongTime(45 * 60);
+    if (state.flow.screen === "exam") {
+      els.topbarTimer.textContent = formatTime(state.runner.timers[activePart.key].remaining);
+    } else if (state.auth.status === "authenticated") {
+      els.topbarTimer.textContent = formatLongTime(45 * 60);
+    } else {
+      els.topbarTimer.textContent = "Guest mode";
+    }
   }
   if (els.progressFill) {
-    const percent = state.auth.status === "authenticated" && examProgress.total
+    const percent = examProgress.total
       ? Math.round((examProgress.answered / examProgress.total) * 100)
       : 0;
     els.progressFill.style.width = `${percent}%`;
@@ -1445,6 +1482,7 @@ function handleFlowAction(dataset) {
   if (flowAction === "open-submission") {
     renderSubmission();
     setView("submission");
+    return;
   }
   if (flowAction === "open-billing") {
     setView("billing");
@@ -2512,13 +2550,20 @@ function buildQualityChecks() {
 }
 
 async function submitAnswers(options = {}) {
-  if (state.auth.status !== "authenticated") {
-    setView("auth");
-    showToast("Sign in required");
-    return;
-  }
   for (const timer of Object.values(state.runner.timers)) {
     timer.running = false;
+  }
+  if (state.auth.status !== "authenticated") {
+    state.submission = buildSubmission("submitted");
+    persistSubmission(state.submission);
+    state.evaluation = null;
+    setFlowScreen("results");
+    renderSubmission();
+    if (!options.autoSubmitted) {
+      setView("submission");
+    }
+    showToast("Answers submitted locally");
+    return;
   }
   const examId = state.exam.id;
   const response = await fetch("/api/billing/consume-exam", {
@@ -2559,11 +2604,6 @@ async function submitAnswers(options = {}) {
 
 async function evaluateSubmissionWithAi() {
   if (state.evaluating) return;
-  if (state.auth.status !== "authenticated") {
-    setView("auth");
-    showToast("Sign in required");
-    return;
-  }
   for (const timer of Object.values(state.runner.timers)) {
     timer.running = false;
   }
@@ -2582,16 +2622,23 @@ async function evaluateSubmissionWithAi() {
   setView("submission");
   showToast("Sending answers for AI scoring...");
 
-  try {
-    const response = await fetch("/api/evaluate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+  const evaluatePayload = state.auth.status === "authenticated"
+    ? {
         submission: buildEvaluationSubmission(state.submission),
         exam_markdown: state.markdown,
         learner_id: state.billing.learnerId,
         email: state.billing.email
-      })
+      }
+    : {
+        submission: buildEvaluationSubmission(state.submission),
+        exam_markdown: state.markdown
+      };
+
+  try {
+    const response = await fetch("/api/evaluate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(evaluatePayload)
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -3195,10 +3242,10 @@ function buildExportJson() {
 
 function setView(viewName) {
   if (DEBUG_VIEWS.has(viewName) && !flowCore.shouldShowDebugPanels(state.flow.debugMode)) {
-    viewName = state.auth.status === "authenticated" ? "runner" : "auth";
+    viewName = "runner";
   }
   if (PROTECTED_VIEWS.has(viewName) && state.auth.status !== "authenticated") {
-    viewName = "auth";
+    viewName = "runner";
   }
   document.querySelectorAll(".view").forEach(view => view.classList.remove("active"));
   document.querySelector(`#${viewName}-view`).classList.add("active");

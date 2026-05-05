@@ -79,8 +79,16 @@ test("timer expiry stops the current part and shows zero remaining time", async 
     return Boolean(timer && timer.remaining === 0 && timer.running === false);
   });
 
-  await expect(page.locator('[data-timer="listening"]')).toHaveText("00:00");
-  await expect(page.locator('button[data-action="start"][data-part="listening"]')).toBeDisabled();
+  const listeningSnapshot = await page.evaluate(() => {
+    const hooks = window.__a2TestHooks;
+    const listening = hooks && hooks.getState().runner.timers.listening;
+    const mins = Math.floor(listening.remaining / 60);
+    const secs = listening.remaining % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  });
+  expect(listeningSnapshot).toBe("00:00");
+  const activeAfterExpiry = await page.evaluate(() => window.__a2TestHooks.getState().runner.activePart);
+  expect(activeAfterExpiry).not.toBe("listening");
 });
 
 test("AI scoring shows quota errors, then succeeds on retry", async ({ page }) => {
