@@ -1,0 +1,6 @@
+{
+  "event_id": "evt_123",
+  "duplicate_event_id": "evt_123",
+  "unique_event_count": 1,
+  "idempotent": true
+}

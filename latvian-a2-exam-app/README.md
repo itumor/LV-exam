@@ -1,4 +1,4 @@
-# Latvian A2 Exam Studio
+# Latvian A2 Exam Simulator
 
 Browser exam app for dynamically rendering the existing `codex/A2_Mock_Exam_01.md` through `codex/A2_Mock_Exam_10.md` files with their audio and image attachments. A small local Python server adds secure AI scoring without exposing API keys to the browser.
 
@@ -11,6 +11,8 @@ python3 server.py
 ```
 
 Then open `http://localhost:4173/latvian-a2-exam-app/`.
+
+The server also exposes `GET /healthz` for container and load balancer checks.
 
 The legacy static server still renders exams, but AI scoring requires `server.py` because the browser must not hold provider credentials.
 
@@ -46,7 +48,36 @@ The Codex provider expects the `codex` executable to be available to the `server
 
 In the app, use **Submit Answers**, then **AI Score** or **AI score and corrections**. The frontend sends the current submission and exam Markdown to `/api/evaluate`; the server calls the configured LLM and returns per-skill points, corrections, and feedback.
 
-The scoring response includes telemetry for retries, quota state, and estimated cost, and the UI labels the result as a practice estimate rather than an official exam result.
+## Billing and entitlements
+
+The app now includes a server-side billing layer for:
+
+- Stripe Checkout sessions for a single exam, an exam pack, a monthly subscription, and AI scoring credits.
+- Learner entitlement state persisted in a local SQLite ledger.
+- Webhook handling for checkout completion, subscription changes, renewals, refunds, and chargebacks.
+- Upgrade prompts after the free exam is used.
+
+Configure these environment variables for live Stripe checkout:
+
+```sh
+STRIPE_SECRET_KEY=<your-stripe-secret>
+STRIPE_WEBHOOK_SECRET=<your-stripe-webhook-secret>
+STRIPE_PRICE_SINGLE_EXAM=<price-id>
+STRIPE_PRICE_EXAM_PACK=<price-id>
+STRIPE_PRICE_MONTHLY_SUBSCRIPTION=<price-id>
+STRIPE_PRICE_AI_CREDITS=<price-id>
+```
+
+Without a Stripe key, the checkout endpoint runs in mock mode so the rest of the app remains testable locally.
+
+Useful billing endpoints:
+
+- `GET /api/billing/config`
+- `GET /api/billing/state?learner_id=...`
+- `POST /api/billing/checkout-session`
+- `POST /api/billing/consume-exam`
+- `POST /api/billing/consume-ai-credit`
+- `POST /api/stripe/webhook`
 
 ### Docker with Codex on the host
 
@@ -112,6 +143,14 @@ CODEX_MODEL=gpt-5.2
 The container listens on port `80`; publish that port from your cloud Compose service or load balancer.
 
 Codex CLI scoring inside Docker requires `CODEX_REMOTE_URL` unless the image is extended to install and authenticate Codex CLI inside the container.
+
+See also:
+
+- `docs/deployment-runbook.md`
+- `docs/privacy-policy.md`
+- `docs/terms-of-service.md`
+- `docs/unofficial-disclaimer.md`
+- `docs/security-review.md`
 
 ## Scope
 

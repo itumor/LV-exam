@@ -27,6 +27,7 @@ Validation:
 - Confirm Codex can see `Welcome.md`.
 - Ask Codex to list the vault root files before you allow broad edits.
 - Review any proposed multi-file change before accepting it.
+- Review [[Multica agent delivery workflow runbook]] before broad edits.
 
 ## 2. Redstone Copilot inside Obsidian
 

@@ -1,0 +1,12 @@
+{
+  "config": {},
+  "content": "\n# Latvian A2 Monetization\n\nProducts: free sample simulation, 3-5 exam pack, monthly full access, optional AI scoring credits. Entitlements must track free exam access, paid exam access, remaining attempts, and remaining AI-scored submissions. Webhooks must handle payment_succeeded, subscription_created, subscription_renewed, subscription_canceled, refund, and chargeback with idempotent event processing and audit logs. Add upgrade prompts after free exam completion.",
+  "created_at": "2026-05-01T12:52:11Z",
+  "created_by": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "description": "Implement Stripe Checkout, products, exam packs, subscription access, AI scoring credits, billing page, and payment webhooks.",
+  "files": [],
+  "id": "ea534c9f-7f55-4068-afea-a8e46083d4bc",
+  "name": "latvian-a2-monetization",
+  "updated_at": "2026-05-01T12:52:11Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

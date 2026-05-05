@@ -1,0 +1,10 @@
+{
+  "user_id": "learner-001",
+  "email": "learner@example.com",
+  "authenticated": true,
+  "protected_routes": [
+    "/dashboard",
+    "/api/attempts",
+    "/api/checkout"
+  ]
+}
