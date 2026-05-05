@@ -43,17 +43,18 @@ Mitigations:
 - Cap retries and timeouts.
 - Add per-plan and per-user quotas once accounts exist.
 
-### 4. Missing Persistence Or Backups
+### 4. Persistence And Backup Loss
 
 Risk:
 
-- Attempts and entitlements can be lost if state is only in memory or browser storage.
+- Attempts, sessions, webhook events, and entitlements can be lost if the SQLite files are stored on ephemeral container disk or are not restored correctly.
 
 Mitigations:
 
-- Store durable data in Postgres when the platform is added.
-- Back up the database.
-- Test restore paths before launch.
+- Put `AUTH_DB_PATH` and `BILLING_DB_PATH` on durable platform storage for the MVP.
+- Run `scripts/backup_sqlite.py` daily and copy backups to object storage.
+- Test restore paths before launch and verify login, attempts, entitlements, and Stripe webhook idempotency after restore.
+- Move to managed Postgres before multi-instance writes or higher-volume launch.
 
 ### 5. Unsafe Content Or Rendering
 
@@ -78,9 +79,10 @@ Mitigations:
 - Emit structured JSON logs.
 - Add Sentry or equivalent error monitoring.
 - Alert on 5xx errors, 429s, webhook failures, and elevated latency.
+- Include `APP_ENV` and `APP_RELEASE` in Sentry so deploy regressions are traceable.
 
 ## Launch Readiness Notes
 
-- The current repository is still pre-database and pre-billing.
-- The production launch should not proceed until HTTPS, monitoring, legal pages, and backup verification are in place.
+- The current repository has local SQLite auth and billing stores. They are acceptable for a single-instance MVP only when backed by durable storage and tested backups.
+- The production launch should not proceed until HTTPS, monitoring alerts, legal pages, and backup verification are in place.
 - AI scoring must always be labeled as practice feedback, not an official exam result.

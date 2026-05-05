@@ -12,6 +12,7 @@ import re
 import shutil
 import sqlite3
 import socket
+import sys
 import subprocess
 import tempfile
 import threading
@@ -44,6 +45,9 @@ AUTH_DB_PATH = ROOT / ".multica" / "auth.sqlite3"
 AUTH_SESSION_COOKIE = "a2_session"
 AUTH_SESSION_TTL_DAYS = 30
 AUTH_WEBHOOK_SECRET = os.getenv("AUTH_WEBHOOK_SECRET", "").strip()
+RATE_LIMIT_LOCK = threading.Lock()
+RATE_LIMIT_BUCKETS: dict[str, list[float]] = {}
+SENTRY_SDK: Any | None = None
 
 
 def load_dotenv(path: Path) -> None:
@@ -66,6 +70,63 @@ def json_response(handler: SimpleHTTPRequestHandler, status: int, payload: dict[
     handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
     handler.wfile.write(body)
+
+
+def init_sentry() -> None:
+    global SENTRY_SDK
+    dsn = os.getenv("SENTRY_DSN", "").strip()
+    if not dsn:
+        return
+    try:
+        import sentry_sdk  # type: ignore[import-not-found]
+    except ImportError:
+        log_event("warning", "sentry_unavailable", reason="sentry_sdk_not_installed")
+        return
+    sentry_sdk.init(
+        dsn=dsn,
+        environment=os.getenv("APP_ENV", "production"),
+        release=os.getenv("APP_RELEASE", ""),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0") or "0.0"),
+    )
+    SENTRY_SDK = sentry_sdk
+
+
+def capture_exception(error: BaseException) -> None:
+    if SENTRY_SDK is not None:
+        SENTRY_SDK.capture_exception(error)
+
+
+def log_event(level: str, event: str, **fields: Any) -> None:
+    payload = {
+        "ts": now_iso(),
+        "level": level,
+        "event": event,
+        **fields,
+    }
+    print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=sys.stderr, flush=True)
+
+
+def client_ip(handler: SimpleHTTPRequestHandler) -> str:
+    forwarded = handler.headers.get("X-Forwarded-For", "").split(",", 1)[0].strip()
+    return forwarded or handler.client_address[0]
+
+
+def check_rate_limit(key: str, *, limit_env: str, window_env: str) -> tuple[bool, int]:
+    limit = int(os.getenv(limit_env, "20") or "20")
+    window_seconds = int(os.getenv(window_env, "60") or "60")
+    if limit <= 0 or window_seconds <= 0:
+        return True, 0
+    now = time.monotonic()
+    cutoff = now - window_seconds
+    with RATE_LIMIT_LOCK:
+        bucket = [item for item in RATE_LIMIT_BUCKETS.get(key, []) if item >= cutoff]
+        if len(bucket) >= limit:
+            retry_after = max(1, int(window_seconds - (now - bucket[0])))
+            RATE_LIMIT_BUCKETS[key] = bucket
+            return False, retry_after
+        bucket.append(now)
+        RATE_LIMIT_BUCKETS[key] = bucket
+    return True, 0
 
 
 def json_response_with_headers(
@@ -154,8 +215,9 @@ def now_iso() -> str:
 
 
 def db_connection() -> sqlite3.Connection:
-    AUTH_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(AUTH_DB_PATH)
+    path = Path(os.getenv("AUTH_DB_PATH", str(AUTH_DB_PATH)))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
@@ -999,6 +1061,27 @@ class AppHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
+    def log_message(self, format: str, *args: Any) -> None:
+        log_event(
+            "info",
+            "server_message",
+            remote_ip=client_ip(self),
+            method=getattr(self, "command", ""),
+            path=getattr(self, "path", ""),
+            message=format % args,
+        )
+
+    def log_request(self, code: int | str = "-", size: int | str = "-") -> None:
+        log_event(
+            "info",
+            "http_access",
+            remote_ip=client_ip(self),
+            method=getattr(self, "command", ""),
+            path=urllib.parse.urlparse(getattr(self, "path", "")).path,
+            status=code,
+            size=size,
+        )
+
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/healthz":
@@ -1142,6 +1225,21 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.handle_stripe_webhook()
                 return
             if self.path == "/api/evaluate":
+                rate_key = f"evaluate:{client_ip(self)}"
+                allowed, retry_after = check_rate_limit(
+                    rate_key,
+                    limit_env="EVALUATE_RATE_LIMIT_PER_MINUTE",
+                    window_env="EVALUATE_RATE_LIMIT_WINDOW_SECONDS",
+                )
+                if not allowed:
+                    log_event("warning", "rate_limit_blocked", endpoint="/api/evaluate", remote_ip=client_ip(self))
+                    json_response_with_headers(
+                        self,
+                        HTTPStatus.TOO_MANY_REQUESTS,
+                        {"error": "Too many scoring requests. Please wait and try again."},
+                        {"Retry-After": str(retry_after)},
+                    )
+                    return
                 payload = safe_read_json(self)
                 submission = payload.get("submission")
                 exam_markdown = payload.get("exam_markdown", "")
@@ -1177,10 +1275,15 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")
+            capture_exception(error)
+            log_event("error", "api_provider_error", path=self.path, status=error.code)
             json_response(self, error.code, {"error": provider_error_message(error.code, detail), "detail": detail})
         except PermissionError as error:
+            log_event("warning", "api_permission_error", path=self.path, remote_ip=client_ip(self))
             json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
         except Exception as error:  # noqa: BLE001 - this endpoint should always return JSON.
+            capture_exception(error)
+            log_event("error", "api_error", path=self.path, error=type(error).__name__)
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
     def handle_checkout_session(self) -> None:
@@ -1246,6 +1349,8 @@ class AppHandler(SimpleHTTPRequestHandler):
                 },
             )
         except Exception as error:  # noqa: BLE001 - keep API responses JSON.
+            capture_exception(error)
+            log_event("error", "checkout_session_error", error=type(error).__name__)
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
     def handle_consume_exam(self) -> None:
@@ -1268,6 +1373,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             status = HTTPStatus.OK if result["allowed"] else HTTPStatus.PAYMENT_REQUIRED
             json_response(self, status, result)
         except Exception as error:  # noqa: BLE001 - keep API responses JSON.
+            capture_exception(error)
+            log_event("error", "consume_exam_error", error=type(error).__name__)
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
     def handle_consume_ai_credit(self) -> None:
@@ -1286,6 +1393,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             status = HTTPStatus.OK if result["allowed"] else HTTPStatus.PAYMENT_REQUIRED
             json_response(self, status, result)
         except Exception as error:  # noqa: BLE001 - keep API responses JSON.
+            capture_exception(error)
+            log_event("error", "consume_ai_credit_error", error=type(error).__name__)
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
     def handle_stripe_webhook(self) -> None:
@@ -1299,6 +1408,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             result = store.handle_webhook(payload, signature, secret)
             json_response(self, HTTPStatus.OK, {"status": "ok", "result": result})
         except Exception as error:  # noqa: BLE001 - keep API responses JSON.
+            capture_exception(error)
+            log_event("error", "stripe_webhook_error", error=type(error).__name__)
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
 
@@ -1312,6 +1423,7 @@ class DualStackServer(ThreadingHTTPServer):
 
 def main() -> int:
     load_dotenv(ROOT / ".env")
+    init_sentry()
     init_auth_store()
     port = int(os.getenv("PORT", "4173"))
     server = DualStackServer(("::", port), AppHandler)
