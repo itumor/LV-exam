@@ -1,0 +1,5 @@
+{
+  "error": "Rate limit exceeded",
+  "message": "AI scoring quota exceeded",
+  "type": "quota_exceeded"
+}

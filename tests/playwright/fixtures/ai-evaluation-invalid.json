@@ -1,0 +1,4 @@
+{
+  "error": "Invalid response format",
+  "message": "AI evaluation response missing required fields"
+}

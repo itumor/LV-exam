@@ -1,0 +1,18 @@
+{
+  "evaluation": {
+    "scores": {
+      "listening": 15,
+      "reading": 15,
+      "writing": 15,
+      "speaking": 15,
+      "total": 60
+    },
+    "feedback": {
+      "listening": "Excellent listening comprehension",
+      "reading": "Strong reading skills demonstrated",
+      "writing": "Good writing with minor errors",
+      "speaking": "Clear and confident speaking"
+    },
+    "summary": "Fixture evaluation for the regression suite."
+  }
+}
