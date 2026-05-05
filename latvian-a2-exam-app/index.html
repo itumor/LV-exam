@@ -14,10 +14,18 @@
       <div class="exam-appbar-inner container-xxl">
         <div class="exam-brand-title">A2 Valsts valodas pārbaudes simulators</div>
         <nav id="global-part-nav" class="exam-part-nav nav nav-pills" aria-label="Exam parts"></nav>
-        <div class="exam-appbar-status">
-          <span class="timer-icon" aria-hidden="true"></span>
-          <span id="topbar-timer" class="topbar-timer">25:00</span>
-          <span class="profile-icon" aria-hidden="true"></span>
+      <div class="exam-appbar-status">
+        <span class="timer-icon" aria-hidden="true"></span>
+        <span id="topbar-timer" class="topbar-timer">25:00</span>
+        <span class="profile-icon" aria-hidden="true"></span>
+        <button id="quick-manual" class="btn btn-outline-info btn-sm ms-2" title="Skatiet lietotāja rokasgrāmatu">Lietotāja rokasgrāmata</button>
+      </div>
+        <div class="exam-appbar-actions">
+          <button id="quick-start-exam" class="btn btn-success btn-sm me-2" title="Sākt jaunu eksāmenu">Sākt eksāmenu</button>
+          <button id="quick-resume" class="btn btn-outline-success btn-sm me-2 d-none" title="Turpināt pārtrauktu eksāmenu">Turpināt</button>
+          <button id="quick-status" class="btn btn-outline-info btn-sm me-2" title="Skatīt manu statusu">Mans statuss</button>
+          <button id="quick-buy" class="btn btn-outline-warning btn-sm me-2" title="Iegādāties eksāmenus vai kredītus">Iegādāties</button>
+          <button id="quick-help" class="btn btn-outline-secondary btn-sm" title="Sazinieties ar atbalstu">Palīdzība</button>
         </div>
       </div>
     </header>
@@ -57,18 +65,56 @@
           </div>
         </div>
 
-        <nav class="nav-list" aria-label="Exam sections">
-          <button class="btn btn-outline-primary" data-view="dashboard">Dashboard</button>
-          <button class="btn btn-outline-primary" data-view="admin">Admin</button>
-          <button class="btn btn-outline-primary" data-view="auth">Account</button>
-          <button class="btn btn-outline-primary active" data-view="runner">Runner</button>
-          <button class="btn btn-outline-primary" data-view="submission">Submission</button>
-          <button class="btn btn-outline-primary" data-view="billing">Billing</button>
-          <button class="btn btn-outline-primary" data-view="markdown">Markdown</button>
-          <button class="btn btn-outline-primary" data-view="json">JSON</button>
-          <button class="btn btn-outline-primary" data-view="tts">TTS</button>
-          <button class="btn btn-outline-primary" data-view="prompts">Images</button>
-          <button class="btn btn-outline-primary" data-view="quality">Quality</button>
+        <nav class="sidebar-menu" aria-label="Galvenā navigācija">
+          <div class="sidebar-section">
+            <h3 class="sidebar-section-title">Mans konts</h3>
+            <button class="sidebar-item" data-view="dashboard">Mans progress</button>
+            <button class="sidebar-item" data-view="auth">Profils</button>
+            <button class="sidebar-item" data-action="toggle-auth" id="auth-toggle">Pieteikšanās</button>
+          </div>
+
+          <div class="sidebar-section">
+            <h3 class="sidebar-section-title">Eksāmeni</h3>
+            <button class="sidebar-item active" data-view="runner">Eksāmena starts</button>
+            <button class="sidebar-item" data-view="exam-list" id="exam-catalog">Pieejamie eksāmeni</button>
+            <div class="sidebar-submenu" id="exam-list-container"></div>
+          </div>
+
+          <div class="sidebar-section">
+            <h3 class="sidebar-section-title">Rezultāti</h3>
+            <button class="sidebar-item" data-view="results" id="results-latest">Pēdējais mēģinājums</button>
+            <button class="sidebar-item" data-view="results" data-sub="history">Vēsture</button>
+            <button class="sidebar-item" data-view="results" data-sub="detailed" id="results-detailed">Detalizēts vērtējums</button>
+          </div>
+
+          <div class="sidebar-section">
+            <h3 class="sidebar-section-title">Maksājumi</h3>
+            <button class="sidebar-item" data-view="billing" data-sub="status" id="billing-status">
+              Mans statuss
+              <span class="status-badge" id="status-badge"></span>
+            </button>
+            <button class="sidebar-item" data-view="billing" data-sub="purchase" id="billing-purchase">Iegādāties</button>
+            <button class="sidebar-item" data-view="billing" data-sub="history" id="billing-history">Norēķinu vēsture</button>
+          </div>
+
+          <div class="sidebar-section admin-section d-none" id="admin-section">
+            <h3 class="sidebar-section-title">Administrators</h3>
+            <button class="sidebar-item" data-view="admin" data-sub="overview" id="admin-overview">Pārskats</button>
+            <button class="sidebar-item" data-view="admin" data-sub="users" id="admin-users">Lietotāji</button>
+            <button class="sidebar-item" data-view="admin" data-sub="exams" id="admin-exams">Eksāmenu pārvalde</button>
+            <button class="sidebar-item" data-view="admin" data-sub="submissions" id="admin-submissions">Iesniegumi</button>
+            <button class="sidebar-item" data-view="admin" data-sub="settings" id="admin-settings">Iestatījumi</button>
+          </div>
+
+          <div class="sidebar-section debug-section" id="debug-section" style="display:none;">
+            <h3 class="sidebar-section-title">Atkļūdošana</h3>
+            <button class="sidebar-item" data-view="submission">Iesniegums</button>
+            <button class="sidebar-item" data-view="markdown">Markdown</button>
+            <button class="sidebar-item" data-view="json">JSON</button>
+            <button class="sidebar-item" data-view="tts">TTS</button>
+            <button class="sidebar-item" data-view="prompts">Attēli</button>
+            <button class="sidebar-item" data-view="quality">Kvalitāte</button>
+          </div>
         </nav>
 
         <div class="button-grid">
@@ -86,8 +132,13 @@
 
       <main class="workspace">
         <header class="workspace-bar">
+          <nav id="breadcrumb-nav" aria-label="Breadcrumb" class="breadcrumb-nav d-none">
+            <ol class="breadcrumb" id="breadcrumb-list">
+              <li class="breadcrumb-item"><a href="#" data-bc-view="home">Sākums</a></li>
+            </ol>
+          </nav>
           <div>
-            <span class="eyebrow">Practice exam runner</span>
+            <span class="eyebrow" id="workspace-eyebrow">Eksāmens</span>
             <h2 id="workspace-title">Generated Exam</h2>
           </div>
           <div id="validation-pill" class="validation-pill">Validated</div>

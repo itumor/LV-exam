@@ -351,7 +351,20 @@ class BillingStore:
             ).fetchall()
         return [row["learner_id"] for row in rows]
 
-    def get_state(self, learner_id: str, *, now: datetime | None = None) -> dict[str, Any]:
+    def get_state(self, learner_id: str, *, now: datetime | None = None, user_role: str = "user") -> dict[str, Any]:
+        if user_role in {"admin", "superadmin"}:
+            return {
+                "learner": self.get_learner(learner_id),
+                "free_exam_available": True,
+                "free_exam_taken": 0,
+                "paid_attempts_remaining": -1,
+                "ai_credits_remaining": -1,
+                "subscription_active": True,
+                "frozen": False,
+                "current_plan": "admin_unlimited",
+                "recent_events": self.list_recent_events(learner_id, limit=10),
+                "recent_activity": self.list_recent_activity(learner_id, limit=10),
+            }
         current_time = now or utc_now()
         with self._connect() as conn:
             learner = conn.execute(
@@ -479,7 +492,9 @@ class BillingStore:
             return True, "paid_attempt_available"
         return False, "no_attempts_left"
 
-    def consume_exam_access(self, learner_id: str, exam_id: str, *, source_reference: str | None = None, source_event_id: str | None = None) -> dict[str, Any]:
+    def consume_exam_access(self, learner_id: str, exam_id: str, *, source_reference: str | None = None, source_event_id: str | None = None, user_role: str = "user") -> dict[str, Any]:
+        if user_role in {"admin", "superadmin"}:
+            return {"allowed": True, "reason": "admin_unlimited", "state": self.get_state(learner_id, user_role=user_role)}
         allowed = False
         reason = "no_attempts_left"
         with self._lock, self._connect() as conn:
@@ -531,7 +546,9 @@ class BillingStore:
                 reason = "no_attempts_left"
         return {"allowed": allowed, "reason": reason, "state": self.get_state(learner_id)}
 
-    def consume_ai_credit(self, learner_id: str, *, source_reference: str | None = None, source_event_id: str | None = None) -> dict[str, Any]:
+    def consume_ai_credit(self, learner_id: str, *, source_reference: str | None = None, source_event_id: str | None = None, user_role: str = "user") -> dict[str, Any]:
+        if user_role in {"admin", "superadmin"}:
+            return {"allowed": True, "reason": "admin_unlimited", "state": self.get_state(learner_id, user_role=user_role)}
         allowed = False
         reason = "no_ai_credits_left"
         with self._lock, self._connect() as conn:

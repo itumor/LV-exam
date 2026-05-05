@@ -958,6 +958,23 @@ def parse_cookie_value(handler: SimpleHTTPRequestHandler, cookie_name: str) -> s
     return morsel.value if morsel else ""
 
 
+def get_session_user_role(handler: SimpleHTTPRequestHandler) -> str:
+    token = parse_cookie_value(handler, AUTH_SESSION_COOKIE)
+    if not token:
+        return "user"
+    with db_connection() as conn:
+        session = conn.execute(
+            "SELECT account_id FROM sessions WHERE token = ? AND (expires_at IS NULL OR expires_at > ?) AND revoked_at IS NULL",
+            (token, now_iso())
+        ).fetchone()
+        if not session:
+            return "user"
+        account = conn.execute(
+            "SELECT role FROM accounts WHERE id = ? AND deleted_at IS NULL", (session["account_id"],)
+        ).fetchone()
+        return account["role"] if account else "user"
+
+
 def serialize_account(row: sqlite3.Row | None) -> dict[str, Any] | None:
     if row is None:
         return None
@@ -2722,7 +2739,8 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return
             store = get_billing_store()
             store.ensure_learner(learner_id)
-            json_response(self, HTTPStatus.OK, {"learner_id": learner_id, "state": store.get_state(learner_id)})
+            user_role = get_session_user_role(self)
+            json_response(self, HTTPStatus.OK, {"learner_id": learner_id, "state": store.get_state(learner_id, user_role=user_role)})
             return
 
         if self.path.startswith("/api/billing/audit"):
@@ -2902,9 +2920,10 @@ class AppHandler(SimpleHTTPRequestHandler):
                 if learner_email:
                     submission["learner_email"] = learner_email
                 check_scoring_rate_limit(learner_id)
+                user_role = get_session_user_role(self)
                 billing_result: dict[str, Any] = {
                     "learner_id": learner_id,
-                    "ai_credit_required": ai_scoring_requires_credit(),
+                    "ai_credit_required": ai_scoring_requires_credit() and user_role not in {"admin", "superadmin"},
                     "ai_credit_consumed": False,
                 }
                 if learner_id:
@@ -2915,6 +2934,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                             learner_id,
                             source_reference=submission.get("submission_id"),
                             source_event_id=submission.get("submission_id"),
+                            user_role=user_role,
                         )
                         if not ai_credit_result["allowed"]:
                             json_response(

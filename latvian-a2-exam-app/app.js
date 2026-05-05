@@ -182,6 +182,43 @@ async function init() {
   document.querySelectorAll(".nav-list button").forEach(button => {
     button.addEventListener("click", () => setView(button.dataset.view));
   });
+
+  document.querySelectorAll(".sidebar-item").forEach(button => {
+    button.addEventListener("click", () => {
+      const view = button.dataset.view;
+      const sub = button.dataset.sub;
+      if (button.dataset.action === "toggle-auth") {
+        if (state.auth.status === "authenticated") {
+          logout();
+        } else {
+          setView("auth");
+        }
+        return;
+      }
+      if (view) {
+        setView(view);
+        if (sub) handleSubView(view, sub);
+      } else if (button.dataset.action === "start-exam") {
+        startExamFromMenu();
+      }
+    });
+  });
+
+  document.getElementById("quick-start-exam")?.addEventListener("click", () => startExamFromMenu());
+  document.getElementById("quick-resume")?.addEventListener("click", () => resumeExam());
+  document.getElementById("quick-status")?.addEventListener("click", () => { setView("billing"); handleSubView("billing", "status"); });
+  document.getElementById("quick-buy")?.addEventListener("click", () => { setView("billing"); handleSubView("billing", "purchase"); });
+  document.getElementById("quick-help")?.addEventListener("click", () => showToast("Sazinieties ar atbalstu: support@codex.lv"));
+  document.getElementById("quick-manual")?.addEventListener("click", () => showManual());
+
+  document.querySelectorAll(".breadcrumb-item a").forEach(link => {
+    link.addEventListener("click", event => {
+      event.preventDefault();
+      const targetView = link.dataset.bcView;
+      if (targetView) setView(targetView);
+    });
+  });
+
   els.globalPartNav.addEventListener("click", event => {
     const button = event.target.closest("[data-global-part]");
     if (!button) return;
@@ -200,6 +237,7 @@ async function init() {
   const requestedExam = urlParams.get("exam");
   await bootstrapAuth();
   await loadExamCatalog();
+  updateExamListInSidebar();
   if (state.auth.status === "authenticated") {
     await loadDashboard();
     if (isAdminAccount()) {
@@ -223,6 +261,8 @@ async function init() {
   renderAuth();
   renderDashboard();
   renderAdmin();
+  updateSidebarMenu("runner");
+  updateQuickActions();
   setInterval(tickTimers, 1000);
 }
 
@@ -414,6 +454,8 @@ async function handleAuthSubmit(event, mode) {
     renderAuth();
     renderDashboard();
     renderAdmin();
+    updateSidebarMenu(isAdminAccount() ? "admin" : "dashboard");
+    updateQuickActions();
     showToast(mode === "register" ? "Account created" : "Signed in");
   } catch (error) {
     state.auth.error = error.message;
@@ -482,6 +524,8 @@ async function logout() {
   setView("auth");
   renderAuth();
   renderDashboard();
+  updateSidebarMenu("auth");
+  updateQuickActions();
   showToast("Signed out");
 }
 
@@ -4055,6 +4099,191 @@ function setView(viewName) {
     quality: "Quality Gate"
   };
   els.workspaceTitle.textContent = titles[viewName];
+  updateSidebarMenu(viewName);
+  updateBreadcrumbs(viewName);
+  updateQuickActions();
+  if (viewName === "billing") renderBilling();
+}
+
+function handleSubView(view, sub) {
+  const billingSection = document.querySelector("#billing-output");
+  if (!billingSection) return;
+
+  if (sub === "status") {
+    renderBilling();
+  } else if (sub === "purchase") {
+    renderBilling();
+  } else if (sub === "history") {
+    renderBilling();
+  }
+}
+
+function startExamFromMenu() {
+  const dashboard = state.auth.dashboard;
+  const attemptsRemaining = dashboard?.summary?.attempts_remaining ?? (state.billing.state?.attempts_remaining ?? 0);
+  if (attemptsRemaining <= 0) {
+    setView("billing");
+    handleSubView("billing", "purchase");
+    showToast("Nav atlikušu mēģinājumu. Iegādājieties jaunu eksāmenu.");
+    return;
+  }
+  state.flow.screen = "register";
+  setView("runner");
+  renderRunner();
+}
+
+function resumeExam() {
+  const dashboard = state.auth.dashboard;
+  const lastAttempt = dashboard?.attempts?.[0];
+  if (lastAttempt && lastAttempt.status === "in_progress") {
+    state.flow.screen = "exam";
+    setView("runner");
+    renderRunner();
+  } else {
+    showToast("Nav atjaunojamu eksāmenu");
+  }
+}
+
+function updateSidebarMenu(activeView) {
+  document.querySelectorAll(".sidebar-item").forEach(item => {
+    const view = item.dataset.view;
+    const isActive = view === activeView || (view === "exam-list" && activeView === "runner");
+    item.classList.toggle("active", isActive);
+  });
+
+  const adminSection = document.getElementById("admin-section");
+  const debugSection = document.getElementById("debug-section");
+  if (adminSection) {
+    adminSection.classList.toggle("d-none", !isAdminAccount());
+  }
+  if (debugSection) {
+    debugSection.style.display = flowCore.shouldShowDebugPanels(state.flow.debugMode) ? "block" : "none";
+  }
+
+  updateStatusBadge();
+}
+
+function updateStatusBadge() {
+  const badge = document.getElementById("status-badge");
+  if (!badge) return;
+
+  const dashboard = state.auth.dashboard;
+  const billingState = state.billing.state;
+  const attempts = dashboard?.summary?.attempts_remaining ?? billingState?.attempts_remaining ?? 0;
+  const credits = dashboard?.summary?.ai_credits_remaining ?? billingState?.ai_credits_remaining ?? 0;
+
+  if (attempts > 0) {
+    badge.className = "status-badge attempts";
+    badge.textContent = `${attempts} mēģ.`;
+  } else if (credits > 0) {
+    badge.className = "status-badge credits";
+    badge.textContent = `${credits} kred.`;
+  } else {
+    badge.className = "status-badge none";
+    badge.textContent = "Bez pieejas";
+  }
+}
+
+function updateBreadcrumbs(viewName) {
+  const breadcrumbNav = document.getElementById("breadcrumb-nav");
+  const breadcrumbList = document.getElementById("breadcrumb-list");
+  if (!breadcrumbNav || !breadcrumbList) return;
+
+  const crumbs = getBreadcrumbs(viewName);
+  if (crumbs.length <= 1) {
+    breadcrumbNav.classList.add("d-none");
+    return;
+  }
+
+  breadcrumbNav.classList.remove("d-none");
+  breadcrumbList.innerHTML = crumbs.map((c, i) => `
+    <li class="breadcrumb-item ${i === crumbs.length - 1 ? 'active' : ''}">
+      ${i === crumbs.length - 1 ? c.label : `<a href="#" data-bc-view="${c.view}">${c.label}</a>`}
+    </li>
+  `).join("");
+
+  document.querySelectorAll(".breadcrumb-item a").forEach(link => {
+    link.addEventListener("click", event => {
+      event.preventDefault();
+      const targetView = link.dataset.bcView;
+      if (targetView) setView(targetView);
+    });
+  });
+}
+
+function getBreadcrumbs(viewName) {
+  const crumbs = [{ view: "home", label: "Sākums" }];
+  const sectionMap = {
+    auth: "Mans konts",
+    dashboard: "Mans konts",
+    runner: "Eksāmeni",
+    "exam-list": "Eksāmeni",
+    results: "Rezultāti",
+    billing: "Maksājumi",
+    admin: "Administrators"
+  };
+  if (sectionMap[viewName]) {
+    crumbs.push({ view: viewName, label: sectionMap[viewName] });
+  }
+  const viewTitles = {
+    auth: "Profils",
+    dashboard: "Mans progress",
+    runner: "Eksāmena starts",
+    "exam-list": "Pieejamie eksāmeni",
+    results: "Rezultāti",
+    billing: "Mans statuss"
+  };
+  if (viewTitles[viewName]) {
+    crumbs.push({ view: viewName, label: viewTitles[viewName] });
+  }
+  return crumbs;
+}
+
+function updateQuickActions() {
+  const quickStart = document.getElementById("quick-start-exam");
+  const quickResume = document.getElementById("quick-resume");
+  const quickStatus = document.getElementById("quick-status");
+  const quickBuy = document.getElementById("quick-buy");
+
+  const dashboard = state.auth.dashboard;
+  const billingState = state.billing.state;
+  const attempts = dashboard?.summary?.attempts_remaining ?? billingState?.attempts_remaining ?? 0;
+  const hasInProgress = dashboard?.attempts?.some(a => a.status === "in_progress");
+
+  if (quickStart) {
+    quickStart.disabled = attempts <= 0;
+    quickStart.title = attempts <= 0 ? "Nav atlikušu mēģinājumu" : "Sākt jaunu eksāmenu";
+  }
+  if (quickResume) {
+    quickResume.classList.toggle("d-none", !hasInProgress);
+  }
+  if (quickBuy) {
+    quickBuy.classList.toggle("d-none", attempts > 0 && (billingState?.ai_credits_remaining ?? 0) > 0);
+  }
+  if (quickStatus) {
+    const attemptsText = attempts > 0 ? `${attempts} mēģ.` : "0 mēģ.";
+    const creditsText = billingState?.ai_credits_remaining ?? 0;
+    quickStatus.title = `Mēģinājumi: ${attemptsText} | AI kredīti: ${creditsText}`;
+  }
+}
+
+function updateExamListInSidebar() {
+  const container = document.getElementById("exam-list-container");
+  if (!container) return;
+
+  container.innerHTML = EXAMS.map(exam => `
+    <button class="sidebar-item" data-action="load-exam" data-exam-id="${exam.id}">
+      ${exam.title}
+    </button>
+  `).join("");
+
+  container.querySelectorAll("[data-action='load-exam']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      loadExam(btn.dataset.examId);
+      setView("runner");
+      updateBreadcrumbs("runner");
+    });
+  });
 }
 
 async function copyText(text, successMessage) {
@@ -4074,9 +4303,100 @@ function downloadFile(filename, content, type) {
 }
 
 function showToast(message) {
-  els.toast.textContent = message;
-  els.toast.classList.add("show");
-  window.setTimeout(() => els.toast.classList.remove("show"), 1800);
+   els.toast.textContent = message;
+   els.toast.classList.add("show");
+   window.setTimeout(() => els.toast.classList.remove("show"), 1800);
+}
+
+function showManual() {
+   // Create a modal overlay
+   const overlay = document.createElement('div');
+   overlay.style.position = 'fixed';
+   overlay.style.top = '0';
+   overlay.style.left = '0';
+   overlay.style.width = '100%';
+   overlay.style.height = '100%';
+   overlay.style.backgroundColor = 'rgba(0,0,0,0.8)';
+   overlay.style.display = 'flex';
+   overlay.style.alignItems = 'center';
+   overlay.style.justifyContent = 'center';
+   overlay.style.zIndex = '1000';
+   
+   // Create modal content
+   const modal = document.createElement('div');
+   modal.style.backgroundColor = 'white';
+   modal.style.borderRadius = '8px';
+   modal.style.maxWidth = '90%';
+   modal.style.maxHeight = '90vh';
+   modal.style.overflowY = 'auto';
+   modal.style.padding = '20px';
+   modal.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+   
+   // Load the manual content
+   fetch('USER_MANUAL.md')
+      .then(response => response.text())
+      .then(markdownContent => {
+         // Simple markdown to HTML conversion for basic formatting
+         let htmlContent = markdownContent
+            .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+            .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/^\* (.+)$/gm, '<li>$1</li>')
+            .replace(/^(.+)$/gm, '<p>$1</p>');
+            
+         // Fix list formatting
+         htmlContent = htmlContent.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
+         
+         modal.innerHTML = htmlContent;
+         
+         // Add close button
+         const closeButton = document.createElement('button');
+         closeButton.textContent = 'Aizvērt';
+         closeButton.style.position = 'fixed';
+         closeButton.style.top = '20px';
+         closeButton.style.right = '20px';
+         closeButton.style.padding = '8px 16px';
+         closeButton.style.backgroundColor = '#dc3545';
+         closeButton.style.color = 'white';
+         closeButton.style.border = 'none';
+         closeButton.style.borderRadius = '4px';
+         closeButton.style.cursor = 'pointer';
+         closeButton.style.zIndex = '1001';
+         
+         closeButton.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            document.body.removeChild(closeButton);
+         });
+         
+         document.body.appendChild(overlay);
+         document.body.appendChild(closeButton);
+      })
+      .catch(error => {
+         console.error('Failed to load manual:', error);
+         modal.textContent = 'Nevar ielādēt rokasgrāmatu. Lūdzu, mēģiniet vēlāk reiz.';
+         
+         // Add close button even on error
+         const closeButton = document.createElement('button');
+         closeButton.textContent = 'Aizvērt';
+         closeButton.style.marginTop = '10px';
+         closeButton.style.padding = '8px 16px';
+         closeButton.style.backgroundColor = '#dc3545';
+         closeButton.style.color = 'white';
+         closeButton.style.border = 'none';
+         closeButton.style.borderRadius = '4px';
+         closeButton.style.cursor = 'pointer';
+         
+         modal.appendChild(closeButton);
+         
+         closeButton.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            document.body.removeChild(closeButton);
+         });
+         
+         document.body.appendChild(overlay);
+         document.body.appendChild(modal);
+      });
 }
 
 function escapeHtml(value) {
