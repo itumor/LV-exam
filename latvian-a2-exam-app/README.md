@@ -181,7 +181,7 @@ See also:
 
 ## Scope
 
-- No frontend runtime dependencies.
+- Bootstrap 5.3.8 is loaded as a fixed CDN stylesheet before the app-specific CSS.
 - Local Python server endpoint for Groq or Codex CLI based AI scoring.
 - Renders exams 1-10 from the Codex vault Markdown.
 - Loads MP3 audio attachments for listening and speaking tasks.

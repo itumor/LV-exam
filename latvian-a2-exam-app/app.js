@@ -207,14 +207,14 @@ async function init() {
         state.admin.error = error.message;
       });
     }
-    await loadExam(String(requestedExam || "01").padStart(2, "0"));
+    await loadExam(String(requestedExam || "01").padStart(2, "0"), { silent: true });
     state.flow.screen = requestedScreen || (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
     const requestedOuterView = requestedView === "admin" && isAdminAccount()
       ? "admin"
       : requestedScreenRaw === "dashboard" ? "dashboard" : (requestedScreenRaw ? "runner" : "dashboard");
     setView(requestedOuterView);
   } else {
-    await loadExam(String(requestedExam || "01").padStart(2, "0"));
+    await loadExam(String(requestedExam || "01").padStart(2, "0"), { silent: true });
     state.flow.screen = requestedScreen || (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
     setView("runner");
   }
@@ -258,7 +258,7 @@ async function loadExamCatalog() {
   }
 }
 
-async function loadExam(examId) {
+async function loadExam(examId, options = {}) {
   const exam = EXAMS.find(item => item.id === examId) || EXAMS[0];
   if (!exam) {
     renderLoadError(new Error("No published exams are available."));
@@ -288,7 +288,9 @@ async function loadExam(examId) {
     }
     updateExamUrl();
     renderAll();
-    showToast(`${exam.title} loaded`);
+    if (!options.silent) {
+      showToast(`${exam.title} loaded`);
+    }
   } catch (error) {
     renderLoadError(error);
   }
@@ -607,20 +609,20 @@ function renderAuth() {
       <article class="auth-card">
         <h3>Sign in</h3>
         <form id="login-form" class="auth-form">
-          <label>Email<input name="email" type="email" autocomplete="email" required></label>
-          <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
-          <button type="submit">Sign in</button>
+          <label>Email<input class="form-control" name="email" type="email" autocomplete="email" required></label>
+          <label>Password<input class="form-control" name="password" type="password" autocomplete="current-password" required></label>
+          <button class="btn btn-primary" type="submit">Sign in</button>
         </form>
       </article>
       <article class="auth-card">
         <h3>Create account</h3>
         <form id="register-form" class="auth-form">
-          <label>Full name<input name="full_name" type="text" autocomplete="name" required></label>
-          <label>Email<input name="email" type="email" autocomplete="email" required></label>
-          <label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
-          <label>Native language<input name="native_language" type="text" autocomplete="off" placeholder="Optional"></label>
-          <label>Exam target date<input name="exam_target_date" type="date"></label>
-          <button type="submit">Create account</button>
+          <label>Full name<input class="form-control" name="full_name" type="text" autocomplete="name" required></label>
+          <label>Email<input class="form-control" name="email" type="email" autocomplete="email" required></label>
+          <label>Password<input class="form-control" name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+          <label>Native language<input class="form-control" name="native_language" type="text" autocomplete="off" placeholder="Optional"></label>
+          <label>Exam target date<input class="form-control" name="exam_target_date" type="date"></label>
+          <button class="btn btn-primary" type="submit">Create account</button>
         </form>
       </article>
     </section>
@@ -658,23 +660,23 @@ function renderDashboard() {
         <h2>${escapeHtml(profile.full_name || state.auth.account?.email || "Learner")}</h2>
         <p>${escapeHtml(state.auth.account?.email || "")}</p>
         <div class="dashboard-actions">
-          <button id="logout-button" type="button">Sign out</button>
-          <button id="export-account-button" type="button">Export account</button>
-          <button id="delete-account-button" type="button" class="danger">Delete account</button>
+          <button id="logout-button" class="btn btn-outline-light" type="button">Sign out</button>
+          <button id="export-account-button" class="btn btn-outline-light" type="button">Export account</button>
+          <button id="delete-account-button" type="button" class="btn btn-danger danger">Delete account</button>
         </div>
       </article>
       <article class="dashboard-card">
         <h3>Profile</h3>
         <form id="profile-form" class="auth-form compact">
-          <label>Full name<input name="full_name" type="text" value="${escapeHtml(profile.full_name || "")}" required></label>
-          <label>Native language<input name="native_language" type="text" value="${escapeHtml(profile.native_language || "")}"></label>
-          <label>Exam target date<input name="exam_target_date" type="date" value="${escapeHtml(profile.exam_target_date || "")}"></label>
+          <label>Full name<input class="form-control" name="full_name" type="text" value="${escapeHtml(profile.full_name || "")}" required></label>
+          <label>Native language<input class="form-control" name="native_language" type="text" value="${escapeHtml(profile.native_language || "")}"></label>
+          <label>Exam target date<input class="form-control" name="exam_target_date" type="date" value="${escapeHtml(profile.exam_target_date || "")}"></label>
           <label>Exam pack status
-            <select name="exam_pack_status">
+            <select class="form-select" name="exam_pack_status">
               ${["free", "paid", "trial"].map(value => `<option value="${value}" ${String(profile.exam_pack_status || "free") === value ? "selected" : ""}>${value}</option>`).join("")}
             </select>
           </label>
-          <button type="submit">Save profile</button>
+          <button class="btn btn-primary" type="submit">Save profile</button>
         </form>
       </article>
       <article class="dashboard-card metrics">
@@ -738,7 +740,7 @@ function renderAdmin() {
           <p>Manage exam availability, learner accounts, submissions, scores, and platform settings from one protected workspace.</p>
           ${state.admin.error ? `<p class="auth-error">${escapeHtml(state.admin.error)}</p>` : ""}
         </div>
-        <button id="refresh-admin" type="button">Refresh</button>
+        <button id="refresh-admin" class="btn btn-light" type="button">Refresh</button>
       </article>
       <div class="admin-metrics">
         ${[
@@ -752,7 +754,7 @@ function renderAdmin() {
       <article class="admin-panel">
         <div class="admin-panel-header">
           <h3>Exams</h3>
-          <button id="admin-new-exam" type="button">New exam</button>
+          <button id="admin-new-exam" class="btn btn-primary" type="button">New exam</button>
         </div>
         <div class="admin-grid">
           <div class="admin-list">
@@ -764,25 +766,25 @@ function renderAdmin() {
             `).join("") || "<p>No exams in the catalog.</p>"}
           </div>
           <form id="admin-exam-form" class="auth-form">
-            <label>Exam ID<input name="id" value="${escapeHtml(selectedExam?.id || "")}" ${selectedExam ? "readonly" : ""} required></label>
-            <label>Title<input name="title" value="${escapeHtml(selectedExam?.title || "")}" required></label>
+            <label>Exam ID<input class="form-control" name="id" value="${escapeHtml(selectedExam?.id || "")}" ${selectedExam ? "readonly" : ""} required></label>
+            <label>Title<input class="form-control" name="title" value="${escapeHtml(selectedExam?.title || "")}" required></label>
             <label>Status
-              <select name="status">
+              <select class="form-select" name="status">
                 ${["draft", "published", "archived"].map(status => `<option value="${status}" ${selectedExam?.status === status ? "selected" : ""}>${status}</option>`).join("")}
               </select>
             </label>
-            <label>Description<input name="description" value="${escapeHtml(selectedExam?.description || "")}"></label>
-            <label>Markdown path<input name="markdownPath" value="${escapeHtml(selectedExam?.markdownPath || "")}" required></label>
-            <label>Source path<input name="sourcePath" value="${escapeHtml(selectedExam?.sourcePath || "")}" required></label>
-            <label>Attachment root<input name="attachmentRoot" value="${escapeHtml(selectedExam?.attachmentRoot || "")}"></label>
-            <label class="full-span">Answer key JSON<textarea name="answerKeyJson" rows="6" placeholder='{"listening":{"task1":["a"]}}'>${escapeHtml(JSON.stringify(selectedExam?.answer_key || {}, null, 2))}</textarea></label>
-            <button type="submit">${selectedExam ? "Save exam" : "Create exam"}</button>
+            <label>Description<input class="form-control" name="description" value="${escapeHtml(selectedExam?.description || "")}"></label>
+            <label>Markdown path<input class="form-control" name="markdownPath" value="${escapeHtml(selectedExam?.markdownPath || "")}" required></label>
+            <label>Source path<input class="form-control" name="sourcePath" value="${escapeHtml(selectedExam?.sourcePath || "")}" required></label>
+            <label>Attachment root<input class="form-control" name="attachmentRoot" value="${escapeHtml(selectedExam?.attachmentRoot || "")}"></label>
+            <label class="full-span">Answer key JSON<textarea class="form-control" name="answerKeyJson" rows="6" placeholder='{"listening":{"task1":["a"]}}'>${escapeHtml(JSON.stringify(selectedExam?.answer_key || {}, null, 2))}</textarea></label>
+            <button class="btn btn-primary" type="submit">${selectedExam ? "Save exam" : "Create exam"}</button>
             ${selectedExam ? `
               <div class="dashboard-actions">
-                <button type="button" data-exam-status="published">Publish</button>
-                <button type="button" data-exam-status="archived">Archive</button>
-                <button type="button" data-exam-status="draft">Unpublish</button>
-                <button type="button" id="delete-admin-exam" class="danger">Delete</button>
+                <button class="btn btn-primary" type="button" data-exam-status="published">Publish</button>
+                <button class="btn btn-outline-primary" type="button" data-exam-status="archived">Archive</button>
+                <button class="btn btn-outline-primary" type="button" data-exam-status="draft">Unpublish</button>
+                <button type="button" id="delete-admin-exam" class="btn btn-danger danger">Delete</button>
               </div>
             ` : ""}
           </form>
@@ -802,16 +804,16 @@ function renderAdmin() {
                   <tr>
                     <td><strong>${escapeHtml(profile.full_name || account.email)}</strong><br><span>${escapeHtml(account.email)}</span></td>
                     <td>
-                      <select data-account-role="${escapeHtml(account.id)}">
+                      <select class="form-select form-select-sm" data-account-role="${escapeHtml(account.id)}">
                         ${["user", "admin", "superadmin"].map(role => `<option value="${role}" ${account.role === role ? "selected" : ""} ${!canPromote && role !== "user" ? "disabled" : ""}>${role}</option>`).join("")}
                       </select>
                     </td>
                     <td>
-                      <select data-account-status="${escapeHtml(account.id)}">
+                      <select class="form-select form-select-sm" data-account-status="${escapeHtml(account.id)}">
                         ${["active", "disabled"].map(status => `<option value="${status}" ${account.status === status ? "selected" : ""}>${status}</option>`).join("")}
                       </select>
                     </td>
-                    <td><button type="button" data-save-account="${escapeHtml(account.id)}">Save</button></td>
+                    <td><button type="button" class="btn btn-primary btn-sm" data-save-account="${escapeHtml(account.id)}">Save</button></td>
                   </tr>
                 `;
               }).join("")}
@@ -841,9 +843,9 @@ function renderAdmin() {
       <article class="admin-panel">
         <h3>Settings</h3>
         <form id="admin-settings-form" class="auth-form compact">
-          <label>Results visibility<input name="results_visibility" value="${escapeHtml(state.admin.settings.results_visibility || "show_allowed_results_only")}"></label>
-          <label>Default exam mode<input name="default_exam_mode" value="${escapeHtml(state.admin.settings.default_exam_mode || "exam")}"></label>
-          <button type="submit">Save settings</button>
+          <label>Results visibility<input class="form-control" name="results_visibility" value="${escapeHtml(state.admin.settings.results_visibility || "show_allowed_results_only")}"></label>
+          <label>Default exam mode<input class="form-control" name="default_exam_mode" value="${escapeHtml(state.admin.settings.default_exam_mode || "exam")}"></label>
+          <button class="btn btn-primary" type="submit">Save settings</button>
         </form>
       </article>
     </section>
@@ -1139,9 +1141,9 @@ function renderRunner() {
         <p><span data-exam-progress>${totalProgress.answered}/${totalProgress.total}</span> response fields completed. Objective answers can be checked now; writing and speaking text stays in the validation queue.</p>
       </div>
       <div class="submit-actions">
-        <button type="button" data-action="submit-exam">Submit answers</button>
-        <button type="button" data-action="evaluate-exam">AI score</button>
-        <button type="button" data-action="open-submission">Review submission</button>
+        <button type="button" class="btn btn-primary" data-action="submit-exam">Submit answers</button>
+        <button type="button" class="btn btn-outline-primary" data-action="evaluate-exam">AI score</button>
+        <button type="button" class="btn btn-outline-primary" data-action="open-submission">Review submission</button>
       </div>
     </section>
     ${renderUpgradePrompt("runner")}
@@ -1169,18 +1171,18 @@ function renderHomeScreen() {
       ${renderFlowStepper("welcome")}
       ${renderFlowExamPicker()}
       <div class="mode-switch" role="group" aria-label="Režīms">
-        <button type="button" data-flow-action="set-mode" data-mode="exam" class="${state.flow.mode === "exam" ? "active" : ""}">Eksāmena režīms</button>
-        <button type="button" data-flow-action="set-mode" data-mode="practice" class="${state.flow.mode === "practice" ? "active" : ""}">Treniņa režīms</button>
+        <button type="button" data-flow-action="set-mode" data-mode="exam" class="btn ${state.flow.mode === "exam" ? "active btn-primary" : "btn-outline-primary"}">Eksāmena režīms</button>
+        <button type="button" data-flow-action="set-mode" data-mode="practice" class="btn ${state.flow.mode === "practice" ? "active btn-primary" : "btn-outline-primary"}">Treniņa režīms</button>
       </div>
       <div class="flow-primary-stack">
-        <button type="button" class="flow-primary-button" data-flow-action="register">Sākt pilnu eksāmenu</button>
-        <button type="button" class="flow-secondary-button" data-flow-action="start-practice">Trenēties pa daļām</button>
+        <button type="button" class="btn btn-primary btn-lg flow-primary-button" data-flow-action="register">Sākt pilnu eksāmenu</button>
+        <button type="button" class="btn btn-outline-primary btn-lg flow-secondary-button" data-flow-action="start-practice">Trenēties pa daļām</button>
       </div>
       <div class="flow-home-links">
-        <button type="button" data-flow-action="open-auth">Konts / pierakstīties</button>
-        ${isAdminAccount() ? `<button type="button" data-flow-action="open-admin">Admin</button>` : ""}
-        <button type="button" data-flow-action="results">Skatīt rezultātus</button>
-        <button type="button" data-flow-action="instructions">Norādījumi</button>
+        <button type="button" class="btn btn-outline-primary" data-flow-action="open-auth">Konts / pierakstīties</button>
+        ${isAdminAccount() ? `<button type="button" class="btn btn-outline-primary" data-flow-action="open-admin">Admin</button>` : ""}
+        <button type="button" class="btn btn-outline-primary" data-flow-action="results">Skatīt rezultātus</button>
+        <button type="button" class="btn btn-outline-primary" data-flow-action="instructions">Norādījumi</button>
       </div>
       <p class="flow-version">Sistēmas versija 1.2.0 • Oficiālais simulators</p>
     </section>
@@ -1200,17 +1202,17 @@ function renderRegistrationScreen() {
       <form class="candidate-form" data-candidate-form>
         <label>
           Kandidāta kods
-          <input name="code" value="${escapeHtml(candidate.code)}" autocomplete="off" required>
+          <input class="form-control form-control-lg" name="code" value="${escapeHtml(candidate.code)}" autocomplete="off" required>
         </label>
         <label>
           Vārds
-          <input name="firstName" value="${escapeHtml(candidate.firstName)}" autocomplete="given-name" required>
+          <input class="form-control form-control-lg" name="firstName" value="${escapeHtml(candidate.firstName)}" autocomplete="given-name" required>
         </label>
         <label>
           Uzvārds
-          <input name="lastName" value="${escapeHtml(candidate.lastName)}" autocomplete="family-name" required>
+          <input class="form-control form-control-lg" name="lastName" value="${escapeHtml(candidate.lastName)}" autocomplete="family-name" required>
         </label>
-        <button type="submit" class="flow-success-button">Sākt pārbaudi</button>
+        <button type="submit" class="btn btn-success btn-lg flow-success-button">Sākt pārbaudi</button>
       </form>
       <p class="form-note">Lūdzu, ievadiet datus tieši tā, kā norādīts jūsu eksāmena lapā.</p>
     </section>
@@ -1243,7 +1245,7 @@ function renderInstructionsScreen() {
           </div>
         `).join("")}
       </div>
-      <button type="button" class="flow-primary-button compact" data-flow-action="begin-exam">Saprasts / Atpakaļ</button>
+      <button type="button" class="btn btn-primary btn-lg flow-primary-button compact" data-flow-action="begin-exam">Saprasts / Atpakaļ</button>
     </section>
   `;
 }
@@ -1252,7 +1254,7 @@ function renderFlowExamPicker(label = "Izvēlieties eksāmenu") {
   return `
     <label class="flow-exam-picker">
       <span>${label}</span>
-      <select data-flow-exam-select aria-label="${label}">
+      <select class="form-select form-select-lg" data-flow-exam-select aria-label="${label}">
         ${EXAMS.map(exam => `<option value="${exam.id}" ${exam.id === state.exam.id ? "selected" : ""}>${exam.title}</option>`).join("")}
       </select>
     </label>
@@ -1335,9 +1337,9 @@ function renderResultsScreen() {
       </div>
       ${renderUpgradePrompt("results")}
       <div class="results-actions">
-        <button type="button" class="flow-primary-button results-action" data-flow-action="open-submission">Skatīt detalizētu pārskatu</button>
-        <button type="button" class="flow-secondary-button" data-flow-action="view-candidate-report">Kandidāta pārskats</button>
-        <button type="button" class="flow-secondary-button" data-flow-action="download-pdf-report">⬇ Lejupielādēt PDF</button>
+        <button type="button" class="btn btn-primary flow-primary-button results-action" data-flow-action="open-submission">Skatīt detalizētu pārskatu</button>
+        <button type="button" class="btn btn-outline-primary flow-secondary-button" data-flow-action="view-candidate-report">Kandidāta pārskats</button>
+        <button type="button" class="btn btn-outline-primary flow-secondary-button" data-flow-action="download-pdf-report">Lejupielādēt PDF</button>
       </div>
       ${renderCandidateReport()}
     </section>
@@ -1397,8 +1399,8 @@ function renderAccessSummaryCard() {
         <p>Plan: <strong>${escapeHtml(plan)}</strong> · Free exam remaining: <strong>${billing.free_exam_available ? "1" : "0"}</strong> · Paid attempts: <strong>${escapeHtml(billing.paid_attempts_remaining ?? 0)}</strong> · AI credits: <strong>${escapeHtml(billing.ai_credits_remaining ?? 0)}</strong></p>
       </div>
       <div class="billing-summary-actions">
-        <button type="button" data-billing-action="open-billing">Open billing</button>
-        <button type="button" data-billing-action="refresh-billing">Refresh access</button>
+        <button type="button" class="btn btn-outline-primary" data-billing-action="open-billing">Open billing</button>
+        <button type="button" class="btn btn-outline-primary" data-billing-action="refresh-billing">Refresh access</button>
       </div>
     </section>
   `;
@@ -1420,9 +1422,9 @@ function renderUpgradePrompt(context = "home") {
         <p>${escapeHtml(body)}</p>
       </div>
       <div class="upgrade-actions">
-        <button type="button" data-billing-action="checkout" data-product="single_exam">Buy one exam</button>
-        <button type="button" data-billing-action="checkout" data-product="exam_pack">Buy pack</button>
-        <button type="button" data-billing-action="checkout" data-product="monthly_subscription">Subscribe monthly</button>
+        <button type="button" class="btn btn-primary" data-billing-action="checkout" data-product="single_exam">Buy one exam</button>
+        <button type="button" class="btn btn-outline-primary" data-billing-action="checkout" data-product="exam_pack">Buy pack</button>
+        <button type="button" class="btn btn-outline-primary" data-billing-action="checkout" data-product="monthly_subscription">Subscribe monthly</button>
       </div>
     </section>
   `;
@@ -1773,7 +1775,7 @@ function getTaskProgress(partKey, taskKey) {
 function renderPartTab(part) {
   const progress = getPartProgress(part.key);
   return `
-    <button type="button" data-action="switch-part" data-part="${part.key}" class="${part.key === state.runner.activePart ? "active" : ""}">
+    <button type="button" data-action="switch-part" data-part="${part.key}" class="btn ${part.key === state.runner.activePart ? "active btn-primary" : "btn-outline-primary"}">
       <span>${part.title}</span>
       <strong data-progress="${part.key}">${progress.answered} done</strong>
     </button>
@@ -1788,7 +1790,7 @@ function renderTopChrome() {
   document.body.dataset.debugMode = String(flowCore.shouldShowDebugPanels(state.flow.debugMode));
   const allowPartNav = state.flow.screen === "exam" && state.flow.mode === "practice";
   els.globalPartNav.innerHTML = allowPartNav ? PART_CONFIG.map(part => `
-    <button type="button" data-global-part="${part.key}" class="${part.key === state.runner.activePart ? "active" : ""}">
+    <button type="button" data-global-part="${part.key}" class="nav-link ${part.key === state.runner.activePart ? "active" : ""}">
       ${part.title}
     </button>
   `).join("") : "";
@@ -1814,14 +1816,14 @@ function renderPartMoveButton(direction) {
   const nextIndex = direction === "next" ? currentIndex + 1 : currentIndex - 1;
   const part = PART_CONFIG[nextIndex];
   if (!part && direction === "next") {
-    return `<button type="button" data-action="${state.flow.mode === "exam" ? "submit-exam" : "show-results"}">Pabeigt</button>`;
+    return `<button type="button" class="btn btn-primary" data-action="${state.flow.mode === "exam" ? "submit-exam" : "show-results"}">Pabeigt</button>`;
   }
   if (!part) return "<span></span>";
   if (direction === "previous" && state.flow.mode === "exam") {
-    return `<button type="button" disabled title="Navigation is forward-only in exam mode">← ${part.title}</button>`;
+    return `<button type="button" class="btn btn-outline-secondary" disabled title="Navigation is forward-only in exam mode">← ${part.title}</button>`;
   }
   const label = direction === "next" ? `Next: ${part.title}` : `Previous: ${part.title}`;
-  return `<button type="button" data-action="switch-part" data-part="${part.key}">${label}</button>`;
+  return `<button type="button" class="btn btn-primary" data-action="switch-part" data-part="${part.key}">${label}</button>`;
 }
 
 function renderTimersOnly() {
@@ -1996,9 +1998,9 @@ function renderPartTimer(part, label, minutes) {
       </div>
       <div class="timer-display" data-timer="${part}">${formatTime(timer.remaining)}</div>
       <div class="timer-actions">
-        <button type="button" data-action="start" data-part="${part}" ${timer.running ? "disabled" : ""}>${startLabel}</button>
-        ${isExamMode ? "" : `<button type="button" data-action="pause" data-part="${part}">Pause</button>`}
-        ${isExamMode ? "" : `<button type="button" data-action="reset" data-part="${part}">Reset</button>`}
+        <button type="button" class="btn btn-primary btn-sm" data-action="start" data-part="${part}" ${timer.running ? "disabled" : ""}>${startLabel}</button>
+        ${isExamMode ? "" : `<button type="button" class="btn btn-outline-primary btn-sm" data-action="pause" data-part="${part}">Pause</button>`}
+        ${isExamMode ? "" : `<button type="button" class="btn btn-outline-primary btn-sm" data-action="reset" data-part="${part}">Reset</button>`}
       </div>
     </article>
   `;
@@ -2022,9 +2024,9 @@ function renderChoiceQuestion(section, task, question, index, useReadingBox, aud
       ${audioSrc ? renderCardAudio(audioSrc, index) : ""}
       <div class="official-choice-list">
         ${parsed.options.map(option => `
-          <label class="official-radio-row">
-            <input type="radio" name="${name}" value="${escapeHtml(option.value)}" ${value === option.value ? "checked" : ""}>
-            <span>${escapeHtml(option.label)}</span>
+          <label class="official-radio-row form-check">
+            <input class="form-check-input" type="radio" name="${name}" value="${escapeHtml(option.value)}" ${value === option.value ? "checked" : ""}>
+            <span class="form-check-label">${escapeHtml(option.label)}</span>
           </label>
         `).join("")}
       </div>
@@ -2198,7 +2200,7 @@ function renderAdMatchQuestions(section, task, questions, referenceLines) {
             <div class="ad-match-text document compact">${renderMarkdown(question.lines.join("\n"), state.exam)}</div>
             <label class="ad-match-answer">
               <span>${index + 1}</span>
-              <select data-answer="${name}">
+              <select class="form-select" data-answer="${name}">
                 <option value=""></option>
                 ${options.map(option => `<option value="${option}" ${value.toUpperCase() === option ? "selected" : ""}>${option}</option>`).join("")}
               </select>
@@ -2226,7 +2228,7 @@ function renderAdMatchGroup(section, task, ads, questions, baseIndex) {
               <div class="ad-match-text document compact">${renderMarkdown(question.lines.join("\n"), state.exam)}</div>
               <label class="ad-match-answer">
                 <span>${index + 1}</span>
-                <select data-answer="${name}">
+                <select class="form-select" data-answer="${name}">
                   <option value=""></option>
                   ${ads.map((ad, adIndex) => `<option value="${ad.letter}" ${value.toUpperCase() === ad.letter ? "selected" : ""}>${localLetters[adIndex]}</option>`).join("")}
                 </select>
@@ -2282,7 +2284,7 @@ function renderInlineGapText(section, taskKey, lines, optionGroups) {
       { value: "c", label: "c" }
     ];
     return `
-      <select class="inline-gap-select" data-answer="${name}" aria-label="Atbilde ${number}">
+      <select class="form-select inline-gap-select" data-answer="${name}" aria-label="Atbilde ${number}">
         <option value="">...</option>
         ${options.map(option => `<option value="${escapeHtml(option.value)}" ${value === option.value ? "selected" : ""}>${escapeHtml(`${option.value}) ${option.label}`)}</option>`).join("")}
       </select>
@@ -2311,7 +2313,7 @@ function renderPhotoSentenceTask(section, task, questions, introLines) {
               </div>
               <label class="ruled-answer">
                 <span>${index + 1}.</span>
-                <textarea data-answer="${name}" rows="${task.rows || 3}" placeholder="${escapeHtml(task.placeholder || "Rakstiet teikumu")}">${escapeHtml(value)}</textarea>
+                <textarea class="form-control" data-answer="${name}" rows="${task.rows || 3}" placeholder="${escapeHtml(task.placeholder || "Rakstiet teikumu")}">${escapeHtml(value)}</textarea>
               </label>
             </section>
           `;
@@ -2340,7 +2342,7 @@ function renderWordFormLine(section, task, question, index) {
   ensureAnswerSlot(section, task.taskKey, index);
   const value = state.answers[section][task.taskKey][index] || "";
   const raw = stripLeadingNumber(question.lines.join(" "));
-  const input = `<input class="inline-text-blank" type="text" data-answer="${name}" value="${escapeHtml(value)}" aria-label="Atbilde ${index + 1}">`;
+  const input = `<input class="form-control inline-text-blank" type="text" data-answer="${name}" value="${escapeHtml(value)}" aria-label="Atbilde ${index + 1}">`;
   const line = escapeHtml(raw).replace(/`?_{3,}`?/g, input);
   return `<p class="word-form-line"><span>${index + 1}.</span> ${line}</p>`;
 }
@@ -2353,7 +2355,7 @@ function renderWritingLongTask(section, task, introLines) {
     <article class="long-writing-task">
       ${introLines.length ? `<div class="writing-task-instructions">${renderMarkdown(introLines.join("\n"), state.exam)}</div>` : ""}
       <label class="long-writing-paper">
-        <textarea data-answer="${name}" rows="${task.rows || 10}" placeholder="${escapeHtml(task.placeholder || "Rakstiet tekstu")}">${escapeHtml(value)}</textarea>
+        <textarea class="form-control" data-answer="${name}" rows="${task.rows || 10}" placeholder="${escapeHtml(task.placeholder || "Rakstiet tekstu")}">${escapeHtml(value)}</textarea>
       </label>
     </article>
   `;
@@ -2370,7 +2372,7 @@ function renderOralInterviewTask(section, task, questions) {
         return `
           <label class="oral-response-row">
             <span>${index + 1}. ${escapeHtml(stripLeadingNumber(question.lines.join(" ")))}</span>
-            <textarea data-answer="${name}" rows="${task.rows || 2}" placeholder="${escapeHtml(task.placeholder || "Atbildiet")}">${escapeHtml(value)}</textarea>
+            <textarea class="form-control" data-answer="${name}" rows="${task.rows || 2}" placeholder="${escapeHtml(task.placeholder || "Atbildiet")}">${escapeHtml(value)}</textarea>
           </label>
           ${renderRecordingControls(name)}
         `;
@@ -2393,7 +2395,7 @@ function renderOralPicturesTask(section, task, questions, introLines) {
           <label class="oral-picture-card">
             ${image ? `<img src="${toAssetUrl(image.src)}" alt="${escapeHtml(image.alt)}" loading="lazy">` : ""}
             <span>${renderMarkdown(question.lines.join("\n"), state.exam)}</span>
-            <textarea data-answer="${name}" rows="${task.rows || 4}" placeholder="${escapeHtml(task.placeholder || "Aprakstiet attēlu")}">${escapeHtml(value)}</textarea>
+            <textarea class="form-control" data-answer="${name}" rows="${task.rows || 4}" placeholder="${escapeHtml(task.placeholder || "Aprakstiet attēlu")}">${escapeHtml(value)}</textarea>
           </label>
           ${renderRecordingControls(name)}
         `;
@@ -2413,7 +2415,7 @@ function renderOralQuestionTask(section, task, questions) {
         return `
           <label class="oral-question-row">
             <span>${renderMarkdown(question.lines.join("\n"), state.exam)}</span>
-            <input type="text" data-answer="${name}" value="${escapeHtml(value)}" placeholder="${escapeHtml(task.placeholder || "Uzdodiet jautājumu")}">
+            <input class="form-control" type="text" data-answer="${name}" value="${escapeHtml(value)}" placeholder="${escapeHtml(task.placeholder || "Uzdodiet jautājumu")}">
           </label>
           ${renderRecordingControls(name)}
         `;
@@ -2437,13 +2439,13 @@ function renderRecordingControls(key) {
     <div class="speaking-recorder" data-recorder-key="${escapeHtml(key)}">
       <div class="recorder-controls">
         ${isRecording
-          ? `<button type="button" class="recorder-stop" data-action="stop-recording" data-key="${escapeHtml(key)}" aria-label="Stop recording">⏹ Stop</button>`
-          : `<button type="button" class="recorder-start" data-action="start-recording" data-key="${escapeHtml(key)}" aria-label="Start recording">🎙 Record</button>`
+          ? `<button type="button" class="btn btn-danger btn-sm recorder-stop" data-action="stop-recording" data-key="${escapeHtml(key)}" aria-label="Stop recording">Stop</button>`
+          : `<button type="button" class="btn btn-primary btn-sm recorder-start" data-action="start-recording" data-key="${escapeHtml(key)}" aria-label="Start recording">Record</button>`
         }
         ${audioUrl ? `
           <audio controls class="recorder-playback" src="${escapeHtml(audioUrl)}" aria-label="Playback recording for ${escapeHtml(key)}"></audio>
-          <button type="button" class="recorder-upload" data-action="upload-recording" data-key="${escapeHtml(key)}" ${uploadId ? "disabled" : ""} aria-label="Upload recording">
-            ${uploadId ? "Uploaded ✓" : "⬆ Upload"}
+          <button type="button" class="btn btn-outline-primary btn-sm recorder-upload" data-action="upload-recording" data-key="${escapeHtml(key)}" ${uploadId ? "disabled" : ""} aria-label="Upload recording">
+            ${uploadId ? "Uploaded" : "Upload"}
           </button>
         ` : ""}
       </div>
@@ -2568,7 +2570,7 @@ function renderAnswerControl(section, taskKey, task, index) {
     return `
       <label class="answer-row">
         <span>${label}</span>
-        <select data-answer="${name}">
+        <select class="form-select" data-answer="${name}">
           <option value="">Izvēlieties</option>
           ${task.options.map(option => `<option value="${option}" ${value === option ? "selected" : ""}>${option}</option>`).join("")}
         </select>
@@ -2578,8 +2580,8 @@ function renderAnswerControl(section, taskKey, task, index) {
   const rows = task.rows || (task.kind === "textarea" ? 3 : 2);
   const tag = task.kind === "textarea" ? "textarea" : "input";
   const common = tag === "textarea"
-    ? `<textarea data-answer="${name}" rows="${rows}" placeholder="${escapeHtml(task.placeholder || "Ierakstiet atbildi")}">${escapeHtml(value)}</textarea>`
-    : `<input type="text" data-answer="${name}" value="${escapeHtml(value)}" placeholder="${escapeHtml(task.placeholder || "Ierakstiet atbildi")}">`;
+    ? `<textarea class="form-control" data-answer="${name}" rows="${rows}" placeholder="${escapeHtml(task.placeholder || "Ierakstiet atbildi")}">${escapeHtml(value)}</textarea>`
+    : `<input class="form-control" type="text" data-answer="${name}" value="${escapeHtml(value)}" placeholder="${escapeHtml(task.placeholder || "Ierakstiet atbildi")}">`;
   return `
     <label class="answer-row answer-row-text">
       <span>${label}</span>
@@ -2591,7 +2593,7 @@ function renderAnswerControl(section, taskKey, task, index) {
 function radioChoice(name, value, checked) {
   return `
     <label class="choice">
-      <input type="radio" name="${name}" value="${value}" ${checked ? "checked" : ""}>
+      <input class="form-check-input" type="radio" name="${name}" value="${value}" ${checked ? "checked" : ""}>
       <span>${value}</span>
     </label>
   `;
@@ -3663,10 +3665,10 @@ function renderSubmission() {
       ${PART_CONFIG.map(part => renderSkillScore(part, score.by_skill[part.key])).join("")}
     </div>
     <div class="submission-actions">
-      <button type="button" data-submission-action="submit">${submission.status === "submitted" ? "Resubmit answers" : "Submit answers"}</button>
-      <button type="button" data-submission-action="evaluate" ${state.evaluating || !canRunAiScoring() ? "disabled" : ""}>${state.evaluating ? "Scoring..." : canRunAiScoring() ? "AI score and corrections" : "Buy AI credits"}</button>
-      <button type="button" data-submission-action="copy">Copy JSON</button>
-      <button type="button" data-submission-action="download">Download JSON</button>
+      <button type="button" class="btn btn-primary" data-submission-action="submit">${submission.status === "submitted" ? "Resubmit answers" : "Submit answers"}</button>
+      <button type="button" class="btn btn-outline-primary" data-submission-action="evaluate" ${state.evaluating || !canRunAiScoring() ? "disabled" : ""}>${state.evaluating ? "Scoring..." : canRunAiScoring() ? "AI score and corrections" : "Buy AI credits"}</button>
+      <button type="button" class="btn btn-outline-primary" data-submission-action="copy">Copy JSON</button>
+      <button type="button" class="btn btn-outline-primary" data-submission-action="download">Download JSON</button>
     </div>
     ${renderAiEvaluationPanel()}
     <pre class="code-panel submission-json">${escapeHtml(JSON.stringify(visibleSubmission, null, 2))}</pre>
@@ -3703,11 +3705,11 @@ function renderBilling() {
         </ul>
         <label class="billing-input">
           Email for checkout
-          <input name="billing-email" value="${escapeHtml(state.billing.email || "")}" placeholder="learner@example.com" autocomplete="email">
+          <input class="form-control" name="billing-email" value="${escapeHtml(state.billing.email || "")}" placeholder="learner@example.com" autocomplete="email">
         </label>
         <div class="billing-actions">
-          <button type="button" data-billing-action="refresh-billing">Refresh from server</button>
-          <button type="button" data-billing-action="open-audit">View audit log</button>
+          <button type="button" class="btn btn-primary" data-billing-action="refresh-billing">Refresh from server</button>
+          <button type="button" class="btn btn-outline-primary" data-billing-action="open-audit">View audit log</button>
         </div>
       </article>
       <article class="billing-card billing-products">
@@ -3720,7 +3722,7 @@ function renderBilling() {
                 <p>${product.mode === "subscription" ? "Monthly subscription" : "One-time purchase"}</p>
                 <small>${escapeHtml(product.grants_attempts || 0)} exam attempts · ${escapeHtml(product.grants_ai_credits || 0)} AI credits</small>
               </div>
-              <button type="button" data-billing-action="checkout" data-product="${escapeHtml(product.key)}">${product.price_id ? "Checkout" : "Configure Stripe"}</button>
+              <button type="button" class="btn btn-primary" data-billing-action="checkout" data-product="${escapeHtml(product.key)}">${product.price_id ? "Checkout" : "Configure Stripe"}</button>
             </section>
           `).join("")}
         </div>

@@ -1,17 +1,19 @@
 <!doctype html>
-<html lang="en">
+<html lang="lv" data-bs-theme="light">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Latvian A2 Exam Simulator</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23146b63'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-size='24' font-family='Georgia' font-weight='700' fill='white'%3EA2%3C/text%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <link rel="stylesheet" href="styles.css">
   </head>
-  <body>
-    <header class="exam-appbar">
-      <div class="exam-appbar-inner">
+  <body class="bg-body-tertiary">
+    <header class="exam-appbar navbar">
+      <div class="exam-appbar-inner container-xxl">
         <div class="exam-brand-title">A2 Valsts valodas pārbaudes simulators</div>
-        <nav id="global-part-nav" class="exam-part-nav" aria-label="Exam parts"></nav>
+        <nav id="global-part-nav" class="exam-part-nav nav nav-pills" aria-label="Exam parts"></nav>
         <div class="exam-appbar-status">
           <span class="timer-icon" aria-hidden="true"></span>
           <span id="topbar-timer" class="topbar-timer">25:00</span>
@@ -33,14 +35,14 @@
           </div>
         </div>
 
-        <form id="exam-form" class="control-stack">
-          <label>
+        <form id="exam-form" class="control-stack row g-3 align-items-end">
+          <label class="form-label">
             Exam
-            <select id="exam-select" name="exam"></select>
+            <select id="exam-select" class="form-select" name="exam"></select>
           </label>
-          <label>
+          <label class="form-label">
             Source Markdown
-            <input id="source-path" name="source-path" readonly>
+            <input id="source-path" class="form-control" name="source-path" readonly>
           </label>
         </form>
 
@@ -56,29 +58,29 @@
         </div>
 
         <nav class="nav-list" aria-label="Exam sections">
-          <button data-view="dashboard">Dashboard</button>
-          <button data-view="admin">Admin</button>
-          <button data-view="auth">Account</button>
-          <button data-view="runner" class="active">Runner</button>
-          <button data-view="submission">Submission</button>
-          <button data-view="billing">Billing</button>
-          <button data-view="markdown">Markdown</button>
-          <button data-view="json">JSON</button>
-          <button data-view="tts">TTS</button>
-          <button data-view="prompts">Images</button>
-          <button data-view="quality">Quality</button>
+          <button class="btn btn-outline-primary" data-view="dashboard">Dashboard</button>
+          <button class="btn btn-outline-primary" data-view="admin">Admin</button>
+          <button class="btn btn-outline-primary" data-view="auth">Account</button>
+          <button class="btn btn-outline-primary active" data-view="runner">Runner</button>
+          <button class="btn btn-outline-primary" data-view="submission">Submission</button>
+          <button class="btn btn-outline-primary" data-view="billing">Billing</button>
+          <button class="btn btn-outline-primary" data-view="markdown">Markdown</button>
+          <button class="btn btn-outline-primary" data-view="json">JSON</button>
+          <button class="btn btn-outline-primary" data-view="tts">TTS</button>
+          <button class="btn btn-outline-primary" data-view="prompts">Images</button>
+          <button class="btn btn-outline-primary" data-view="quality">Quality</button>
         </nav>
 
         <div class="button-grid">
-          <button id="reload-exam" type="button">Reload</button>
-          <button id="submit-exam" type="button">Submit Answers</button>
-          <button id="evaluate-submission" type="button">AI Score</button>
-          <button id="copy-submission" type="button">Copy Submission</button>
-          <button id="download-submission" type="button">Save Submission</button>
-          <button id="copy-markdown" type="button" data-debug-control="true">Copy Markdown</button>
-          <button id="copy-json" type="button" data-debug-control="true">Copy JSON</button>
-          <button id="download-markdown" type="button" data-debug-control="true">Save .md</button>
-          <button id="download-json" type="button" data-debug-control="true">Save .json</button>
+          <button id="reload-exam" class="btn btn-outline-primary" type="button">Reload</button>
+          <button id="submit-exam" class="btn btn-primary" type="button">Submit Answers</button>
+          <button id="evaluate-submission" class="btn btn-primary" type="button">AI Score</button>
+          <button id="copy-submission" class="btn btn-outline-primary" type="button">Copy Submission</button>
+          <button id="download-submission" class="btn btn-outline-primary" type="button">Save Submission</button>
+          <button id="copy-markdown" class="btn btn-outline-primary" type="button" data-debug-control="true">Copy Markdown</button>
+          <button id="copy-json" class="btn btn-outline-primary" type="button" data-debug-control="true">Copy JSON</button>
+          <button id="download-markdown" class="btn btn-outline-primary" type="button" data-debug-control="true">Save .md</button>
+          <button id="download-json" class="btn btn-outline-primary" type="button" data-debug-control="true">Save .json</button>
         </div>
       </aside>
 
@@ -141,7 +143,7 @@
       </main>
     </div>
 
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="toast" class="toast shadow-sm" role="status" aria-live="polite"></div>
     <script src="flow-core.js"></script>
     <script src="app.js"></script>
   </body>
