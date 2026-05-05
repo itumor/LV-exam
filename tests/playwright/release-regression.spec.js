@@ -188,3 +188,77 @@ test("speaking recorder shows Latvian speech text and syncs the answer", async (
   await expect(page.locator('[data-transcript-text="speaking.task1.0"]')).toHaveText("Es dzīvoju Rīgā.");
   await expect(page.locator('[data-answer="speaking.task1.0"]')).toHaveValue("Es dzīvoju Rīgā.");
 });
+
+test("admin has unlimited access and AI scoring without credits", async ({ page }) => {
+  const successPayload = readJson("ai-evaluation-success.json");
+
+  // Mock all required APIs
+  await page.route("**/api/evaluate", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(successPayload)
+    })
+  );
+
+  await page.route("**/api/session", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        account: { id: "acct_superadmin_seed", email: "superadmin@example.com", role: "superadmin" },
+        learner_id: "acct_superadmin_seed"
+      })
+    })
+  );
+
+  await page.route("**/api/billing/state*", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        learner_id: "acct_superadmin_seed",
+        state: {
+          current_plan: "admin_unlimited",
+          paid_attempts_remaining: -1,
+          ai_credits_remaining: -1,
+          subscription_active: true
+        }
+      })
+    })
+  );
+
+  await page.route("**/api/exams/catalog", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        exams: [{ id: "01", title: "A2 Mock Exam 01", status: "published" }]
+      })
+    })
+  );
+
+  await page.route("**/codex/A2_Mock_Exam_01.md", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "text/markdown",
+      body: "# Mock Exam\n\n## Listening\n\nTask 1: ..."
+    })
+  );
+
+  await page.goto("/latvian-a2-exam-app/");
+  await page.waitForLoadState("networkidle");
+
+  await expect(page.getByRole("button", { name: "Admin" })).toBeVisible({ timeout: 10000 });
+
+  await enterExamFlow(page);
+  await page.evaluate(() => {
+    window.__a2TestHooks.setAnswer("listening", "task1", 0, "a");
+    window.__a2TestHooks.setAnswer("reading", "task1", 0, "b");
+    window.__a2TestHooks.setAnswer("writing", "task3", 0, "Es gribu kafiju.");
+    window.__a2TestHooks.setAnswer("speaking", "task1", 0, "Es dzīvoju Rīgā.");
+  });
+
+  await submitAndOpenAiScoring(page);
+  await expect(page.getByText("AI score: 60/60")).toBeVisible({ timeout: 10000 });
+});
