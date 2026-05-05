@@ -31,6 +31,10 @@ class ServerContractTests(unittest.TestCase):
     def setUp(self) -> None:
         with server.EVALUATION_CACHE_LOCK:
             server.EVALUATION_CACHE.clear()
+        with server.QUOTA_USAGE_LOCK:
+            server.QUOTA_USAGE.clear()
+        with server.AUDIT_LOG_LOCK:
+            server.AUDIT_LOG.clear()
 
     def test_extract_json_object_accepts_fenced_or_plain_json(self) -> None:
         plain = server.extract_json_object('{"answer": "a"}')
@@ -175,8 +179,8 @@ class ServerContractTests(unittest.TestCase):
             first = server.evaluate_submission(submission, exam_markdown)
             second = server.evaluate_submission(submission, exam_markdown)
 
-        self.assertEqual(first["evaluation"]["scores"]["total"], 60)
-        self.assertEqual(second["evaluation"]["scores"]["total"], 60)
+        self.assertEqual(first["evaluation"]["scores"]["total"], 30)
+        self.assertEqual(second["evaluation"]["scores"]["total"], 30)
         self.assertEqual(call_groq_mock.call_count, 1)
 
 

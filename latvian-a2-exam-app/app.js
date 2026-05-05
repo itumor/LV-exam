@@ -2838,7 +2838,11 @@ async function evaluateSubmissionWithAi() {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(payload.error || payload.detail || `Evaluation failed with HTTP ${response.status}`);
+      const error = new Error(payload.error || payload.detail || `Evaluation failed with HTTP ${response.status}`);
+      error.retry_state = payload.retry_state;
+      error.provider_status = payload.provider_status;
+      error.telemetry = payload.telemetry;
+      throw error;
     }
     if (!payload || typeof payload !== "object" || !payload.evaluation || typeof payload.evaluation !== "object" || !payload.evaluation.scores) {
       throw new Error("AI scoring response was invalid.");
@@ -2851,7 +2855,10 @@ async function evaluateSubmissionWithAi() {
   } catch (error) {
     state.evaluation = {
       error: error.message,
-      hint: evaluationErrorHint(error.message)
+      hint: evaluationErrorHint(error.message),
+      retry_state: error.retry_state,
+      provider_status: error.provider_status,
+      telemetry: error.telemetry
     };
     showToast("AI scoring failed");
   } finally {
@@ -3227,15 +3234,30 @@ function renderAiEvaluationPanel() {
       <section class="ai-evaluation-panel error">
         <h3>AI scoring failed</h3>
         <p>${escapeHtml(state.evaluation.error)}</p>
+        ${state.evaluation.provider_status ? `<p>Provider status: ${escapeHtml(state.evaluation.provider_status)}</p>` : ""}
+        ${state.evaluation.retry_state ? `<p>Retry state: ${escapeHtml(state.evaluation.retry_state)}</p>` : ""}
+        ${state.evaluation.telemetry?.prompt_version ? `<p>Prompt version: ${escapeHtml(state.evaluation.telemetry.prompt_version)}</p>` : ""}
+        ${state.evaluation.telemetry?.rubric_version ? `<p>Rubric version: ${escapeHtml(state.evaluation.telemetry.rubric_version)}</p>` : ""}
+        ${state.evaluation.telemetry?.input_hash ? `<p>Input hash: ${escapeHtml(state.evaluation.telemetry.input_hash.slice(0, 8))}</p>` : ""}
+        ${state.evaluation.telemetry?.estimated_cost_cents != null ? `<p>Estimated cost: ${escapeHtml(state.evaluation.telemetry.estimated_cost_cents)} cents</p>` : ""}
         <p>${escapeHtml(state.evaluation.hint || "")}</p>
       </section>
     `;
   }
 
   const evaluation = state.evaluation.evaluation || {};
+  const telemetry = state.evaluation.telemetry || evaluation.telemetry || {};
   const scores = evaluation.scores || {};
   const feedback = evaluation.feedback || {};
   const corrections = Array.isArray(evaluation.corrections) ? evaluation.corrections : [];
+  const metaBits = [
+    state.evaluation.provider_status || "ok",
+    state.evaluation.prompt_version ? `Prompt ${state.evaluation.prompt_version}` : null,
+    state.evaluation.rubric_version ? `Rubric ${state.evaluation.rubric_version}` : null,
+    state.evaluation.input_hash ? `Hash ${state.evaluation.input_hash.slice(0, 8)}` : null,
+    telemetry.retry_limit != null ? `Retries ${Array.isArray(telemetry.attempts) ? telemetry.attempts.length : 0}/${telemetry.retry_limit}` : null,
+    telemetry.estimated_cost_cents != null ? `Est. cost ${telemetry.estimated_cost_cents} cents` : null
+  ].filter(Boolean).join(" · ");
   return `
     <section class="ai-evaluation-panel">
       <div class="ai-evaluation-head">
@@ -3243,6 +3265,7 @@ function renderAiEvaluationPanel() {
           <p class="eyebrow">${escapeHtml(state.evaluation.provider || "LLM")} ${escapeHtml(state.evaluation.model || "")}</p>
           <h3>AI score: ${escapeHtml(scores.total ?? "—")}/60</h3>
           <p>${scores.passed ? "Pass rule met" : "Pass rule not met yet"} · minimum is 9/15 in every skill.</p>
+          ${metaBits ? `<p class="ai-meta">${escapeHtml(metaBits)}</p>` : ""}
         </div>
       </div>
       <div class="ai-score-grid">
