@@ -23,13 +23,14 @@ const state = {
     audio: [],
     images: []
   },
-  auth: {
-    status: "loading",
-    account: null,
-    profile: null,
-    dashboard: null,
-    error: ""
-  },
+   auth: {
+     status: "loading",
+     account: null,
+     profile: null,
+     dashboard: null,
+     error: ""
+   },
+   helpLang: (navigator.language || navigator.userLanguage || '').startsWith('lv') ? 'lv' : 'en',
   admin: {
     overview: null,
     accounts: [],
@@ -185,25 +186,27 @@ async function init() {
     button.addEventListener("click", () => setView(button.dataset.view));
   });
 
-  document.querySelectorAll(".sidebar-item").forEach(button => {
-    button.addEventListener("click", () => {
-      const view = button.dataset.view;
-      const sub = button.dataset.sub;
-      if (button.dataset.action === "toggle-auth") {
-        if (state.auth.status === "authenticated") {
-          logout();
-        } else {
-          setView("auth");
-        }
-        return;
-      }
-      if (view) {
-        setView(view);
-        if (sub) handleSubView(view, sub);
-      } else if (button.dataset.action === "start-exam") {
-        startExamFromMenu();
-      }
-    });
+   document.querySelectorAll(".sidebar-item").forEach(button => {
+     button.addEventListener("click", () => {
+       const view = button.dataset.view;
+       const sub = button.dataset.sub;
+       if (button.dataset.action === "toggle-auth") {
+         if (state.auth.status === "authenticated") {
+           logout();
+         } else {
+           setView("auth");
+         }
+         return;
+       }
+       if (view) {
+         // If this is a help button, set language
+         if (view === "help" && button.dataset.lang) {
+           state.helpLang = button.dataset.lang;
+         }
+         setView(view);
+       }
+     });
+   });
   });
 
   document.getElementById("quick-start-exam")?.addEventListener("click", () => startExamFromMenu());
@@ -3818,11 +3821,17 @@ function renderHelp() {
    helpContainer.style.maxHeight = '80vh';
    helpContainer.style.overflowY = 'auto';
    
+   // Determine language: check URL param first, then stored language, then browser
+   const urlParams = new URLSearchParams(window.location.search);
+   const langParam = urlParams.get('lang');
+   const preferredLang = langParam || state.helpLang || (navigator.language || navigator.userLanguage || '').startsWith('lv') ? 'lv' : 'en';
+   
    // Fetch and display the manual
-   fetch('USER_MANUAL.md')
+   const manualFile = preferredLang === 'lv' ? 'USER_MANUAL.md' : 'USER_MANUAL_EN.md';
+   fetch(manualFile)
       .then(response => {
          if (!response.ok) {
-            throw new Error('Failed to load manual');
+            throw new Error(`Failed to load manual: ${manualFile}`);
          }
          return response.text();
       })
@@ -4122,6 +4131,161 @@ function buildExportJson() {
   };
 }
 
+function initializeMegaDropdown() {
+  if (!els.megaTrigger || !els.megaPanel) return;
+
+  els.megaTrigger.addEventListener("click", () => {
+    if (els.megaPanel.hidden) {
+      openMegaDropdown();
+    } else {
+      closeMegaDropdown({ restoreFocus: true });
+    }
+  });
+
+  els.megaTrigger.addEventListener("keydown", event => {
+    if (event.key !== "ArrowDown") return;
+    event.preventDefault();
+    openMegaDropdown({ focusFirst: true });
+  });
+
+  els.megaPanel.querySelectorAll("[data-mega-panel]").forEach(button => {
+    button.addEventListener("mouseenter", () => activateMegaPanel(button.dataset.megaPanel));
+    button.addEventListener("focus", () => activateMegaPanel(button.dataset.megaPanel));
+    button.addEventListener("click", () => activateMegaPanel(button.dataset.megaPanel));
+  });
+
+  els.megaPanel.addEventListener("click", event => {
+    const button = event.target.closest("[data-mega-destination]");
+    if (!button) return;
+    closeMegaDropdown();
+    navigateFromMegaDropdown(button.dataset.megaDestination);
+  });
+
+  els.megaPanel.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeMegaDropdown({ restoreFocus: true });
+      return;
+    }
+    if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    const focusable = getMegaFocusableItems();
+    const currentIndex = focusable.indexOf(document.activeElement);
+    if (currentIndex === -1) return;
+    event.preventDefault();
+    const delta = ["ArrowDown", "ArrowRight"].includes(event.key) ? 1 : -1;
+    focusable[(currentIndex + delta + focusable.length) % focusable.length].focus();
+  });
+
+  document.addEventListener("click", event => {
+    if (els.megaPanel.hidden || event.target.closest(".mega-nav")) return;
+    closeMegaDropdown();
+  });
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !els.megaPanel.hidden) {
+      closeMegaDropdown({ restoreFocus: true });
+    }
+  });
+}
+
+function getMegaFocusableItems() {
+  if (!els.megaPanel) return [];
+  return Array.from(els.megaPanel.querySelectorAll("button:not([hidden]):not([disabled])"))
+    .filter(item => item.offsetParent !== null);
+}
+
+function openMegaDropdown(options = {}) {
+  if (!els.megaTrigger || !els.megaPanel) return;
+  els.megaPanel.hidden = false;
+  els.megaTrigger.setAttribute("aria-expanded", "true");
+  updateMegaDropdownVisibility();
+  if (options.focusFirst) {
+    requestAnimationFrame(() => getMegaFocusableItems()[0]?.focus());
+  }
+}
+
+function closeMegaDropdown(options = {}) {
+  if (!els.megaTrigger || !els.megaPanel) return;
+  els.megaPanel.hidden = true;
+  els.megaTrigger.setAttribute("aria-expanded", "false");
+  if (options.restoreFocus) {
+    els.megaTrigger.focus();
+  }
+}
+
+function activateMegaPanel(panelName) {
+  if (!els.megaPanel || !panelName) return;
+  els.megaPanel.querySelectorAll("[data-mega-panel]").forEach(button => {
+    const active = button.dataset.megaPanel === panelName;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  els.megaPanel.querySelectorAll(".mega-panel").forEach(panel => {
+    const active = panel.id === `mega-panel-${panelName}`;
+    panel.classList.toggle("active", active);
+    panel.hidden = !active;
+  });
+}
+
+function navigateFromMegaDropdown(destination) {
+  if (!destination) return;
+  if (destination === "start-exam") {
+    startExamFromMenu();
+    return;
+  }
+  if (destination === "toggle-auth") {
+    if (state.auth.status === "authenticated") {
+      logout();
+    } else {
+      setView("auth");
+    }
+    return;
+  }
+  if (destination === "contact") {
+    showToast("Sazinieties ar atbalstu: support@codex.lv");
+    return;
+  }
+  if (destination.startsWith("part:")) {
+    const part = destination.split(":", 2)[1];
+    state.flow.screen = "exam";
+    setView("runner");
+    switchPart(part);
+    return;
+  }
+  if (destination.startsWith("billing:")) {
+    const sub = destination.split(":", 2)[1];
+    setView("billing");
+    handleSubView("billing", sub);
+    return;
+  }
+  if (destination.startsWith("admin:")) {
+    const sub = destination.split(":", 2)[1];
+    setView("admin");
+    handleSubView("admin", sub);
+    return;
+  }
+  setView(destination);
+}
+
+function updateMegaDropdownVisibility() {
+  if (!els.megaPanel) return;
+  const adminAllowed = isAdminAccount();
+  els.megaPanel.querySelectorAll("[data-requires-admin]").forEach(element => {
+    element.hidden = !adminAllowed;
+  });
+  els.megaPanel.querySelectorAll("#mega-panel-admin [data-mega-destination]").forEach(element => {
+    element.hidden = !adminAllowed;
+  });
+  const authToggle = document.getElementById("mega-auth-toggle");
+  if (authToggle) {
+    authToggle.textContent = state.auth.status === "authenticated" ? "Sign Out" : "Sign In";
+  }
+  const activeTab = els.megaPanel.querySelector("[data-mega-panel].active");
+  if (activeTab?.hidden) {
+    activateMegaPanel("exams");
+  }
+}
+
 function setView(viewName) {
   if (DEBUG_VIEWS.has(viewName) && !flowCore.shouldShowDebugPanels(state.flow.debugMode)) {
     viewName = "runner";
@@ -4159,6 +4323,7 @@ function setView(viewName) {
   updateSidebarMenu(viewName);
   updateBreadcrumbs(viewName);
   updateQuickActions();
+  updateMegaDropdownVisibility();
    if (viewName === "billing") renderBilling();
    if (viewName === "help") renderHelp();
 }

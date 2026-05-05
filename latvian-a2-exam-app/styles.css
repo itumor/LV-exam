@@ -413,9 +413,9 @@ body,
 }
 
 .mega-dropdown {
-  position: absolute;
-  top: calc(100% + 18px);
-  right: 0;
+  position: fixed;
+  top: 88px;
+  right: 24px;
   z-index: 1000;
   display: grid;
   grid-template-columns: 230px minmax(420px, 1fr);

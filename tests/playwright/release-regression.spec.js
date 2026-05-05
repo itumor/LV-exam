@@ -6,14 +6,14 @@ const fixturesDir = path.join(__dirname, "..", "fixtures");
 const readJson = name => JSON.parse(fs.readFileSync(path.join(fixturesDir, name), "utf8"));
 
 async function enterExamFlow(page) {
-  await page.goto("/latvian-a2-exam-app/");
-  await expect(page.getByRole("heading", { name: "Valsts valodas prasmes pārbaude - A2 līmenis" })).toBeVisible();
+  await page.goto("/latvian-a2-exam-app/?screen=home");
+  await expect(page.getByRole("heading", { name: "State Language Exam - Level A2" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Sākt pilnu eksāmenu" }).click();
-  await page.getByLabel("Kandidāta kods").fill("QA-001");
-  await page.getByRole("textbox", { name: "Vārds", exact: true }).fill("Anna");
-  await page.getByRole("textbox", { name: "Uzvārds", exact: true }).fill("Bērziņa");
-  await page.getByRole("button", { name: "Sākt pārbaudi" }).click();
+  await page.getByRole("button", { name: "Start Full Exam" }).click();
+  await page.getByLabel("Candidate Code").fill("QA-001");
+  await page.getByRole("textbox", { name: "First Name", exact: true }).fill("Anna");
+  await page.getByRole("textbox", { name: "Last Name", exact: true }).fill("Bērziņa");
+  await page.locator("[data-candidate-form] button[type='submit']").click();
 
   await expect(page.getByRole("heading", { name: "Pārbaudes norādījumi" })).toBeVisible();
   await page.getByRole("button", { name: "Saprasts / Atpakaļ" }).click();
@@ -23,7 +23,7 @@ async function enterExamFlow(page) {
 
 async function submitAndOpenAiScoring(page) {
   await page.locator('button[data-action="submit-exam"]').click();
-  await expect(page.getByText("Submitted", { exact: true })).toBeVisible();
+  await expect(page.locator("#submission-output").getByText("Submitted", { exact: true })).toBeVisible();
 
   await page.locator('button[data-submission-action="evaluate"]').click();
 }
@@ -32,6 +32,125 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.__A2_TEST_HOOKS__ = true;
   });
+});
+
+async function mockAuthenticatedShell(page) {
+  const account = { id: "acct_mega_nav", email: "mega@example.com", role: "user" };
+  const profile = { full_name: "Mega Nav QA", native_language: "en" };
+  const summary = {
+    attempts_remaining: 3,
+    ai_credits_remaining: 2,
+    attempts_taken: 1,
+    latest_score: 54,
+    subscription_status: "active",
+    skill_progress: {}
+  };
+
+  await page.route("**/api/session", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ authenticated: true, account, profile })
+    })
+  );
+  await page.route("**/api/dashboard", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ authenticated: true, account, profile, summary, attempts: [] })
+    })
+  );
+  await page.route("**/api/billing/config", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        products: [
+          { key: "single_exam", name: "Single Exam", mode: "payment", grants_attempts: 1, grants_ai_credits: 0, price_id: "" },
+          { key: "ai_credits", name: "AI Scoring Credits", mode: "payment", grants_attempts: 0, grants_ai_credits: 5, price_id: "" }
+        ]
+      })
+    })
+  );
+  await page.route("**/api/billing/state**", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        learner_id: "acct_mega_nav",
+        state: {
+          current_plan: "active",
+          free_exam_available: true,
+          paid_attempts_remaining: 3,
+          attempts_remaining: 3,
+          ai_credits_remaining: 2,
+          subscription_active: true,
+          frozen: false,
+          recent_events: []
+        }
+      })
+    })
+  );
+}
+
+test("mega dropdown opens, changes panels, supports keyboard close, and click-outside close", async ({ page }) => {
+  await mockAuthenticatedShell(page);
+  await page.goto("/latvian-a2-exam-app/");
+
+  const trigger = page.locator("#mega-menu-trigger");
+  const panel = page.locator("#mega-dropdown-panel");
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+  await trigger.click();
+  await expect(panel).toBeVisible();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+  await page.getByRole("tab", { name: "Payments" }).hover();
+  await expect(panel.getByRole("button", { name: "Purchase", exact: true })).toBeVisible();
+
+  await page.getByRole("tab", { name: "My Account" }).click();
+  await expect(panel.getByRole("button", { name: "My Progress" })).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(trigger).toBeFocused();
+
+  await trigger.click();
+  await expect(panel).toBeVisible();
+  await page.mouse.click(12, 760);
+  await expect(panel).toBeHidden();
+
+  await trigger.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(panel).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Exams" })).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("tab", { name: "My Account" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+});
+
+test("mega dropdown navigates to help, billing, and exam runner destinations", async ({ page }) => {
+  await mockAuthenticatedShell(page);
+  await page.goto("/latvian-a2-exam-app/");
+  const panel = page.locator("#mega-dropdown-panel");
+
+  await page.locator("#mega-menu-trigger").click();
+  await page.getByRole("tab", { name: "Help" }).click();
+  await panel.getByRole("button", { name: "User Manual" }).click();
+  await expect(page.locator("#workspace-title")).toHaveText("User Manual");
+
+  await page.locator("#mega-menu-trigger").click();
+  await page.getByRole("tab", { name: "Payments" }).click();
+  await panel.getByRole("button", { name: "Purchase", exact: true }).click();
+  await expect(page.locator("#workspace-title")).toHaveText("Billing");
+  await expect(page.getByRole("heading", { name: "Purchase options" })).toBeVisible();
+
+  await page.locator("#mega-menu-trigger").click();
+  await page.getByRole("tab", { name: "Exams" }).click();
+  await panel.getByRole("button", { name: "Exam Runner" }).click();
+  await expect(page.locator("#workspace-title")).toHaveText("Exam Runner");
+  await expect(page.locator("#runner-view")).toHaveClass(/active/);
 });
 
 test("full learner journey reaches submission history and AI scoring", async ({ page }) => {
@@ -90,7 +209,7 @@ test("timer expiry zeros listening timer and advances the exam to reading", asyn
   expect(snapshot.listening.running).toBe(false);
   expect(snapshot.activePart).toBe("reading");
 
-  await expect(page.getByRole("heading", { name: "Lasīšana / Reading" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Reading / Reading" })).toBeVisible();
   await expect(page.locator('[data-timer="reading"]')).toBeVisible();
   await expect(page.locator('button[data-action="start"][data-part="reading"]')).toBeDisabled();
 });
@@ -206,9 +325,39 @@ test("admin has unlimited access and AI scoring without credits", async ({ page 
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
+        authenticated: true,
         account: { id: "acct_superadmin_seed", email: "superadmin@example.com", role: "superadmin" },
         learner_id: "acct_superadmin_seed"
       })
+    })
+  );
+
+  await page.route("**/api/dashboard", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        authenticated: true,
+        account: { id: "acct_superadmin_seed", email: "superadmin@example.com", role: "superadmin" },
+        profile: { full_name: "Super Admin" },
+        summary: {
+          attempts_remaining: 999,
+          ai_credits_remaining: 999,
+          attempts_taken: 0,
+          latest_score: null,
+          subscription_status: "admin_unlimited",
+          skill_progress: {}
+        },
+        attempts: []
+      })
+    })
+  );
+
+  await page.route("**/api/billing/config", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ products: [] })
     })
   );
 
@@ -246,10 +395,10 @@ test("admin has unlimited access and AI scoring without credits", async ({ page 
     })
   );
 
-  await page.goto("/latvian-a2-exam-app/");
+  await page.goto("/latvian-a2-exam-app/?view=admin");
   await page.waitForLoadState("networkidle");
 
-  await expect(page.getByRole("button", { name: "Admin" })).toBeVisible({ timeout: 10000 });
+  await expect(page.locator("#workspace-title")).toHaveText("Admin Console", { timeout: 10000 });
 
   await enterExamFlow(page);
   await page.evaluate(() => {
