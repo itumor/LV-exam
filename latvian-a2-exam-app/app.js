@@ -1,6 +1,6 @@
 const optionLetters = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
 
-const EXAMS = Array.from({ length: 10 }, (_, index) => {
+let EXAMS = Array.from({ length: 10 }, (_, index) => {
   const number = String(index + 1).padStart(2, "0");
   return {
     id: number,
@@ -29,6 +29,16 @@ const state = {
     profile: null,
     dashboard: null,
     error: ""
+  },
+  admin: {
+    overview: null,
+    accounts: [],
+    exams: [],
+    attempts: [],
+    settings: {},
+    selectedExamId: "",
+    error: "",
+    loaded: false
   },
   runner: {
     activePart: "listening",
@@ -83,7 +93,7 @@ const PART_CONFIG = [
 
 const FLOW_SCREENS = new Set(["home", "register", "instructions", "exam", "results"]);
 const DEBUG_VIEWS = new Set(["markdown", "json", "tts", "prompts", "quality"]);
-const PROTECTED_VIEWS = new Set(["dashboard", "billing"]);
+const PROTECTED_VIEWS = new Set(["dashboard", "billing", "admin"]);
 
 function normalizeIncomingFlowScreen(screen) {
   if (!screen) return "";
@@ -129,6 +139,7 @@ const els = {
   qualityOutput: document.querySelector("#quality-output"),
   authOutput: document.querySelector("#auth-output"),
   dashboardOutput: document.querySelector("#dashboard-output"),
+  adminOutput: document.querySelector("#admin-output"),
   workspaceTitle: document.querySelector("#workspace-title"),
   validationPill: document.querySelector("#validation-pill"),
   globalPartNav: document.querySelector("#global-part-nav"),
@@ -140,7 +151,7 @@ const els = {
 async function init() {
   const params = new URLSearchParams(window.location.search);
   state.flow.debugMode = params.get("debug") === "1" || params.get("debug") === "true";
-  els.examSelect.innerHTML = EXAMS.map(exam => `<option value="${exam.id}">${exam.title}</option>`).join("");
+  renderExamSelectOptions();
   els.examSelect.addEventListener("change", () => loadExam(els.examSelect.value));
 
   document.querySelector("#reload-exam").addEventListener("click", () => loadExam(state.exam.id));
@@ -184,11 +195,19 @@ async function init() {
   }
   const requestedExam = urlParams.get("exam");
   await bootstrapAuth();
+  await loadExamCatalog();
   if (state.auth.status === "authenticated") {
     await loadDashboard();
+    if (isAdminAccount()) {
+      await loadAdminData().catch(error => {
+        state.admin.error = error.message;
+      });
+    }
     await loadExam(String(requestedExam || "01").padStart(2, "0"));
     state.flow.screen = requestedScreen || (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
-    const requestedOuterView = requestedScreenRaw === "dashboard" ? "dashboard" : (requestedScreenRaw ? "runner" : "dashboard");
+    const requestedOuterView = requestedView === "admin" && isAdminAccount()
+      ? "admin"
+      : requestedScreenRaw === "dashboard" ? "dashboard" : (requestedScreenRaw ? "runner" : "dashboard");
     setView(requestedOuterView);
   } else {
     await loadExam(String(requestedExam || "01").padStart(2, "0"));
@@ -199,11 +218,48 @@ async function init() {
   renderTopChrome();
   renderAuth();
   renderDashboard();
+  renderAdmin();
   setInterval(tickTimers, 1000);
+}
+
+function renderExamSelectOptions() {
+  els.examSelect.innerHTML = EXAMS.map(exam => `<option value="${exam.id}">${exam.title}</option>`).join("");
+}
+
+async function loadExamCatalog() {
+  try {
+    const response = await fetch("/api/exams/catalog", { credentials: "same-origin", cache: "no-store" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !Array.isArray(payload.exams)) return;
+    EXAMS = payload.exams.map(exam => ({
+      id: String(exam.id),
+      title: exam.title || `Exam ${exam.id}`,
+      description: exam.description || "",
+      status: exam.status || "published",
+      markdownPath: exam.markdownPath || `/codex/A2_Mock_Exam_${String(exam.id).padStart(2, "0")}.md`,
+      sourcePath: exam.sourcePath || `codex/A2_Mock_Exam_${String(exam.id).padStart(2, "0")}.md`,
+      attachmentRoot: exam.attachmentRoot || `/codex/Attachments/A2_Mock_Exam_${String(exam.id).padStart(2, "0")}/`
+    }));
+    if (!EXAMS.length) {
+      EXAMS = [];
+      els.examSelect.innerHTML = "";
+      return;
+    }
+    renderExamSelectOptions();
+    if (!EXAMS.some(exam => exam.id === state.exam.id)) {
+      state.exam = EXAMS[0];
+    }
+  } catch {
+    // Static fallback keeps the local exam runner usable if the API is unavailable.
+  }
 }
 
 async function loadExam(examId) {
   const exam = EXAMS.find(item => item.id === examId) || EXAMS[0];
+  if (!exam) {
+    renderLoadError(new Error("No published exams are available."));
+    return;
+  }
   state.exam = exam;
   els.examSelect.value = exam.id;
   els.sourcePath.value = exam.sourcePath;
@@ -265,6 +321,53 @@ async function loadDashboard() {
   return payload;
 }
 
+function isAdminAccount() {
+  return ["admin", "superadmin"].includes(state.auth.account?.role);
+}
+
+function apiErrorMessage(payload, fallback) {
+  if (typeof payload?.error === "string") return payload.error;
+  if (payload?.error?.message) return payload.error.message;
+  return fallback;
+}
+
+async function adminFetch(path, options = {}) {
+  const response = await fetch(path, {
+    credentials: "same-origin",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    },
+    body: options.body && typeof options.body !== "string" ? JSON.stringify(options.body) : options.body
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(apiErrorMessage(payload, `Admin request failed with HTTP ${response.status}`));
+  }
+  return payload;
+}
+
+async function loadAdminData() {
+  if (!isAdminAccount()) return;
+  const [overview, exams, accounts, attempts, settings] = await Promise.all([
+    adminFetch("/api/admin/overview"),
+    adminFetch("/api/admin/exams"),
+    adminFetch("/api/admin/accounts"),
+    adminFetch("/api/admin/attempts"),
+    adminFetch("/api/admin/settings")
+  ]);
+  state.admin.overview = overview.summary || {};
+  state.admin.exams = exams.exams || [];
+  state.admin.accounts = accounts.accounts || [];
+  state.admin.attempts = attempts.attempts || [];
+  state.admin.settings = settings.settings || {};
+  state.admin.loaded = true;
+  if (!state.admin.selectedExamId && state.admin.exams[0]) {
+    state.admin.selectedExamId = state.admin.exams[0].id;
+  }
+}
+
 async function handleAuthSubmit(event, mode) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -296,9 +399,15 @@ async function handleAuthSubmit(event, mode) {
     state.auth.error = "";
     await loadExam(state.exam.id || "01");
     await loadDashboard().catch(() => {});
-    setView("dashboard");
+    if (isAdminAccount()) {
+      await loadAdminData().catch(error => {
+        state.admin.error = error.message;
+      });
+    }
+    setView(isAdminAccount() ? "admin" : "dashboard");
     renderAuth();
     renderDashboard();
+    renderAdmin();
     showToast(mode === "register" ? "Account created" : "Signed in");
   } catch (error) {
     state.auth.error = error.message;
@@ -349,6 +458,16 @@ async function logout() {
     profile: null,
     dashboard: null,
     error: ""
+  };
+  state.admin = {
+    overview: null,
+    accounts: [],
+    exams: [],
+    attempts: [],
+    settings: {},
+    selectedExamId: "",
+    error: "",
+    loaded: false
   };
   state.flow.screen = "home";
   state.runner.activePart = "listening";
@@ -584,6 +703,283 @@ function renderDashboard() {
   els.dashboardOutput.querySelector("#profile-form")?.addEventListener("submit", handleProfileSubmit);
 }
 
+function renderAdmin() {
+  if (!els.adminOutput) return;
+  if (state.auth.status !== "authenticated") {
+    els.adminOutput.innerHTML = `
+      <section class="dashboard-shell empty">
+        <h2>Protected admin console</h2>
+        <p>Sign in with an admin account to manage exams, users, submissions, and settings.</p>
+      </section>
+    `;
+    return;
+  }
+  if (!isAdminAccount()) {
+    els.adminOutput.innerHTML = `
+      <section class="dashboard-shell empty">
+        <h2>Admin access required</h2>
+        <p>Your account can take exams and view allowed results, but it cannot manage platform data.</p>
+      </section>
+    `;
+    return;
+  }
+  const overview = state.admin.overview || {};
+  const selectedExam = state.admin.exams.find(exam => exam.id === state.admin.selectedExamId) || state.admin.exams[0] || null;
+  els.adminOutput.innerHTML = `
+    <section class="admin-shell">
+      <article class="admin-hero">
+        <div>
+          <p class="eyebrow">Admin Console</p>
+          <h2>Latvian A2 exam operations</h2>
+          <p>Manage exam availability, learner accounts, submissions, scores, and platform settings from one protected workspace.</p>
+          ${state.admin.error ? `<p class="auth-error">${escapeHtml(state.admin.error)}</p>` : ""}
+        </div>
+        <button id="refresh-admin" type="button">Refresh</button>
+      </article>
+      <div class="admin-metrics">
+        ${[
+          ["Accounts", overview.accounts ?? 0],
+          ["Admins", overview.admins ?? 0],
+          ["Exams", overview.exams ?? 0],
+          ["Published", overview.published ?? 0],
+          ["Submissions", overview.submissions ?? 0]
+        ].map(([label, value]) => `<div class="dashboard-metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+      </div>
+      <article class="admin-panel">
+        <div class="admin-panel-header">
+          <h3>Exams</h3>
+          <button id="admin-new-exam" type="button">New exam</button>
+        </div>
+        <div class="admin-grid">
+          <div class="admin-list">
+            ${state.admin.exams.map(exam => `
+              <button type="button" data-admin-exam="${escapeHtml(exam.id)}" class="${selectedExam?.id === exam.id ? "active" : ""}">
+                <strong>${escapeHtml(exam.title)}</strong>
+                <span>${escapeHtml(exam.id)} · ${escapeHtml(exam.status)}</span>
+              </button>
+            `).join("") || "<p>No exams in the catalog.</p>"}
+          </div>
+          <form id="admin-exam-form" class="auth-form">
+            <label>Exam ID<input name="id" value="${escapeHtml(selectedExam?.id || "")}" ${selectedExam ? "readonly" : ""} required></label>
+            <label>Title<input name="title" value="${escapeHtml(selectedExam?.title || "")}" required></label>
+            <label>Status
+              <select name="status">
+                ${["draft", "published", "archived"].map(status => `<option value="${status}" ${selectedExam?.status === status ? "selected" : ""}>${status}</option>`).join("")}
+              </select>
+            </label>
+            <label>Description<input name="description" value="${escapeHtml(selectedExam?.description || "")}"></label>
+            <label>Markdown path<input name="markdownPath" value="${escapeHtml(selectedExam?.markdownPath || "")}" required></label>
+            <label>Source path<input name="sourcePath" value="${escapeHtml(selectedExam?.sourcePath || "")}" required></label>
+            <label>Attachment root<input name="attachmentRoot" value="${escapeHtml(selectedExam?.attachmentRoot || "")}"></label>
+            <label class="full-span">Answer key JSON<textarea name="answerKeyJson" rows="6" placeholder='{"listening":{"task1":["a"]}}'>${escapeHtml(JSON.stringify(selectedExam?.answer_key || {}, null, 2))}</textarea></label>
+            <button type="submit">${selectedExam ? "Save exam" : "Create exam"}</button>
+            ${selectedExam ? `
+              <div class="dashboard-actions">
+                <button type="button" data-exam-status="published">Publish</button>
+                <button type="button" data-exam-status="archived">Archive</button>
+                <button type="button" data-exam-status="draft">Unpublish</button>
+                <button type="button" id="delete-admin-exam" class="danger">Delete</button>
+              </div>
+            ` : ""}
+          </form>
+        </div>
+      </article>
+      <article class="admin-panel">
+        <h3>Users and roles</h3>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>User</th><th>Role</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              ${state.admin.accounts.map(item => {
+                const account = item.account || {};
+                const profile = item.profile || {};
+                const canPromote = state.auth.account?.role === "superadmin";
+                return `
+                  <tr>
+                    <td><strong>${escapeHtml(profile.full_name || account.email)}</strong><br><span>${escapeHtml(account.email)}</span></td>
+                    <td>
+                      <select data-account-role="${escapeHtml(account.id)}">
+                        ${["user", "admin", "superadmin"].map(role => `<option value="${role}" ${account.role === role ? "selected" : ""} ${!canPromote && role !== "user" ? "disabled" : ""}>${role}</option>`).join("")}
+                      </select>
+                    </td>
+                    <td>
+                      <select data-account-status="${escapeHtml(account.id)}">
+                        ${["active", "disabled"].map(status => `<option value="${status}" ${account.status === status ? "selected" : ""}>${status}</option>`).join("")}
+                      </select>
+                    </td>
+                    <td><button type="button" data-save-account="${escapeHtml(account.id)}">Save</button></td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      </article>
+      <article class="admin-panel">
+        <h3>Submissions and scores</h3>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Learner</th><th>Exam</th><th>Status</th><th>Score</th><th>Submitted</th></tr></thead>
+            <tbody>
+              ${state.admin.attempts.map(attempt => `
+                <tr>
+                  <td>${escapeHtml(attempt.account_email || attempt.account_id)}</td>
+                  <td>${escapeHtml(attempt.exam_title)}</td>
+                  <td>${escapeHtml(attempt.status)}</td>
+                  <td>${escapeHtml(attempt.score_total ?? "—")}</td>
+                  <td>${escapeHtml(attempt.submitted_at || attempt.started_at || "")}</td>
+                </tr>
+              `).join("") || `<tr><td colspan="5">No submissions yet.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </article>
+      <article class="admin-panel">
+        <h3>Settings</h3>
+        <form id="admin-settings-form" class="auth-form compact">
+          <label>Results visibility<input name="results_visibility" value="${escapeHtml(state.admin.settings.results_visibility || "show_allowed_results_only")}"></label>
+          <label>Default exam mode<input name="default_exam_mode" value="${escapeHtml(state.admin.settings.default_exam_mode || "exam")}"></label>
+          <button type="submit">Save settings</button>
+        </form>
+      </article>
+    </section>
+  `;
+  bindAdminEvents();
+}
+
+function bindAdminEvents() {
+  els.adminOutput.querySelector("#refresh-admin")?.addEventListener("click", () => refreshAdminView());
+  els.adminOutput.querySelector("#admin-new-exam")?.addEventListener("click", () => {
+    state.admin.selectedExamId = "";
+    renderAdmin();
+  });
+  els.adminOutput.querySelectorAll("[data-admin-exam]").forEach(button => {
+    button.addEventListener("click", () => {
+      state.admin.selectedExamId = button.dataset.adminExam;
+      renderAdmin();
+    });
+  });
+  els.adminOutput.querySelector("#admin-exam-form")?.addEventListener("submit", saveAdminExam);
+  els.adminOutput.querySelectorAll("[data-exam-status]").forEach(button => {
+    button.addEventListener("click", () => updateAdminExamStatus(button.dataset.examStatus));
+  });
+  els.adminOutput.querySelector("#delete-admin-exam")?.addEventListener("click", deleteAdminExam);
+  els.adminOutput.querySelectorAll("[data-save-account]").forEach(button => {
+    button.addEventListener("click", () => saveAdminAccount(button.dataset.saveAccount));
+  });
+  els.adminOutput.querySelector("#admin-settings-form")?.addEventListener("submit", saveAdminSettings);
+}
+
+async function refreshAdminView() {
+  try {
+    await loadAdminData();
+    await loadExamCatalog();
+    renderAdmin();
+    renderDashboard();
+    showToast("Admin data refreshed");
+  } catch (error) {
+    state.admin.error = error.message;
+    renderAdmin();
+    showToast(error.message);
+  }
+}
+
+async function saveAdminExam(event) {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  const examId = String(formData.get("id") || "").trim();
+  const selected = state.admin.exams.find(exam => exam.id === state.admin.selectedExamId);
+  const path = selected ? `/api/admin/exams/${encodeURIComponent(selected.id)}` : "/api/admin/exams";
+  try {
+    let answerKey = {};
+    const rawAnswerKey = String(formData.get("answerKeyJson") || "").trim();
+    if (rawAnswerKey) {
+      answerKey = JSON.parse(rawAnswerKey);
+    }
+    const payload = await adminFetch(path, {
+      method: "POST",
+      body: {
+        id: examId,
+        title: String(formData.get("title") || "").trim(),
+        status: String(formData.get("status") || "draft"),
+        description: String(formData.get("description") || "").trim(),
+        markdownPath: String(formData.get("markdownPath") || "").trim(),
+        sourcePath: String(formData.get("sourcePath") || "").trim(),
+        attachmentRoot: String(formData.get("attachmentRoot") || "").trim(),
+        answer_key: answerKey
+      }
+    });
+    state.admin.selectedExamId = payload.exam?.id || examId;
+    await refreshAdminView();
+    showToast("Exam saved");
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function updateAdminExamStatus(status) {
+  if (!state.admin.selectedExamId) return;
+  try {
+    await adminFetch(`/api/admin/exams/${encodeURIComponent(state.admin.selectedExamId)}/status`, {
+      method: "POST",
+      body: { status }
+    });
+    await refreshAdminView();
+    showToast(`Exam ${status}`);
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function deleteAdminExam() {
+  if (!state.admin.selectedExamId || !window.confirm("Delete this exam from the server catalog?")) return;
+  try {
+    await adminFetch(`/api/admin/exams/${encodeURIComponent(state.admin.selectedExamId)}/delete`, {
+      method: "POST",
+      body: {}
+    });
+    state.admin.selectedExamId = "";
+    await refreshAdminView();
+    showToast("Exam deleted");
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function saveAdminAccount(accountId) {
+  try {
+    await adminFetch(`/api/admin/accounts/${encodeURIComponent(accountId)}`, {
+      method: "POST",
+      body: {
+        role: els.adminOutput.querySelector(`[data-account-role="${CSS.escape(accountId)}"]`)?.value || "user",
+        status: els.adminOutput.querySelector(`[data-account-status="${CSS.escape(accountId)}"]`)?.value || "active"
+      }
+    });
+    await refreshAdminView();
+    showToast("Account updated");
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function saveAdminSettings(event) {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  try {
+    const payload = await adminFetch("/api/admin/settings", {
+      method: "POST",
+      body: {
+        settings: Object.fromEntries(formData.entries())
+      }
+    });
+    state.admin.settings = payload.settings || state.admin.settings;
+    renderAdmin();
+    showToast("Settings saved");
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
 function renderLoadError(error) {
   console.error(error);
   els.examOutput.innerHTML = `
@@ -777,6 +1173,8 @@ function renderHomeScreen() {
         <button type="button" class="flow-secondary-button" data-flow-action="start-practice">Trenēties pa daļām</button>
       </div>
       <div class="flow-home-links">
+        <button type="button" data-flow-action="open-auth">Konts / pierakstīties</button>
+        ${isAdminAccount() ? `<button type="button" data-flow-action="open-admin">Admin</button>` : ""}
         <button type="button" data-flow-action="results">Skatīt rezultātus</button>
         <button type="button" data-flow-action="instructions">Norādījumi</button>
       </div>
@@ -1510,6 +1908,16 @@ function handleFlowAction(dataset) {
   if (flowAction === "open-submission") {
     renderSubmission();
     setView("submission");
+    return;
+  }
+  if (flowAction === "open-auth") {
+    renderAuth();
+    setView("auth");
+    return;
+  }
+  if (flowAction === "open-admin") {
+    renderAdmin();
+    setView("admin");
     return;
   }
   if (flowAction === "open-billing") {
@@ -3466,16 +3874,21 @@ function setView(viewName) {
   if (PROTECTED_VIEWS.has(viewName) && state.auth.status !== "authenticated") {
     viewName = "runner";
   }
+  if (viewName === "admin" && !isAdminAccount()) {
+    viewName = state.auth.status === "authenticated" ? "dashboard" : "runner";
+  }
   document.querySelectorAll(".view").forEach(view => view.classList.remove("active"));
   document.querySelector(`#${viewName}-view`).classList.add("active");
   document.querySelectorAll(".nav-list button").forEach(button => {
     const showButton = !DEBUG_VIEWS.has(button.dataset.view) || flowCore.shouldShowDebugPanels(state.flow.debugMode);
-    button.hidden = !showButton;
+    const showAdmin = button.dataset.view !== "admin" || isAdminAccount();
+    button.hidden = !showButton || !showAdmin;
     button.classList.toggle("active", button.dataset.view === viewName);
   });
   const titles = {
     auth: "Account access",
     dashboard: "Dashboard",
+    admin: "Admin Console",
     runner: "Exam Runner",
     submission: "Submission",
     billing: "Billing",

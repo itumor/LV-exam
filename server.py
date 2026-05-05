@@ -456,10 +456,29 @@ AUTH_SESSION_TTL_DAYS = 30
 AUTH_WEBHOOK_SECRET = os.getenv("AUTH_WEBHOOK_SECRET", "").strip()
 ATTEMPT_STATUSES = {"started", "in_progress", "submitted", "scored", "expired"}
 MUTABLE_ATTEMPT_STATUSES = {"started", "in_progress"}
+ACCOUNT_ROLES = {"user", "admin", "superadmin"}
 SCORING_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("SCORING_RATE_LIMIT_WINDOW_SECONDS", "60"))
 SCORING_RATE_LIMIT_MAX_REQUESTS = int(os.getenv("SCORING_RATE_LIMIT_MAX_REQUESTS", "5"))
 SCORING_RATE_LIMITS: dict[str, list[float]] = {}
 SCORING_RATE_LIMIT_LOCK = threading.Lock()
+
+
+def built_in_exam_catalog() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": str(index).zfill(2),
+            "title": f"A2 Mock Exam {str(index).zfill(2)}",
+            "description": "Built-in Latvian A2 practice exam.",
+            "content_version": 1,
+            "status": "published",
+            "manifest": {
+                "markdownPath": f"/codex/A2_Mock_Exam_{str(index).zfill(2)}.md",
+                "sourcePath": f"codex/A2_Mock_Exam_{str(index).zfill(2)}.md",
+                "attachmentRoot": f"/codex/Attachments/A2_Mock_Exam_{str(index).zfill(2)}/",
+            },
+        }
+        for index in range(1, 11)
+    ]
 
 
 class ApiError(Exception):
@@ -805,6 +824,12 @@ def init_auth_store() -> None:
                 created_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_attempts_account_submitted_at
             ON attempts(account_id, submitted_at DESC);
 
@@ -821,12 +846,68 @@ def init_auth_store() -> None:
         ensure_column(conn, "attempts", "started_at", "TEXT")
         ensure_column(conn, "attempts", "expires_at", "TEXT")
         ensure_column(conn, "attempts", "scored_at", "TEXT")
+        ensure_column(conn, "accounts", "role", "TEXT NOT NULL DEFAULT 'user'")
+        ensure_column(conn, "users", "role", "TEXT NOT NULL DEFAULT 'user'")
+        ensure_builtin_exam_catalog(conn)
+        ensure_bootstrap_superadmin(conn)
 
 
 def ensure_column(conn: sqlite3.Connection, table_name: str, column_name: str, definition: str) -> None:
     columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()}
     if column_name not in columns:
         conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
+
+
+def ensure_builtin_exam_catalog(conn: sqlite3.Connection) -> None:
+    now = now_iso()
+    for exam in built_in_exam_catalog():
+        conn.execute(
+            """
+            INSERT INTO exams (id, title, content_version, status, manifest_payload, answer_key_payload, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, '{}', ?, ?)
+            ON CONFLICT(id) DO NOTHING
+            """,
+            (
+                exam["id"],
+                exam["title"],
+                exam["content_version"],
+                exam["status"],
+                json.dumps({"description": exam["description"], **exam["manifest"]}, ensure_ascii=False),
+                now,
+                now,
+            ),
+        )
+
+
+def ensure_bootstrap_superadmin(conn: sqlite3.Connection) -> None:
+    """Seed one local superadmin when none exists.
+
+    Cheap/free deployments need an initial admin, but we avoid overwriting an
+    existing production account. Set A2_BOOTSTRAP_SUPERADMIN_EMAIL/PASSWORD in
+    the host environment before first boot.
+    """
+    existing = conn.execute("SELECT id FROM accounts WHERE role = 'superadmin' AND deleted_at IS NULL LIMIT 1").fetchone()
+    if existing is not None:
+        return
+    email = normalize_email(os.getenv("A2_BOOTSTRAP_SUPERADMIN_EMAIL", "superadmin@example.com"))
+    password = os.getenv("A2_BOOTSTRAP_SUPERADMIN_PASSWORD", "ChangeMe123!")
+    if len(password) < 8:
+        password = "ChangeMe123!"
+    account = conn.execute("SELECT * FROM accounts WHERE email = ?", (email,)).fetchone()
+    now = now_iso()
+    if account is None:
+        salt_b64, hash_b64 = hash_password(password)
+        account_id = "acct_superadmin_seed"
+        conn.execute(
+            """
+            INSERT INTO accounts (id, email, password_salt, password_hash, status, created_at, deleted_at, role)
+            VALUES (?, ?, ?, ?, 'active', ?, NULL, 'superadmin')
+            """,
+            (account_id, email, salt_b64, hash_b64, now),
+        )
+        upsert_profile(conn, account_id, "Seed Superadmin", None, None)
+        return
+    conn.execute("UPDATE accounts SET role = 'superadmin' WHERE id = ?", (account["id"],))
 
 
 def normalize_email(email: str) -> str:
@@ -882,6 +963,7 @@ def serialize_account(row: sqlite3.Row | None) -> dict[str, Any] | None:
         "id": row["id"],
         "email": row["email"],
         "status": row["status"],
+        "role": row["role"] if "role" in row.keys() else "user",
         "created_at": row["created_at"],
         "deleted_at": row["deleted_at"],
     }
@@ -1019,7 +1101,7 @@ def current_session_record(handler: SimpleHTTPRequestHandler) -> dict[str, Any] 
     with db_connection() as conn:
         row = conn.execute(
             """
-            SELECT s.token, s.account_id, s.expires_at, s.revoked_at, a.email, a.status,
+            SELECT s.token, s.account_id, s.expires_at, s.revoked_at, a.email, a.status, a.role,
                    a.created_at AS account_created_at, a.deleted_at,
                    p.full_name, p.native_language, p.exam_target_date, p.exam_pack_status, p.updated_at AS profile_updated_at
             FROM sessions s
@@ -1043,6 +1125,7 @@ def current_session_record(handler: SimpleHTTPRequestHandler) -> dict[str, Any] 
                 "id": row["account_id"],
                 "email": row["email"],
                 "status": row["status"],
+                "role": row["role"] or "user",
                 "created_at": row["account_created_at"],
                 "deleted_at": row["deleted_at"],
             },
@@ -1153,8 +1236,8 @@ def create_account_record(payload: dict[str, Any]) -> tuple[dict[str, Any], str]
         try:
             conn.execute(
                 """
-                INSERT INTO accounts (id, email, password_salt, password_hash, status, created_at, deleted_at)
-                VALUES (?, ?, ?, ?, 'active', ?, NULL)
+                INSERT INTO accounts (id, email, password_salt, password_hash, status, created_at, deleted_at, role)
+                VALUES (?, ?, ?, ?, 'active', ?, NULL, 'user')
                 """,
                 (account_id, email, salt_b64, hash_b64, now),
             )
@@ -1515,6 +1598,244 @@ def export_account(session: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def account_role(session: dict[str, Any]) -> str:
+    return str((session.get("account") or {}).get("role") or "user")
+
+
+def require_admin_session(handler: SimpleHTTPRequestHandler) -> dict[str, Any]:
+    session = require_session(handler)
+    if account_role(session) not in {"admin", "superadmin"}:
+        raise ApiError(HTTPStatus.FORBIDDEN, "admin_required", "Admin access is required.")
+    return session
+
+
+def can_manage_account(actor: dict[str, Any], target: sqlite3.Row, next_role: str | None = None) -> bool:
+    actor_role = account_role(actor)
+    target_role = target["role"] or "user"
+    if actor_role == "superadmin":
+        return True
+    if target_role in {"admin", "superadmin"}:
+        return False
+    if next_role and next_role != "user":
+        return False
+    return actor_role == "admin"
+
+
+def serialize_exam_catalog(row: sqlite3.Row, *, include_answer_key: bool = False) -> dict[str, Any]:
+    manifest = parse_json_object(row["manifest_payload"])
+    payload = {
+        "id": row["id"],
+        "title": row["title"],
+        "description": manifest.get("description", ""),
+        "content_version": row["content_version"],
+        "status": row["status"],
+        "markdownPath": manifest.get("markdownPath") or manifest.get("markdown_path") or f"/codex/A2_Mock_Exam_{row['id']}.md",
+        "sourcePath": manifest.get("sourcePath") or manifest.get("source_path") or f"codex/A2_Mock_Exam_{row['id']}.md",
+        "attachmentRoot": manifest.get("attachmentRoot") or manifest.get("attachment_root") or f"/codex/Attachments/A2_Mock_Exam_{row['id']}/",
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+    if include_answer_key:
+        payload["answer_key"] = parse_json_object(row["answer_key_payload"])
+        payload["manifest"] = manifest
+    return payload
+
+
+def list_exam_catalog(session: dict[str, Any] | None = None) -> dict[str, Any]:
+    admin = bool(session and account_role(session) in {"admin", "superadmin"})
+    with db_connection() as conn:
+        if admin:
+            rows = conn.execute("SELECT * FROM exams ORDER BY updated_at DESC, id").fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM exams WHERE status = 'published' ORDER BY id").fetchall()
+    return {"exams": [serialize_exam_catalog(row, include_answer_key=admin) for row in rows]}
+
+
+def admin_overview() -> dict[str, Any]:
+    with db_connection() as conn:
+        return {
+            "summary": {
+                "accounts": conn.execute("SELECT COUNT(*) FROM accounts WHERE deleted_at IS NULL").fetchone()[0],
+                "admins": conn.execute("SELECT COUNT(*) FROM accounts WHERE deleted_at IS NULL AND role IN ('admin', 'superadmin')").fetchone()[0],
+                "exams": conn.execute("SELECT COUNT(*) FROM exams").fetchone()[0],
+                "published": conn.execute("SELECT COUNT(*) FROM exams WHERE status = 'published'").fetchone()[0],
+                "submissions": conn.execute("SELECT COUNT(*) FROM attempts WHERE status IN ('submitted', 'scored')").fetchone()[0],
+            }
+        }
+
+
+def list_admin_accounts() -> dict[str, Any]:
+    with db_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT a.*, p.full_name, p.native_language, p.exam_target_date, p.exam_pack_status, p.updated_at AS profile_updated_at
+            FROM accounts a
+            LEFT JOIN profiles p ON p.account_id = a.id
+            WHERE a.deleted_at IS NULL
+            ORDER BY a.created_at DESC
+            """
+        ).fetchall()
+    accounts = []
+    for row in rows:
+        accounts.append(
+            {
+                "account": serialize_account(row),
+                "profile": {
+                    "account_id": row["id"],
+                    "full_name": row["full_name"],
+                    "native_language": row["native_language"],
+                    "exam_target_date": row["exam_target_date"],
+                    "exam_pack_status": row["exam_pack_status"] or "free",
+                    "updated_at": row["profile_updated_at"],
+                },
+            }
+        )
+    return {"accounts": accounts}
+
+
+def update_admin_account(account_id: str, payload: dict[str, Any], session: dict[str, Any]) -> dict[str, Any]:
+    next_status = str(payload.get("status") or "").strip()
+    next_role = str(payload.get("role") or "").strip()
+    if next_status not in {"active", "disabled"}:
+        raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_status", "Account status must be active or disabled.")
+    if next_role not in ACCOUNT_ROLES:
+        raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_role", "Account role is invalid.")
+    with db_connection() as conn:
+        target = conn.execute("SELECT * FROM accounts WHERE id = ? AND deleted_at IS NULL", (account_id,)).fetchone()
+        if target is None:
+            raise ApiError(HTTPStatus.NOT_FOUND, "account_not_found", "Account not found.")
+        if account_id == session["account"]["id"] and (next_status != "active" or next_role != account_role(session)):
+            raise ApiError(HTTPStatus.FORBIDDEN, "self_lockout_blocked", "You cannot remove your own active admin access.")
+        if not can_manage_account(session, target, next_role):
+            raise ApiError(HTTPStatus.FORBIDDEN, "superadmin_required", "Only superadmins can manage admin accounts.")
+        conn.execute("UPDATE accounts SET status = ?, role = ? WHERE id = ?", (next_status, next_role, account_id))
+        if next_status != "active":
+            conn.execute("UPDATE sessions SET revoked_at = ? WHERE account_id = ?", (now_iso(), account_id))
+        updated = conn.execute("SELECT * FROM accounts WHERE id = ?", (account_id,)).fetchone()
+    return {"account": serialize_account(updated)}
+
+
+def save_admin_exam(payload: dict[str, Any], session: dict[str, Any], exam_id: str | None = None) -> dict[str, Any]:
+    title = str(payload.get("title") or "").strip()
+    if not title:
+        raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_exam", "Exam title is required.")
+    status = str(payload.get("status") or "draft").strip()
+    if status not in {"draft", "published", "archived"}:
+        raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_exam_status", "Exam status is invalid.")
+    description = str(payload.get("description") or "").strip()
+    markdown_path = str(payload.get("markdownPath") or payload.get("markdown_path") or "").strip()
+    source_path = str(payload.get("sourcePath") or payload.get("source_path") or "").strip()
+    attachment_root = str(payload.get("attachmentRoot") or payload.get("attachment_root") or "").strip()
+    if not exam_id:
+        requested_id = re.sub(r"[^a-zA-Z0-9_-]+", "-", str(payload.get("id") or title).strip()).strip("-").lower()
+        exam_id = requested_id[:48] or f"exam_{secrets.token_hex(6)}"
+    if not markdown_path:
+        markdown_path = f"/codex/A2_Mock_Exam_{exam_id}.md"
+    if not source_path:
+        source_path = markdown_path.removeprefix("/")
+    if not attachment_root:
+        attachment_root = f"/codex/Attachments/A2_Mock_Exam_{exam_id}/"
+    manifest = {
+        "description": description,
+        "markdownPath": markdown_path,
+        "sourcePath": source_path,
+        "attachmentRoot": attachment_root,
+        "createdBy": session["account"]["id"],
+    }
+    answer_key = payload.get("answer_key")
+    answer_key_payload = json.dumps(answer_key if isinstance(answer_key, dict) else {}, ensure_ascii=False)
+    now = now_iso()
+    with db_connection() as conn:
+        existing = conn.execute("SELECT * FROM exams WHERE id = ?", (exam_id,)).fetchone()
+        if existing is None:
+            conn.execute(
+                """
+                INSERT INTO exams (id, title, content_version, status, manifest_payload, answer_key_payload, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (exam_id, title, int(payload.get("content_version") or 1), status, json.dumps(manifest, ensure_ascii=False), answer_key_payload, now, now),
+            )
+        else:
+            current_manifest = parse_json_object(existing["manifest_payload"])
+            current_manifest.update(manifest)
+            next_answer_key = answer_key_payload if isinstance(answer_key, dict) else existing["answer_key_payload"]
+            conn.execute(
+                """
+                UPDATE exams
+                SET title = ?, content_version = ?, status = ?, manifest_payload = ?, answer_key_payload = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    title,
+                    int(payload.get("content_version") or existing["content_version"] or 1),
+                    status,
+                    json.dumps(current_manifest, ensure_ascii=False),
+                    next_answer_key,
+                    now,
+                    exam_id,
+                ),
+            )
+        row = conn.execute("SELECT * FROM exams WHERE id = ?", (exam_id,)).fetchone()
+    return {"exam": serialize_exam_catalog(row, include_answer_key=True)}
+
+
+def update_admin_exam_status(exam_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    status = str(payload.get("status") or "").strip()
+    if status not in {"draft", "published", "archived"}:
+        raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_exam_status", "Exam status is invalid.")
+    with db_connection() as conn:
+        conn.execute("UPDATE exams SET status = ?, updated_at = ? WHERE id = ?", (status, now_iso(), exam_id))
+        row = conn.execute("SELECT * FROM exams WHERE id = ?", (exam_id,)).fetchone()
+    if row is None:
+        raise ApiError(HTTPStatus.NOT_FOUND, "exam_not_found", "Exam not found.")
+    return {"exam": serialize_exam_catalog(row, include_answer_key=True)}
+
+
+def delete_admin_exam(exam_id: str) -> dict[str, Any]:
+    with db_connection() as conn:
+        conn.execute("DELETE FROM exams WHERE id = ?", (exam_id,))
+    return {"deleted": True}
+
+
+def list_admin_attempts() -> dict[str, Any]:
+    with db_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT at.*, a.email
+            FROM attempts at
+            JOIN accounts a ON a.id = at.account_id
+            ORDER BY at.submitted_at DESC
+            LIMIT 200
+            """
+        ).fetchall()
+    return {"attempts": [{**serialize_attempt(row), "account_email": row["email"]} for row in rows]}
+
+
+def list_admin_settings() -> dict[str, Any]:
+    with db_connection() as conn:
+        rows = conn.execute("SELECT * FROM app_settings ORDER BY key").fetchall()
+    return {"settings": {row["key"]: row["value"] for row in rows}}
+
+
+def save_admin_settings(payload: dict[str, Any]) -> dict[str, Any]:
+    settings = payload.get("settings")
+    if not isinstance(settings, dict):
+        raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_settings", "settings must be an object.")
+    with db_connection() as conn:
+        for key, value in settings.items():
+            clean_key = str(key).strip()
+            if not re.fullmatch(r"[a-z0-9_]{2,50}", clean_key):
+                raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_setting_key", "Setting keys must be lowercase snake_case.")
+            conn.execute(
+                """
+                INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+                """,
+                (clean_key, str(value), now_iso()),
+            )
+    return list_admin_settings()
+
+
 def verify_auth_webhook(handler: SimpleHTTPRequestHandler, body: bytes) -> None:
     if not AUTH_WEBHOOK_SECRET:
         raise PermissionError("Auth webhook secret is not configured.")
@@ -1556,8 +1877,8 @@ def handle_auth_webhook(handler: SimpleHTTPRequestHandler) -> dict[str, Any]:
                 salt_b64, hash_b64 = hash_password(str(payload.get("password", "temporary-webhook-password")))
                 conn.execute(
                     """
-                    INSERT INTO accounts (id, email, password_salt, password_hash, status, created_at, deleted_at)
-                    VALUES (?, ?, ?, ?, 'active', ?, NULL)
+                    INSERT INTO accounts (id, email, password_salt, password_hash, status, created_at, deleted_at, role)
+                    VALUES (?, ?, ?, ?, 'active', ?, NULL, 'user')
                     """,
                     (account_id, account_email, salt_b64, hash_b64, now_iso()),
                 )
@@ -2306,6 +2627,10 @@ class AppHandler(SimpleHTTPRequestHandler):
             session = current_session_record(self)
             json_response(self, HTTPStatus.OK, {"authenticated": bool(session), **(session or {})})
             return
+        if self.path == "/api/exams/catalog":
+            session = current_session_record(self)
+            json_response(self, HTTPStatus.OK, list_exam_catalog(session))
+            return
         if self.path == "/api/dashboard":
             try:
                 session = require_session(self)
@@ -2340,6 +2665,65 @@ class AppHandler(SimpleHTTPRequestHandler):
                 with db_connection() as conn:
                     attempt = load_owned_attempt(conn, attempt_match.group(1), session)
                 json_response(self, HTTPStatus.OK, {"attempt": serialize_attempt(attempt)})
+            except ApiError as error:
+                api_error_response(self, error)
+            except PermissionError as error:
+                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            return
+        if self.path == "/api/admin/overview":
+            try:
+                require_admin_session(self)
+                json_response(self, HTTPStatus.OK, admin_overview())
+            except ApiError as error:
+                api_error_response(self, error)
+            except PermissionError as error:
+                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            return
+        if self.path == "/api/admin/accounts":
+            try:
+                require_admin_session(self)
+                json_response(self, HTTPStatus.OK, list_admin_accounts())
+            except ApiError as error:
+                api_error_response(self, error)
+            except PermissionError as error:
+                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            return
+        if self.path == "/api/admin/exams":
+            try:
+                session = require_admin_session(self)
+                json_response(self, HTTPStatus.OK, list_exam_catalog(session))
+            except ApiError as error:
+                api_error_response(self, error)
+            except PermissionError as error:
+                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            return
+        admin_exam_match = re.fullmatch(r"/api/admin/exams/([^/]+)", parsed.path)
+        if admin_exam_match:
+            try:
+                require_admin_session(self)
+                with db_connection() as conn:
+                    row = conn.execute("SELECT * FROM exams WHERE id = ?", (admin_exam_match.group(1),)).fetchone()
+                if row is None:
+                    raise ApiError(HTTPStatus.NOT_FOUND, "exam_not_found", "Exam not found.")
+                json_response(self, HTTPStatus.OK, {"exam": serialize_exam_catalog(row, include_answer_key=True)})
+            except ApiError as error:
+                api_error_response(self, error)
+            except PermissionError as error:
+                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            return
+        if self.path == "/api/admin/attempts":
+            try:
+                require_admin_session(self)
+                json_response(self, HTTPStatus.OK, list_admin_attempts())
+            except ApiError as error:
+                api_error_response(self, error)
+            except PermissionError as error:
+                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            return
+        if self.path == "/api/admin/settings":
+            try:
+                require_admin_session(self)
+                json_response(self, HTTPStatus.OK, list_admin_settings())
             except ApiError as error:
                 api_error_response(self, error)
             except PermissionError as error:
@@ -2449,6 +2833,39 @@ class AppHandler(SimpleHTTPRequestHandler):
                 payload = safe_read_json(self)
                 session = require_session(self)
                 json_response(self, HTTPStatus.OK, update_profile(payload, session))
+                return
+            if self.path == "/api/admin/exams":
+                payload = safe_read_json(self)
+                session = require_admin_session(self)
+                json_response(self, HTTPStatus.OK, save_admin_exam(payload, session))
+                return
+            admin_exam_match = re.fullmatch(r"/api/admin/exams/([^/]+)", parsed.path)
+            if admin_exam_match:
+                payload = safe_read_json(self)
+                session = require_admin_session(self)
+                json_response(self, HTTPStatus.OK, save_admin_exam(payload, session, admin_exam_match.group(1)))
+                return
+            admin_exam_status_match = re.fullmatch(r"/api/admin/exams/([^/]+)/status", parsed.path)
+            if admin_exam_status_match:
+                payload = safe_read_json(self)
+                require_admin_session(self)
+                json_response(self, HTTPStatus.OK, update_admin_exam_status(admin_exam_status_match.group(1), payload))
+                return
+            admin_exam_delete_match = re.fullmatch(r"/api/admin/exams/([^/]+)/delete", parsed.path)
+            if admin_exam_delete_match:
+                require_admin_session(self)
+                json_response(self, HTTPStatus.OK, delete_admin_exam(admin_exam_delete_match.group(1)))
+                return
+            admin_account_match = re.fullmatch(r"/api/admin/accounts/([^/]+)", parsed.path)
+            if admin_account_match:
+                payload = safe_read_json(self)
+                session = require_admin_session(self)
+                json_response(self, HTTPStatus.OK, update_admin_account(admin_account_match.group(1), payload, session))
+                return
+            if self.path == "/api/admin/settings":
+                payload = safe_read_json(self)
+                require_admin_session(self)
+                json_response(self, HTTPStatus.OK, save_admin_settings(payload))
                 return
             if self.path == "/api/attempts":
                 payload = safe_read_json(self)

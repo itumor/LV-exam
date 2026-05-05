@@ -12,9 +12,36 @@ python3 server.py
 
 Then open `http://localhost:4173/latvian-a2-exam-app/`.
 
+To run on another local port, set `PORT`:
+
+```sh
+PORT=4174 python3 server.py
+```
+
+Then open `http://localhost:4174/latvian-a2-exam-app/`.
+
 The server also exposes `GET /healthz` for container and load balancer checks.
 
 The legacy static server still renders exams, but AI scoring requires `server.py` because the browser must not hold provider credentials.
+
+## Accounts, roles, and admin console
+
+The app has three roles:
+
+- `user`: can register/login, view published exams, take exams, submit answers, and see allowed results.
+- `admin`: can manage exam catalog entries, learner accounts, submissions/scores, and settings.
+- `superadmin`: can do everything admins can do, plus grant or remove admin/superadmin roles.
+
+On first boot, if no superadmin exists, the server creates one local bootstrap account:
+
+```sh
+A2_BOOTSTRAP_SUPERADMIN_EMAIL=superadmin@example.com
+A2_BOOTSTRAP_SUPERADMIN_PASSWORD=ChangeMe123!
+```
+
+Set those values in the host environment before first production boot. After signing in, admins see the **Admin** view in the left navigation and can publish/archive exams. Normal learners only receive published exams from `/api/exams/catalog`.
+
+Admin APIs are server-authorized; hiding UI buttons is only a convenience, not the security boundary.
 
 ## AI scoring
 
