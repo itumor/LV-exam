@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This runbook captures the minimum production setup for Latvian A2 Exam Studio: HTTPS, managed secrets, health checks, rate limits, and operational monitoring.
+This runbook captures the minimum production setup for Latvian A2 Exam Studio: HTTPS, managed secrets, health checks, rate limits, backups, and operational monitoring.
 
-It is written for the current single-container architecture. When the app gains persistent storage, the same checklist should be extended to cover database backups and restore testing.
+It is written for the current single-container architecture with local SQLite auth and billing stores. Move the same data to managed Postgres before scaling beyond a single writable instance.
 
 ## Deployment Model
 
@@ -31,6 +31,15 @@ It is written for the current single-container architecture. When the app gains 
 | `CODEX_TIMEOUT_SECONDS` | No | `300` | Scoring timeout for local or remote Codex mode. |
 | `EVALUATE_RATE_LIMIT_PER_MINUTE` | No | `20` | Per-IP evaluation request cap. |
 | `EVALUATE_RATE_LIMIT_WINDOW_SECONDS` | No | `60` | Sliding window for the evaluation limiter. |
+| `AUTH_DB_PATH` | No | `/data/auth.sqlite3` | SQLite account, profile, session, attempt, and auth webhook store. |
+| `AUTH_WEBHOOK_SECRET` | Yes | secret | HMAC secret for auth sync webhooks. |
+| `BILLING_DB_PATH` | No | `/data/billing.sqlite3` | SQLite learner entitlement, Stripe event, and billing activity store. |
+| `STRIPE_SECRET_KEY` | Production billing | secret | Stripe API key, never exposed to the browser. |
+| `STRIPE_WEBHOOK_SECRET` | Production billing | secret | Stripe webhook verification secret. |
+| `STRIPE_PRICE_SINGLE_EXAM` | Production billing | `price_...` | Stripe price for one exam simulation. |
+| `STRIPE_PRICE_EXAM_PACK` | Production billing | `price_...` | Stripe price for a multi-exam pack. |
+| `STRIPE_PRICE_MONTHLY_SUBSCRIPTION` | Production billing | `price_...` | Stripe price for subscription access. |
+| `STRIPE_PRICE_AI_CREDITS` | Production billing | `price_...` | Stripe price for AI scoring credits. |
 | `SENTRY_DSN` | No | secret | Enables optional error monitoring. |
 | `SENTRY_TRACES_SAMPLE_RATE` | No | `0.0` | Controls tracing volume when Sentry is enabled. |
 | `APP_ENV` | No | `production` | Environment label for logs and Sentry. |
@@ -49,8 +58,8 @@ Minimum signals to alert on:
 - `/api/evaluate` 5xx responses.
 - `/api/evaluate` 429 responses.
 - Scoring timeouts.
-- Login failures once auth is added.
-- Payment webhook failures once billing is added.
+- Login failures on `/api/auth/login`.
+- Payment webhook failures on `/api/stripe/webhook`.
 - Unusual LLM cost spikes or provider retry storms.
 
 Recommended logging shape:
@@ -63,15 +72,23 @@ Recommended logging shape:
 
 Current state:
 
-- The app does not yet persist submissions or accounts in a database.
-- Browser localStorage is only a short-term client cache.
+- Auth data is stored in SQLite at `AUTH_DB_PATH` or `.multica/auth.sqlite3`.
+- Billing and entitlement data is stored in SQLite at `BILLING_DB_PATH` or `data/billing.sqlite3`.
+- Browser localStorage is only a client cache and is not a backup source.
 
-When a database is added:
+Backup procedure:
 
-- Take automated daily backups.
-- Retain at least one recent point-in-time restore target.
-- Document one successful restore test per release cycle.
-- Verify that attempt history survives a restore without losing entitlement records.
+1. Mount the database directory on durable platform storage.
+2. Run `python3 scripts/backup_sqlite.py --output-dir /backups/latvian-a2` at least daily.
+3. Copy backup artifacts to platform object storage with lifecycle retention.
+4. Verify the latest backup with `sqlite3 <backup-file> "PRAGMA integrity_check;"`.
+5. Restore into a staging deployment and confirm login, dashboard attempts, entitlements, and Stripe event idempotency.
+
+Restore test evidence:
+
+- The backup script runs SQLite online backup and `PRAGMA integrity_check` on every backup it creates.
+- CI or release smoke should run `python3 scripts/backup_sqlite.py --verify-only` against seeded auth and billing stores.
+- Record the backup filenames and restore target in the release checklist before launch.
 
 ## Release Checklist
 

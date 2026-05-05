@@ -12,6 +12,7 @@ import re
 import shutil
 import sqlite3
 import socket
+import sys
 import subprocess
 import tempfile
 import threading
@@ -32,7 +33,9 @@ from billing import BillingStore, FREE_EXAM_ID, DEFAULT_PRODUCTS, StripeClient
 
 
 ROOT = Path(__file__).resolve().parent
+UPLOAD_ROOT = ROOT / "data" / "uploads"
 MAX_BODY_BYTES = 1_500_000
+MAX_AUDIO_BYTES = 20_000_000
 DEFAULT_BILLING_DB_PATH = ROOT / "data" / "billing.sqlite3"
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_CODEX_MODEL = "gpt-5.2"
@@ -75,6 +78,11 @@ class QuotaExceededError(EvaluationError):
         super().__init__(message, status_code=429, retry_state="blocked")
 
 
+RATE_LIMIT_LOCK = threading.Lock()
+RATE_LIMIT_BUCKETS: dict[str, list[float]] = {}
+SENTRY_SDK: Any | None = None
+
+
 def load_dotenv(path: Path) -> None:
     if not path.exists():
         return
@@ -107,6 +115,63 @@ def api_error_response(handler: SimpleHTTPRequestHandler, error: ApiError) -> No
     if error.details:
         payload["error"]["details"] = error.details
     json_response(handler, error.status_code, payload)
+
+
+def init_sentry() -> None:
+    global SENTRY_SDK
+    dsn = os.getenv("SENTRY_DSN", "").strip()
+    if not dsn:
+        return
+    try:
+        import sentry_sdk  # type: ignore[import-not-found]
+    except ImportError:
+        log_event("warning", "sentry_unavailable", reason="sentry_sdk_not_installed")
+        return
+    sentry_sdk.init(
+        dsn=dsn,
+        environment=os.getenv("APP_ENV", "production"),
+        release=os.getenv("APP_RELEASE", ""),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0") or "0.0"),
+    )
+    SENTRY_SDK = sentry_sdk
+
+
+def capture_exception(error: BaseException) -> None:
+    if SENTRY_SDK is not None:
+        SENTRY_SDK.capture_exception(error)
+
+
+def log_event(level: str, event: str, **fields: Any) -> None:
+    payload = {
+        "ts": now_iso(),
+        "level": level,
+        "event": event,
+        **fields,
+    }
+    print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=sys.stderr, flush=True)
+
+
+def client_ip(handler: SimpleHTTPRequestHandler) -> str:
+    forwarded = handler.headers.get("X-Forwarded-For", "").split(",", 1)[0].strip()
+    return forwarded or handler.client_address[0]
+
+
+def check_rate_limit(key: str, *, limit_env: str, window_env: str) -> tuple[bool, int]:
+    limit = int(os.getenv(limit_env, "20") or "20")
+    window_seconds = int(os.getenv(window_env, "60") or "60")
+    if limit <= 0 or window_seconds <= 0:
+        return True, 0
+    now = time.monotonic()
+    cutoff = now - window_seconds
+    with RATE_LIMIT_LOCK:
+        bucket = [item for item in RATE_LIMIT_BUCKETS.get(key, []) if item >= cutoff]
+        if len(bucket) >= limit:
+            retry_after = max(1, int(window_seconds - (now - bucket[0])))
+            RATE_LIMIT_BUCKETS[key] = bucket
+            return False, retry_after
+        bucket.append(now)
+        RATE_LIMIT_BUCKETS[key] = bucket
+    return True, 0
 
 
 def json_response_with_headers(
@@ -195,8 +260,9 @@ def now_iso() -> str:
 
 
 def db_connection() -> sqlite3.Connection:
-    AUTH_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(AUTH_DB_PATH)
+    path = Path(os.getenv("AUTH_DB_PATH", str(AUTH_DB_PATH)))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
@@ -1557,9 +1623,80 @@ def provider_error_message(status_code: int, detail: str) -> str:
     return "LLM provider request failed."
 
 
+def upload_storage_for_id(upload_id: str) -> Path:
+    """Return the path to the JSON metadata file for a given upload_id."""
+    safe_id = re.sub(r"[^a-zA-Z0-9_\-]", "_", upload_id)
+    return UPLOAD_ROOT / "speaking" / f"{safe_id}.meta.json"
+
+
+def store_speaking_upload(
+    content: bytes,
+    content_type: str,
+    query: dict[str, list[str]],
+) -> dict[str, Any]:
+    """Persist a speaking audio upload and return metadata."""
+    submission_id = (query.get("submission_id") or [""])[0].strip()
+    task = (query.get("task") or [""])[0].strip()
+    exam_id = (query.get("exam_id") or [""])[0].strip()
+
+    if not submission_id:
+        raise ValueError("submission_id is required")
+
+    upload_id = secrets.token_urlsafe(16)
+    ext = "webm" if "webm" in content_type else ("ogg" if "ogg" in content_type else "bin")
+    audio_filename = f"{upload_id}.{ext}"
+
+    speaking_dir = UPLOAD_ROOT / "speaking"
+    speaking_dir.mkdir(parents=True, exist_ok=True)
+
+    audio_path = speaking_dir / audio_filename
+    audio_path.write_bytes(content)
+
+    metadata = {
+        "upload_id": upload_id,
+        "submission_id": submission_id,
+        "task": task,
+        "exam_id": exam_id,
+        "content_type": content_type,
+        "audio_filename": audio_filename,
+        "size_bytes": len(content),
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    meta_path = upload_storage_for_id(upload_id)
+    meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    return {
+        "upload_id": upload_id,
+        "submission_id": submission_id,
+        "task": task,
+        "upload_url": f"/api/uploads/speaking/{upload_id}",
+    }
+
+
 class AppHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, directory=str(ROOT), **kwargs)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        log_event(
+            "info",
+            "server_message",
+            remote_ip=client_ip(self),
+            method=getattr(self, "command", ""),
+            path=getattr(self, "path", ""),
+            message=format % args,
+        )
+
+    def log_request(self, code: int | str = "-", size: int | str = "-") -> None:
+        log_event(
+            "info",
+            "http_access",
+            remote_ip=client_ip(self),
+            method=getattr(self, "command", ""),
+            path=urllib.parse.urlparse(getattr(self, "path", "")).path,
+            status=code,
+            size=size,
+        )
 
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
@@ -1665,6 +1802,28 @@ class AppHandler(SimpleHTTPRequestHandler):
             )
             return
 
+        # Speaking audio playback
+        parsed_path = urllib.parse.urlparse(self.path).path
+        if parsed_path.startswith("/api/uploads/speaking/"):
+            upload_id = parsed_path[len("/api/uploads/speaking/"):]
+            meta_path = upload_storage_for_id(upload_id)
+            if not meta_path.exists():
+                json_response(self, HTTPStatus.NOT_FOUND, {"error": "Upload not found."})
+                return
+            metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+            audio_path = UPLOAD_ROOT / "speaking" / metadata["audio_filename"]
+            if not audio_path.exists():
+                json_response(self, HTTPStatus.NOT_FOUND, {"error": "Audio file not found."})
+                return
+            audio_bytes = audio_path.read_bytes()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", metadata.get("content_type", "audio/webm"))
+            self.send_header("Content-Length", str(len(audio_bytes)))
+            self.send_header("Accept-Ranges", "bytes")
+            self.end_headers()
+            self.wfile.write(audio_bytes)
+            return
+
         super().do_GET()
 
     def do_POST(self) -> None:
@@ -1738,6 +1897,21 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.handle_stripe_webhook()
                 return
             if self.path == "/api/evaluate":
+                rate_key = f"evaluate:{client_ip(self)}"
+                allowed, retry_after = check_rate_limit(
+                    rate_key,
+                    limit_env="EVALUATE_RATE_LIMIT_PER_MINUTE",
+                    window_env="EVALUATE_RATE_LIMIT_WINDOW_SECONDS",
+                )
+                if not allowed:
+                    log_event("warning", "rate_limit_blocked", endpoint="/api/evaluate", remote_ip=client_ip(self))
+                    json_response_with_headers(
+                        self,
+                        HTTPStatus.TOO_MANY_REQUESTS,
+                        {"error": "Too many scoring requests. Please wait and try again."},
+                        {"Retry-After": str(retry_after)},
+                    )
+                    return
                 payload = safe_read_json(self)
                 submission = payload.get("submission")
                 exam_markdown = payload.get("exam_markdown", "")
@@ -1770,16 +1944,34 @@ class AppHandler(SimpleHTTPRequestHandler):
                 }
                 json_response(self, HTTPStatus.OK, result)
                 return
+            # Speaking audio upload
+            parsed_path = urllib.parse.urlparse(self.path)
+            if parsed_path.path == "/api/uploads/speaking":
+                content_length = int(self.headers.get("Content-Length", 0))
+                if content_length > MAX_AUDIO_BYTES:
+                    json_response(self, HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"error": "Audio file too large."})
+                    return
+                content = self.rfile.read(content_length) if content_length > 0 else b""
+                content_type = self.headers.get("Content-Type", "audio/webm")
+                query = urllib.parse.parse_qs(parsed_path.query)
+                result = store_speaking_upload(content=content, content_type=content_type, query=query)
+                json_response(self, HTTPStatus.CREATED, result)
+                return
             json_response(self, HTTPStatus.NOT_FOUND, {"error": "Unknown endpoint."})
             return
         except ApiError as error:
             api_error_response(self, error)
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")
+            capture_exception(error)
+            log_event("error", "api_provider_error", path=self.path, status=error.code)
             json_response(self, error.code, {"error": provider_error_message(error.code, detail), "detail": detail})
         except PermissionError as error:
+            log_event("warning", "api_permission_error", path=self.path, remote_ip=client_ip(self))
             json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
         except Exception as error:  # noqa: BLE001 - this endpoint should always return JSON.
+            capture_exception(error)
+            log_event("error", "api_error", path=self.path, error=type(error).__name__)
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
     def handle_checkout_session(self) -> None:
@@ -1845,6 +2037,8 @@ class AppHandler(SimpleHTTPRequestHandler):
                 },
             )
         except Exception as error:  # noqa: BLE001 - keep API responses JSON.
+            capture_exception(error)
+            log_event("error", "checkout_session_error", error=type(error).__name__)
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
     def handle_consume_exam(self) -> None:
@@ -1867,6 +2061,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             status = HTTPStatus.OK if result["allowed"] else HTTPStatus.PAYMENT_REQUIRED
             json_response(self, status, result)
         except Exception as error:  # noqa: BLE001 - keep API responses JSON.
+            capture_exception(error)
+            log_event("error", "consume_exam_error", error=type(error).__name__)
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
     def handle_consume_ai_credit(self) -> None:
@@ -1885,6 +2081,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             status = HTTPStatus.OK if result["allowed"] else HTTPStatus.PAYMENT_REQUIRED
             json_response(self, status, result)
         except Exception as error:  # noqa: BLE001 - keep API responses JSON.
+            capture_exception(error)
+            log_event("error", "consume_ai_credit_error", error=type(error).__name__)
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
     def handle_stripe_webhook(self) -> None:
@@ -1898,6 +2096,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             result = store.handle_webhook(payload, signature, secret)
             json_response(self, HTTPStatus.OK, {"status": "ok", "result": result})
         except Exception as error:  # noqa: BLE001 - keep API responses JSON.
+            capture_exception(error)
+            log_event("error", "stripe_webhook_error", error=type(error).__name__)
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
 
@@ -1911,6 +2111,7 @@ class DualStackServer(ThreadingHTTPServer):
 
 def main() -> int:
     load_dotenv(ROOT / ".env")
+    init_sentry()
     init_auth_store()
     port = int(os.getenv("PORT", "4173"))
     server = DualStackServer(("::", port), AppHandler)
