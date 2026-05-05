@@ -1,0 +1,13 @@
+{
+  "name": "latvian-a2-exam-studio",
+  "private": true,
+  "scripts": {
+    "test": "bash scripts/run_regression_suite.sh",
+    "test:unit": "python3 -m unittest discover -s tests/server -p 'test_*.py'",
+    "test:contracts": "node --test tests/contracts/release-contracts.test.cjs",
+    "test:e2e": "npx playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.53.0"
+  }
+}

@@ -56,8 +56,11 @@
         </div>
 
         <nav class="nav-list" aria-label="Exam sections">
+          <button data-view="dashboard">Dashboard</button>
+          <button data-view="auth">Account</button>
           <button data-view="runner" class="active">Runner</button>
           <button data-view="submission">Submission</button>
+          <button data-view="billing">Billing</button>
           <button data-view="markdown">Markdown</button>
           <button data-view="json">JSON</button>
           <button data-view="tts">TTS</button>
@@ -71,10 +74,10 @@
           <button id="evaluate-submission" type="button">AI Score</button>
           <button id="copy-submission" type="button">Copy Submission</button>
           <button id="download-submission" type="button">Save Submission</button>
-          <button id="copy-markdown" type="button">Copy Markdown</button>
-          <button id="copy-json" type="button">Copy JSON</button>
-          <button id="download-markdown" type="button">Save .md</button>
-          <button id="download-json" type="button">Save .json</button>
+          <button id="copy-markdown" type="button" data-debug-control="true">Copy Markdown</button>
+          <button id="copy-json" type="button" data-debug-control="true">Copy JSON</button>
+          <button id="download-markdown" type="button" data-debug-control="true">Save .md</button>
+          <button id="download-json" type="button" data-debug-control="true">Save .json</button>
         </div>
       </aside>
 
@@ -87,12 +90,24 @@
           <div id="validation-pill" class="validation-pill">Validated</div>
         </header>
 
+        <section id="auth-view" class="view">
+          <div id="auth-output"></div>
+        </section>
+
+        <section id="dashboard-view" class="view">
+          <div id="dashboard-output"></div>
+        </section>
+
         <section id="runner-view" class="view active">
           <div id="runner-output" class="exam-runner"></div>
         </section>
 
         <section id="submission-view" class="view">
           <div id="submission-output" class="submission-panel"></div>
+        </section>
+
+        <section id="billing-view" class="view">
+          <div id="billing-output" class="billing-panel"></div>
         </section>
 
         <section id="exam-view" class="view">
