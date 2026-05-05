@@ -1,0 +1,39 @@
+app = 'latvian-a2-exam'
+primary_region = 'lhr'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  PORT = '80'
+  APP_ENV = 'production'
+  AUTH_DB_PATH = '/app/data/auth.sqlite3'
+  BILLING_DB_PATH = '/app/data/billing.sqlite3'
+
+[[mounts]]
+  source = 'data'
+  destination = '/app/data'
+
+[http_service]
+  internal_port = 80
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = 'connections'
+    hard_limit = 50
+    soft_limit = 25
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/healthz'
+
+[[vm]]
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256
