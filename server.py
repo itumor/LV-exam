@@ -29,6 +29,10 @@ DEFAULT_CODEX_MODEL = "gpt-5.2"
 CODEX_OSS_DEFAULT_MODEL_LABEL = "codex-oss-default"
 CODEX_TIMEOUT_SECONDS = 300
 DEFAULT_RETRY_LIMIT = 3
+SCORING_PROMPT_VERSION = "2026-05-05"
+SCORING_RUBRIC_VERSION = "a2-writing-speaking-v1"
+SCORING_SKILLS = ("listening", "reading", "writing", "speaking")
+FREE_TEXT_SKILLS = ("writing", "speaking")
 DEFAULT_DAILY_REQUEST_LIMITS = {
     "anonymous": 2,
     "free": 3,
@@ -266,6 +270,45 @@ def safe_text(value: Any, *, field_name: str, max_length: int = 4000) -> str:
     return text
 
 
+def safe_positive_float(value: Any, *, field_name: str, minimum: float = 0.0) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be numeric.")
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{field_name} must be numeric.") from error
+    if parsed < minimum:
+        raise ValueError(f"{field_name} must be at least {minimum}.")
+    return parsed
+
+
+def local_skill_points(skill_summary: dict[str, Any]) -> int:
+    objective_correct = safe_int(skill_summary.get("objective_correct", 0), field_name="objective_correct", minimum=0, maximum=15)
+    return min(15, objective_correct)
+
+
+def local_skill_score(skill: str, skill_summary: dict[str, Any]) -> dict[str, Any]:
+    points = local_skill_points(skill_summary)
+    return {
+        "points": points,
+        "max_points": 15,
+        "passed": points >= 9,
+        "reason": f"Local objective pre-score for {skill}; AI scoring is not applied to this skill.",
+    }
+
+
+def locked_local_scores(submission_context: dict[str, Any]) -> dict[str, Any]:
+    scoring = submission_context.get("scoring", {})
+    by_skill = scoring.get("by_skill", {}) if isinstance(scoring, dict) else {}
+    local_scores: dict[str, Any] = {}
+    for skill in ("listening", "reading"):
+        skill_summary = by_skill.get(skill, {}) if isinstance(by_skill, dict) else {}
+        if not isinstance(skill_summary, dict):
+            skill_summary = {}
+        local_scores[skill] = local_skill_score(skill, skill_summary)
+    return local_scores
+
+
 def normalize_score_section(raw_section: Any, *, skill: str) -> dict[str, Any]:
     if not isinstance(raw_section, dict):
         raise ValueError(f"Scores for {skill} must be an object.")
@@ -344,8 +387,13 @@ def validate_and_normalize_evaluation_payload(raw_payload: Any) -> dict[str, Any
     normalized_scores: dict[str, Any] = {}
     total = 0
     passed = True
-    for skill in ("listening", "reading", "writing", "speaking"):
-        normalized_section = normalize_score_section(scores.get(skill), skill=skill)
+    for skill in SCORING_SKILLS:
+        raw_section = scores.get(skill)
+        if raw_section is None:
+            if skill in FREE_TEXT_SKILLS:
+                raise ValueError(f"Scores for {skill} must be an object.")
+            continue
+        normalized_section = normalize_score_section(raw_section, skill=skill)
         normalized_scores[skill] = normalized_section
         total += normalized_section["points"]
         passed = passed and normalized_section["passed"]
@@ -358,6 +406,24 @@ def validate_and_normalize_evaluation_payload(raw_payload: Any) -> dict[str, Any
         "corrections": normalize_corrections(raw_payload.get("corrections", [])),
         "feedback": normalize_feedback(raw_payload.get("feedback", {})),
     }
+
+
+def merge_local_and_ai_scores(
+    normalized_evaluation: dict[str, Any],
+    submission_context: dict[str, Any],
+) -> dict[str, Any]:
+    scores = dict(normalized_evaluation.get("scores", {}))
+    local_scores = locked_local_scores(submission_context)
+    for skill in FREE_TEXT_SKILLS:
+        scores[skill] = scores.get(skill, {})
+    scores.update(local_scores)
+    total = sum(section.get("points", 0) for skill, section in scores.items() if skill in SCORING_SKILLS)
+    passed = all(section.get("passed", False) for skill, section in scores.items() if skill in SCORING_SKILLS)
+    scores["total"] = total
+    scores["passed"] = passed
+    merged = dict(normalized_evaluation)
+    merged["scores"] = scores
+    return merged
 
 
 def provider_call_once(config: dict[str, Any], submission_context: dict[str, Any], exam_context: str) -> dict[str, Any]:
@@ -474,6 +540,82 @@ def compact_submission(submission: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def ai_scoring_submission(submission: dict[str, Any]) -> dict[str, Any]:
+    scoring = submission.get("scoring", {})
+    by_skill = scoring.get("by_skill", {}) if isinstance(scoring, dict) else {}
+    answers = submission.get("answers", {}) if isinstance(submission, dict) else {}
+    answer_key = submission.get("answer_key", {}) if isinstance(submission, dict) else {}
+    validation_queue = submission.get("validation_queue", []) if isinstance(submission, dict) else []
+    if not isinstance(validation_queue, list):
+        validation_queue = []
+
+    free_text_answers: dict[str, Any] = {}
+    free_text_answer_key: dict[str, Any] = {}
+    free_text_scores: dict[str, Any] = {}
+    for skill in FREE_TEXT_SKILLS:
+        if isinstance(answers, dict) and isinstance(answers.get(skill), dict):
+            free_text_answers[skill] = answers[skill]
+        if isinstance(answer_key, dict) and isinstance(answer_key.get(skill), dict):
+            free_text_answer_key[skill] = answer_key[skill]
+        skill_summary = by_skill.get(skill, {}) if isinstance(by_skill, dict) else {}
+        if not isinstance(skill_summary, dict):
+            skill_summary = {}
+        free_text_scores[skill] = {
+            "objective_correct": skill_summary.get("objective_correct", 0),
+            "objective_possible": skill_summary.get("objective_possible", 0),
+            "manual_review_possible": skill_summary.get("manual_review_possible", 0),
+        }
+
+    filtered_validation_queue = [
+        item
+        for item in validation_queue
+        if isinstance(item, dict) and item.get("skill") in FREE_TEXT_SKILLS
+    ]
+
+    return {
+        "submission_id": submission.get("submission_id"),
+        "candidate": submission.get("candidate", {}),
+        "plan": submission.get("plan", DEFAULT_PLAN),
+        "exam_id": submission.get("exam_id"),
+        "exam_title": submission.get("exam_title"),
+        "level": submission.get("level", "A2"),
+        "language": submission.get("language", "lv"),
+        "pass_rule": submission.get("pass_rule", {}),
+        "progress": submission.get("progress", {}),
+        "answers": free_text_answers,
+        "answer_key": free_text_answer_key,
+        "scoring": {
+            "objective_correct": scoring.get("objective_correct", 0) if isinstance(scoring, dict) else 0,
+            "objective_possible": scoring.get("objective_possible", 0) if isinstance(scoring, dict) else 0,
+            "manual_review_possible": scoring.get("manual_review_possible", 0) if isinstance(scoring, dict) else 0,
+            "by_skill": free_text_scores,
+            "items": [
+                item
+                for item in scoring.get("items", []) if isinstance(item, dict) and item.get("skill") in FREE_TEXT_SKILLS
+            ] if isinstance(scoring, dict) else [],
+        },
+        "validation_queue": filtered_validation_queue,
+        "locked_scores": locked_local_scores(submission),
+    }
+
+
+def scoring_input_hash(provider: str, model: str, submission: dict[str, Any], exam_context: str) -> str:
+    payload = json.dumps(
+        {
+            "prompt_version": SCORING_PROMPT_VERSION,
+            "rubric_version": SCORING_RUBRIC_VERSION,
+            "provider": provider,
+            "model": model,
+            "submission": submission,
+            "exam_context": exam_context,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def env_flag(name: str) -> bool:
     return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -548,15 +690,23 @@ def build_evaluation_prompt(submission: dict[str, Any], exam_context: str) -> st
     return f"""
 You are a strict but helpful evaluator for the Latvian state language proficiency exam, A2 level.
 
+Prompt version: {SCORING_PROMPT_VERSION}
+Rubric version: {SCORING_RUBRIC_VERSION}
+
 Evaluate the candidate submission using the official-style pass rule:
 - Total maximum: 60 points.
 - Each skill maximum: 15 points.
 - Passing requires at least 9/15 in every skill.
 
 Use the exam Markdown, answer key, writing model answers, and speaking teacher notes as context.
+AI scoring applies only to writing and speaking free text.
+Listening and reading are locked to the local deterministic estimate already included in the submission; do not change those scores.
 Keep Latvian difficulty expectations at A2. Be generous with small spelling mistakes if the meaning is clear.
 Objective answers already have a local pre-score; verify them but do not invent hidden answers.
 For writing and speaking free text, score communicative success, task completion, vocabulary, grammar, and clarity.
+Use the deterministic rubric:
+- Writing: task completion, message clarity, vocabulary range, grammar control, and whether the response is understandable without guesswork.
+- Speaking: task completion, fluency, pronunciation cues if described, vocabulary range, grammar control, and whether the response answers the prompt directly.
 
 Return valid JSON only. Use this exact shape:
 {{
@@ -729,15 +879,17 @@ def evaluate_submission(submission: dict[str, Any], exam_markdown: str) -> dict[
     config = provider_config()
     exam_context = compact_exam_context(exam_markdown)
     submission_context = compact_submission(submission)
-    validate_submission_size(submission_context)
-    cache_key = submission_cache_key(submission_context, exam_context, config["provider"], config["model"])
+    ai_submission_context = ai_scoring_submission(submission_context)
+    validate_submission_size(ai_submission_context)
+    input_hash = scoring_input_hash(config["provider"], config["model"], ai_submission_context, exam_context)
+    cache_key = submission_cache_key(ai_submission_context, exam_context, config["provider"], config["model"])
     with EVALUATION_CACHE_LOCK:
         cached = EVALUATION_CACHE.get(cache_key)
     if cached:
         return cached
 
     identity = identity_from_submission(submission_context)
-    estimated_cost_cents = estimate_request_cost_cents(config["provider"], submission_context, exam_context)
+    estimated_cost_cents = estimate_request_cost_cents(config["provider"], ai_submission_context, exam_context)
     quota_snapshot = reserve_quota(identity, estimated_cost_cents)
 
     attempt_limit = retry_limit()
@@ -747,17 +899,26 @@ def evaluate_submission(submission: dict[str, Any], exam_markdown: str) -> dict[
     for attempt in range(1, attempt_limit + 1):
         started = time.perf_counter()
         try:
-            raw_result = provider_call_once(config, submission_context, exam_context)
+            raw_result = provider_call_once(config, ai_submission_context, exam_context)
             normalized_evaluation = validate_and_normalize_evaluation_payload(raw_result.get("evaluation"))
+            merged_evaluation = merge_local_and_ai_scores(normalized_evaluation, submission_context)
             result_payload = {
                 "status": "evaluated",
                 "provider": raw_result.get("provider", config["provider"]),
                 "model": raw_result.get("model", config["model"]),
-                "evaluation": normalized_evaluation,
+                "provider_status": "ok",
+                "prompt_version": SCORING_PROMPT_VERSION,
+                "rubric_version": SCORING_RUBRIC_VERSION,
+                "input_hash": input_hash,
+                "evaluation": merged_evaluation,
                 "usage": raw_result.get("usage", {}),
                 "telemetry": {
                     "identity": identity,
                     "plan": identity["plan"],
+                    "provider_status": "ok",
+                    "prompt_version": SCORING_PROMPT_VERSION,
+                    "rubric_version": SCORING_RUBRIC_VERSION,
+                    "input_hash": input_hash,
                     "quota": {
                         "key": quota_snapshot["quota_key"],
                         "request_limit": quota_snapshot["request_limit"],
@@ -766,7 +927,7 @@ def evaluate_submission(submission: dict[str, Any], exam_markdown: str) -> dict[
                     },
                     "request_bytes": len(
                         json.dumps(
-                            {"submission": submission_context, "exam_context": exam_context},
+                            {"submission": ai_submission_context, "exam_context": exam_context},
                             ensure_ascii=False,
                             sort_keys=True,
                             separators=(",", ":"),
@@ -777,6 +938,7 @@ def evaluate_submission(submission: dict[str, Any], exam_markdown: str) -> dict[
                         {
                             "attempt": attempt,
                             "status": "success",
+                            "provider_status": "ok",
                             "duration_ms": round((time.perf_counter() - started) * 1000, 2),
                         }
                     ],
@@ -788,7 +950,7 @@ def evaluate_submission(submission: dict[str, Any], exam_markdown: str) -> dict[
             record_audit_event(
                 {
                     "event": "evaluation.success",
-                    "submission": submission_context,
+                    "submission": ai_submission_context,
                     "provider": result_payload["provider"],
                     "model": result_payload["model"],
                     "telemetry": result_payload["telemetry"],
@@ -815,6 +977,7 @@ def evaluate_submission(submission: dict[str, Any], exam_markdown: str) -> dict[
             {
                 "attempt": attempt,
                 "status": "retrying" if attempt < attempt_limit else "failed",
+                "provider_status": "retrying" if attempt < attempt_limit else "failed",
                 "error": str(last_error),
                 "duration_ms": round((time.perf_counter() - started) * 1000, 2),
             }
@@ -830,9 +993,17 @@ def evaluate_submission(submission: dict[str, Any], exam_markdown: str) -> dict[
         "retry_state": "exhausted" if attempt_history else "not_started",
         "provider": config["provider"],
         "model": config["model"],
+        "provider_status": "failed",
+        "prompt_version": SCORING_PROMPT_VERSION,
+        "rubric_version": SCORING_RUBRIC_VERSION,
+        "input_hash": input_hash,
         "telemetry": {
             "identity": identity,
             "plan": identity["plan"],
+            "provider_status": "failed",
+            "prompt_version": SCORING_PROMPT_VERSION,
+            "rubric_version": SCORING_RUBRIC_VERSION,
+            "input_hash": input_hash,
             "quota": {
                 "key": quota_snapshot["quota_key"],
                 "request_limit": quota_snapshot["request_limit"],
@@ -841,7 +1012,7 @@ def evaluate_submission(submission: dict[str, Any], exam_markdown: str) -> dict[
             },
             "request_bytes": len(
                 json.dumps(
-                    {"submission": submission_context, "exam_context": exam_context},
+                    {"submission": ai_submission_context, "exam_context": exam_context},
                     ensure_ascii=False,
                     sort_keys=True,
                     separators=(",", ":"),
@@ -855,7 +1026,7 @@ def evaluate_submission(submission: dict[str, Any], exam_markdown: str) -> dict[
     record_audit_event(
         {
             "event": "evaluation.failure",
-            "submission": submission_context,
+            "submission": ai_submission_context,
             "provider": config["provider"],
             "model": config["model"],
             "status_code": int(last_status_code),
@@ -917,6 +1088,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "status": "failed",
                     "error": str(error),
                     "retry_state": error.retry_state,
+                    "provider_status": "failed",
                     "telemetry": error.telemetry,
                 },
             )

@@ -91,23 +91,40 @@ class ServerScoringTests(unittest.TestCase):
         server.AUDIT_LOG.clear()
 
     def test_successful_scoring_normalizes_payload_and_records_telemetry(self) -> None:
+        captured_submission: dict[str, object] = {}
+
+        def provider_call(config: dict[str, object], submission_context: dict[str, object], exam_context: str) -> dict[str, object]:
+            captured_submission.update(submission_context)
+            return build_provider_payload()
+
         with (
             mock.patch.object(server, "provider_config", return_value={"provider": "groq", "model": "test-model"}),
-            mock.patch.object(server, "provider_call_once", return_value=build_provider_payload()) as provider_call,
+            mock.patch.object(server, "provider_call_once", side_effect=provider_call) as provider_call_mock,
         ):
             result = server.evaluate_submission(build_submission(), build_exam_markdown())
 
         self.assertEqual(result["status"], "evaluated")
         self.assertEqual(result["provider"], "groq")
         self.assertEqual(result["model"], "test-model")
-        self.assertEqual(result["evaluation"]["scores"]["total"], 38)
+        self.assertEqual(result["provider_status"], "ok")
+        self.assertEqual(result["prompt_version"], server.SCORING_PROMPT_VERSION)
+        self.assertEqual(result["rubric_version"], server.SCORING_RUBRIC_VERSION)
+        self.assertEqual(len(result["input_hash"]), 64)
+        self.assertEqual(result["evaluation"]["scores"]["total"], 21)
         self.assertFalse(result["evaluation"]["scores"]["passed"])
-        self.assertEqual(result["evaluation"]["scores"]["listening"]["passed"], False)
+        self.assertEqual(result["evaluation"]["scores"]["listening"]["points"], 0)
+        self.assertEqual(result["evaluation"]["scores"]["listening"]["reason"], "Local objective pre-score for listening; AI scoring is not applied to this skill.")
         self.assertEqual(result["telemetry"]["identity"]["user_key"], "C-1001")
         self.assertEqual(result["telemetry"]["plan"], "free")
+        self.assertEqual(result["telemetry"]["provider_status"], "ok")
+        self.assertEqual(result["telemetry"]["prompt_version"], server.SCORING_PROMPT_VERSION)
+        self.assertEqual(result["telemetry"]["rubric_version"], server.SCORING_RUBRIC_VERSION)
+        self.assertEqual(result["telemetry"]["input_hash"], result["input_hash"])
         self.assertEqual(result["telemetry"]["quota"]["usage"]["requests"], 1)
+        self.assertEqual(sorted(captured_submission["answers"].keys()), ["speaking", "writing"])
+        self.assertEqual(sorted(captured_submission["scoring"]["by_skill"].keys()), ["speaking", "writing"])
+        self.assertEqual(provider_call_mock.call_count, 1)
         self.assertEqual(len(server.AUDIT_LOG), 1)
-        self.assertEqual(provider_call.call_count, 1)
 
     def test_invalid_model_response_is_retried_then_rejected(self) -> None:
         with (
