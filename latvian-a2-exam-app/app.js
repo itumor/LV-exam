@@ -370,17 +370,32 @@ async function bootstrapAuth() {
 }
 
 async function loadDashboard() {
-  if (state.auth.status !== "authenticated") return null;
-  const response = await fetch("/api/dashboard", { credentials: "same-origin" });
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.error || `Dashboard request failed with HTTP ${response.status}`);
-  }
-  state.auth.account = payload.account || state.auth.account;
-  state.auth.profile = payload.profile || state.auth.profile;
-  state.auth.dashboard = payload;
-  return payload;
-}
+   if (state.auth.status !== "authenticated") return null;
+   // Fetch basic dashboard data
+   const response = await fetch("/api/dashboard", { credentials: "same-origin" });
+   const payload = await response.json();
+   if (!response.ok) {
+     throw new Error(payload.error || `Dashboard request failed with HTTP ${response.status}`);
+   }
+   
+   // Fetch analytics data
+   try {
+     const analyticsResponse = await fetch("/api/attempts/analytics", { credentials: "same-origin" });
+     const analyticsPayload = await analyticsResponse.json();
+     if (analyticsResponse.ok) {
+       payload.analytics = analyticsPayload;
+     }
+   } catch (error) {
+     // If analytics fails, continue with basic dashboard data
+     console.warn("Failed to load analytics:", error);
+     payload.analytics = {};
+   }
+   
+   state.auth.account = payload.account || state.auth.account;
+   state.auth.profile = payload.profile || state.auth.profile;
+   state.auth.dashboard = payload;
+   return payload;
+ }
 
 function isAdminAccount() {
   return ["admin", "superadmin"].includes(state.auth.account?.role);
@@ -696,82 +711,124 @@ function renderAuth() {
 }
 
 function renderDashboard() {
-  if (!els.dashboardOutput) return;
-  if (state.auth.status !== "authenticated") {
-    els.dashboardOutput.innerHTML = `
-      <section class="dashboard-shell empty">
-        <h2>Protected dashboard</h2>
-        <p>Sign in to see attempts, latest score, and account controls.</p>
-      </section>
-    `;
-    return;
-  }
-  const dashboard = state.auth.dashboard || {};
-  const summary = dashboard.summary || {};
-  const attempts = Array.isArray(dashboard.attempts) ? dashboard.attempts : [];
-  const profile = state.auth.profile || dashboard.profile || {};
-  const latestScore = summary.latest_score ?? "—";
-  const skillCards = Object.entries(summary.skill_progress || {}).map(([skill, values]) => `
-    <article class="dashboard-stat">
-      <span>${escapeHtml(skill)}</span>
-      <strong>${escapeHtml(values.objective_correct || 0)} / ${escapeHtml(values.objective_possible || 0)}</strong>
-    </article>
-  `).join("");
-  els.dashboardOutput.innerHTML = `
-    <section class="dashboard-shell">
-      <article class="dashboard-card hero">
-        <p class="eyebrow">Dashboard</p>
-        <h2>${escapeHtml(profile.full_name || state.auth.account?.email || "Learner")}</h2>
-        <p>${escapeHtml(state.auth.account?.email || "")}</p>
-        <div class="dashboard-actions">
-          <button id="logout-button" class="btn btn-outline-light" type="button">Sign out</button>
-          <button id="export-account-button" class="btn btn-outline-light" type="button">Export account</button>
-          <button id="delete-account-button" type="button" class="btn btn-danger danger">Delete account</button>
-        </div>
-      </article>
-      <article class="dashboard-card">
-        <h3>Profile</h3>
-        <form id="profile-form" class="auth-form compact">
-          <label>Full name<input class="form-control" name="full_name" type="text" value="${escapeHtml(profile.full_name || "")}" required></label>
-          <label>Native language<input class="form-control" name="native_language" type="text" value="${escapeHtml(profile.native_language || "")}"></label>
-          <label>Exam target date<input class="form-control" name="exam_target_date" type="date" value="${escapeHtml(profile.exam_target_date || "")}"></label>
-          <label>Exam pack status
-            <select class="form-select" name="exam_pack_status">
-              ${["free", "paid", "trial"].map(value => `<option value="${value}" ${String(profile.exam_pack_status || "free") === value ? "selected" : ""}>${value}</option>`).join("")}
-            </select>
-          </label>
-          <button class="btn btn-primary" type="submit">Save profile</button>
-        </form>
-      </article>
-      <article class="dashboard-card metrics">
-        <div class="dashboard-metric"><span>Attempts taken</span><strong>${escapeHtml(summary.attempts_taken ?? 0)}</strong></div>
-        <div class="dashboard-metric"><span>Latest score</span><strong>${escapeHtml(latestScore)}</strong></div>
-        <div class="dashboard-metric"><span>Subscription</span><strong>${escapeHtml(summary.subscription_status || "free")}</strong></div>
-        <div class="dashboard-metric"><span>Protected access</span><strong>${state.auth.status === "authenticated" ? "On" : "Off"}</strong></div>
-      </article>
-      <article class="dashboard-card">
-        <h3>Skill progress</h3>
-        <div class="dashboard-stats-grid">${skillCards || "<p>No attempts saved yet.</p>"}</div>
-      </article>
-      <article class="dashboard-card attempts">
-        <h3>Recent attempts</h3>
-        ${attempts.length ? attempts.map(attempt => `
-          <div class="attempt-row">
-            <div>
-              <strong>${escapeHtml(attempt.exam_title)}</strong>
-              <p>${escapeHtml(attempt.submitted_at)}</p>
-            </div>
-            <span>${escapeHtml(attempt.score_total ?? "—")} points</span>
-          </div>
-        `).join("") : "<p>No server-backed attempts yet.</p>"}
-      </article>
-    </section>
-  `;
-  els.dashboardOutput.querySelector("#logout-button")?.addEventListener("click", () => logout());
-  els.dashboardOutput.querySelector("#delete-account-button")?.addEventListener("click", () => deleteAccount());
-  els.dashboardOutput.querySelector("#export-account-button")?.addEventListener("click", () => exportAccount());
-  els.dashboardOutput.querySelector("#profile-form")?.addEventListener("submit", handleProfileSubmit);
-}
+   if (!els.dashboardOutput) return;
+   if (state.auth.status !== "authenticated") {
+     els.dashboardOutput.innerHTML = `
+       <section class="dashboard-shell empty">
+         <h2>Protected dashboard</h2>
+         <p>Sign in to see attempts, latest score, and account controls.</p>
+       </section>
+     `;
+     return;
+   }
+   const dashboard = state.auth.dashboard || {};
+   const analytics = dashboard.analytics || {};
+   const summary = dashboard.summary || {};
+   const attempts = Array.isArray(dashboard.attempts) ? dashboard.attempts : [];
+   const profile = state.auth.profile || dashboard.profile || {};
+   const latestScore = summary.latest_score ?? "—";
+   const skillCards = Object.entries(summary.skill_progress || {}).map(([skill, values]) => `
+     <article class="dashboard-stat">
+       <span>${escapeHtml(skill)}</span>
+       <strong>${escapeHtml(values.objective_correct || 0)} / ${escapeHtml(values.objective_possible || 0)}</strong>
+     </article>
+   `).join("");
+   
+   // Analytics section
+   const analyticsSection = analytics.trends && analytics.trends.length > 0 ? `
+     <article class="dashboard-card analytics">
+       <h3>Progress Over Time</h3>
+       <div class="analytics-chart-container">
+         <canvas id="progressChart" height="80"></canvas>
+         <div class="chart-labels">
+           <div>Total Score Trend</div>
+           <div>Last updated: ${new Date().toLocaleDateString()}</div>
+         </div>
+       </div>
+       <div class="analytics-insights">
+         <h4>Category Performance</h4>
+         <div class="category-grid">
+           ${Object.entries(analytics.category_stats || {}).map(([category, stats]) => `
+             <div class="category-card ${stats.status}">
+               <h5>${escapeHtml(category.charAt(0).toUpperCase() + category.slice(1))}</h5>
+               <div class="score-value">${stats.average_score}/15</div>
+               <div class="status-label">${stats.label}</div>
+               <div class="attempt-count">${stats.attempt_count} attempts</div>
+             </div>
+           `).join("")}
+         </div>
+       </div>
+     </article>
+   ` : `
+     <article class="dashboard-card analytics empty">
+       <h3>Progress Over Time</h3>
+       <p>Complete more exams to see your progress trends and category insights.</p>
+     </article>
+   `;
+   
+   els.dashboardOutput.innerHTML = `
+     <section class="dashboard-shell">
+       <article class="dashboard-card hero">
+         <p class="eyebrow">Dashboard</p>
+         <h2>${escapeHtml(profile.full_name || state.auth.account?.email || "Learner")}</h2>
+         <p>${escapeHtml(state.auth.account?.email || "")}</p>
+         <div class="dashboard-actions">
+           <button id="logout-button" class="btn btn-outline-light" type="button">Sign out</button>
+           <button id="export-account-button" class="btn btn-outline-light" type="button">Export account</button>
+           <button id="delete-account-button" type="button" class="btn btn-danger danger">Delete account</button>
+         </div>
+       </article>
+       <article class="dashboard-card">
+         <h3>Profile</h3>
+         <form id="profile-form" class="auth-form compact">
+           <label>Full name<input class="form-control" name="full_name" type="text" value="${escapeHtml(profile.full_name || "")}" required></label>
+           <label>Native language<input class="form-control" name="native_language" type="text" value="${escapeHtml(profile.native_language || "")}"></label>
+           <label>Exam target date<input class="form-control" name="exam_target_date" type="date" value="${escapeHtml(profile.exam_target_date || "")}"></label>
+           <label>Exam pack status
+             <select class="form-select" name="exam_pack_status">
+               ${["free", "paid", "trial"].map(value => `<option value="${value}" ${String(profile.exam_pack_status || "free") === value ? "selected" : ""}>${value}</option>`).join("")}
+             </select>
+           </label>
+           <button class="btn btn-primary" type="submit">Save profile</button>
+         </form>
+       </article>
+       <article class="dashboard-card metrics">
+         <div class="dashboard-metric"><span>Attempts taken</span><strong>${escapeHtml(summary.attempts_taken ?? 0)}</strong></div>
+         <div class="dashboard-metric"><span>Latest score</span><strong>${escapeHtml(latestScore)}</strong></div>
+         <div class="dashboard-metric"><span>Subscription</span><strong>${escapeHtml(summary.subscription_status || "free")}</strong></div>
+         <div class="dashboard-metric"><span>Protected access</span><strong>${state.auth.status === "authenticated" ? "On" : "Off"}</strong></div>
+       </article>
+       <article class="dashboard-card">
+         <h3>Skill progress</h3>
+         <div class="dashboard-stats-grid">${skillCards || "<p>No attempts saved yet.</p>"}</div>
+       </article>
+       ${analyticsSection}
+       <article class="dashboard-card attempts">
+         <h3>Recent attempts</h3>
+         ${attempts.length ? attempts.map(attempt => `
+           <div class="attempt-row">
+             <div>
+               <strong>${escapeHtml(attempt.exam_title)}</strong>
+               <p>${escapeHtml(attempt.submitted_at)}</p>
+             </div>
+             <span>${escapeHtml(attempt.score_total ?? "—")} points</span>
+           </div>
+         `).join("") : "<p>No server-backed attempts yet.</p>"}
+       </article>
+     </section>
+   `;
+   
+   // Add event listeners
+   els.dashboardOutput.querySelector("#logout-button")?.addEventListener("click", () => logout());
+   els.dashboardOutput.querySelector("#delete-account-button")?.addEventListener("click", () => deleteAccount());
+   els.dashboardOutput.querySelector("#export-account-button")?.addEventListener("click", () => exportAccount());
+   els.dashboardOutput.querySelector("#profile-form")?.addEventListener("submit", handleProfileSubmit);
+   
+   // Initialize chart if we have data
+   if (analytics.trends && analytics.trends.length > 0) {
+     initProgressChart(analytics.trends);
+   }
+ }
 
 function renderAdmin() {
   if (!els.adminOutput) return;
@@ -2038,12 +2095,158 @@ function downloadCandidateReportPdf() {
 }
 
 function formatLongTime(seconds) {
-  const safeSeconds = Math.max(0, Number(seconds) || 0);
-  const hours = Math.floor(safeSeconds / 3600);
-  const minutes = Math.floor((safeSeconds % 3600) / 60);
-  const secs = safeSeconds % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-}
+   const safeSeconds = Math.max(0, Number(seconds) || 0);
+   const hours = Math.floor(safeSeconds / 3600);
+   const minutes = Math.floor((safeSeconds % 3600) / 60);
+   const secs = safeSeconds % 60;
+   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+ }
+
+function initProgressChart(trendsData) {
+   // Check if Chart.js is available (it should be loaded via CDN in the HTML)
+   if (typeof Chart === 'undefined') {
+     console.warn('Chart.js not available, skipping chart initialization');
+     return;
+   }
+   
+   const ctx = document.getElementById('progressChart');
+   if (!ctx) return;
+   
+   // Prepare data for chart
+   const labels = trendsData.map(trend => {
+     const date = new Date(trend.submitted_at);
+     return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+   });
+   
+   const totalScores = trendsData.map(trend => trend.total_score);
+   
+   // Category scores
+   const categoryScores = {
+     listening: [],
+     reading: [],
+     writing: [],
+     speaking: []
+   };
+   
+   trendsData.forEach(trend => {
+     Object.keys(categoryScores).forEach(category => {
+       categoryScores[category].push(trend.categories[category]?.score || 0);
+     });
+   });
+   
+   // Destroy existing chart if present
+   if (ctx.chart) {
+     ctx.chart.destroy();
+   }
+   
+   // Create new chart
+   ctx.chart = new Chart(ctx, {
+     type: 'line',
+     data: {
+       labels: labels,
+       datasets: [
+         {
+           label: 'Total Score',
+           data: totalScores,
+           borderColor: '#146b63',
+           backgroundColor: 'rgba(20, 107, 99, 0.1)',
+           tension: 0.1,
+           fill: true,
+           yAxisID: 'y-total'
+         },
+         {
+           label: 'Listening',
+           data: categoryScores.listening,
+           borderColor: '#ff6b6b',
+           backgroundColor: 'rgba(255, 107, 107, 0.1)',
+           tension: 0.1,
+           hidden: true
+         },
+         {
+           label: 'Reading',
+           data: categoryScores.reading,
+           borderColor: '#4ecdc4',
+           backgroundColor: 'rgba(78, 205, 196, 0.1)',
+           tension: 0.1,
+           hidden: true
+         },
+         {
+           label: 'Writing',
+           data: categoryScores.writing,
+           borderColor: '#45b7d1',
+           backgroundColor: 'rgba(69, 183, 209, 0.1)',
+           tension: 0.1,
+           hidden: true
+         },
+         {
+           label: 'Speaking',
+           data: categoryScores.speaking,
+           borderColor: '#96ceb4',
+           backgroundColor: 'rgba(150, 206, 180, 0.1)',
+           tension: 0.1,
+           hidden: true
+         }
+       ]
+     },
+     options: {
+       responsive: true,
+       maintainAspectRatio: false,
+       interaction: {
+         mode: 'index',
+         intersect: false,
+       },
+       scales: {
+         y: {
+           type: 'linear',
+           display: true,
+           position: 'left',
+           id: 'y-total',
+           min: 0,
+           max: 60,
+           ticks: {
+             stepSize: 10,
+             callback: function(value) {
+               return value + ' pts';
+             }
+           }
+         },
+         y1: {
+           type: 'linear',
+           display: false,
+           position: 'right',
+           id: 'y-category',
+           min: 0,
+           max: 15,
+           ticks: {
+             stepSize: 3,
+             callback: function(value) {
+               return value + ' pts';
+             }
+           }
+         },
+         x: {
+           display: true,
+           ticks: {
+             maxRotation: 45,
+             minRotation: 45
+           }
+         }
+       },
+       plugins: {
+         title: {
+           display: false
+         },
+         legend: {
+           position: 'top',
+         },
+         tooltip: {
+           mode: 'index',
+           intersect: false,
+         }
+       }
+     }
+   });
+ }
 
 function formatTaskProgress(progress) {
   return `${progress.answered}/${progress.total} responses`;

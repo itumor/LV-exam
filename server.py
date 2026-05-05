@@ -772,6 +772,22 @@ def init_auth_store() -> None:
                 created_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS exam_attempt_category_score (
+                id TEXT PRIMARY KEY,
+                attempt_id TEXT NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
+                account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+                category TEXT NOT NULL CHECK (category IN ('listening', 'reading', 'writing', 'speaking')),
+                score_0_to_15 INTEGER NOT NULL CHECK (score_0_to_15 >= 0 AND score_0_to_15 <= 15),
+                passed_boolean BOOLEAN NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_exam_attempt_category_score_attempt_category 
+            ON exam_attempt_category_score(attempt_id, category);
+
+            CREATE INDEX IF NOT EXISTS idx_exam_attempt_category_score_account_category 
+            ON exam_attempt_category_score(account_id, category, created_at DESC);
+
             CREATE TABLE IF NOT EXISTS ai_evaluations (
                 id TEXT PRIMARY KEY,
                 attempt_id TEXT NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
@@ -1535,6 +1551,29 @@ def submit_attempt(attempt_id: str, session: dict[str, Any]) -> dict[str, Any]:
                 now,
             ),
         )
+        # Insert category scores
+        by_skill = scoring.get("by_skill", {})
+        for skill in ("listening", "reading", "writing", "speaking"):
+            skill_data = by_skill.get(skill, {})
+            objective_correct = int(skill_data.get("objective_correct", 0))
+            passed_boolean = objective_correct >= 9
+            category_score_id = f"category_score_{secrets.token_hex(8)}"
+            conn.execute(
+                """
+                INSERT INTO exam_attempt_category_score 
+                (id, attempt_id, account_id, category, score_0_to_15, passed_boolean, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    category_score_id,
+                    attempt_id,
+                    session["account"]["id"],
+                    skill,
+                    objective_correct,
+                    passed_boolean,
+                    now,
+                ),
+            )
         conn.execute(
             """
             UPDATE attempts
@@ -2853,6 +2892,191 @@ class AppHandler(SimpleHTTPRequestHandler):
                 payload = safe_read_json(self)
                 session = require_session(self)
                 json_response(self, HTTPStatus.CREATED, start_attempt(payload, session))
+                return
+            if self.path == "/api/attempts/history":
+                session = require_session(self)
+                query = urllib.parse.urlparse(self.path).query
+                params = urllib.parse.parse_qs(query)
+                exam_id = params.get("exam_id", [None])[0]
+                days_back = params.get("days_back", [None])[0]
+                limit_param = params.get("limit", [None])[0]
+                limit = int(limit_param) if limit_param and limit_param.isdigit() else 50
+                with db_connection() as conn:
+                    account_id = session["account"]["id"]
+                    if exam_id:
+                        attempts = conn.execute(
+                            """
+                            SELECT * FROM attempts 
+                            WHERE account_id = ? AND exam_id = ? 
+                            ORDER BY submitted_at DESC 
+                            LIMIT ?
+                            """,
+                            (account_id, exam_id, limit),
+                        ).fetchall()
+                    elif days_back and days_back.isdigit():
+                        cutoff_time = (datetime.now(timezone.utc) - timedelta(days=int(days_back))).isoformat()
+                        attempts = conn.execute(
+                            """
+                            SELECT * FROM attempts 
+                            WHERE account_id = ? AND submitted_at >= ? 
+                            ORDER BY submitted_at DESC 
+                            LIMIT ?
+                            """,
+                            (account_id, cutoff_time, limit),
+                        ).fetchall()
+                    else:
+                        attempts = conn.execute(
+                            """
+                            SELECT * FROM attempts 
+                            WHERE account_id = ? 
+                            ORDER BY submitted_at DESC 
+                            LIMIT ?
+                            """,
+                            (account_id, limit),
+                        ).fetchall()
+                json_response(self, HTTPStatus.OK, {"attempts": [serialize_attempt(row) for row in attempts]})
+                return
+            if self.path == "/api/attempts/analytics":
+                session = require_session(self)
+                with db_connection() as conn:
+                    account_id = session["account"]["id"]
+                    # Get category averages over time
+                    category_trends = conn.execute(
+                        """
+                        SELECT 
+                            category,
+                            AVG(score_0_to_15) as avg_score,
+                            COUNT(*) as attempt_count,
+                            MAX(created_at) as latest_attempt
+                        FROM exam_attempt_category_score
+                        WHERE account_id = ?
+                        GROUP BY category
+                        """,
+                        (account_id,),
+                    ).fetchall()
+                    
+                    # Get recent attempts with scores for trend analysis
+                    recent_attempts = conn.execute(
+                        """
+                        SELECT 
+                            a.id,
+                            a.exam_id,
+                            a.exam_title,
+                            a.submitted_at,
+                            a.score_total,
+                            eacs.category,
+                            eacs.score_0_to_15,
+                            eacs.passed_boolean
+                        FROM attempts a
+                        JOIN exam_attempt_category_score eacs ON a.id = eacs.attempt_id
+                        WHERE a.account_id = ?
+                        ORDER BY a.submitted_at DESC
+                        LIMIT 20
+                        """,
+                        (account_id,),
+                    ).fetchall()
+                    
+                    # Process data for analytics
+                    trends_data = {}
+                    for row in recent_attempts:
+                        attempt_id = row["id"]
+                        if attempt_id not in trends_data:
+                            trends_data[attempt_id] = {
+                                "attempt_id": attempt_id,
+                                "exam_id": row["exam_id"],
+                                "exam_title": row["exam_title"],
+                                "submitted_at": row["submitted_at"],
+                                "total_score": row["score_total"],
+                                "categories": {}
+                            }
+                        trends_data[attempt_id]["categories"][row["category"]] = {
+                            "score": row["score_0_to_15"],
+                            "passed": bool(row["passed_boolean"])
+                        }
+                    
+                    # Calculate strengths and weaknesses
+                    category_stats = {}
+                    for row in category_trends:
+                        category = row["category"]
+                        avg_score = float(row["avg_score"])
+                        attempt_count = int(row["attempt_count"])
+                        
+                        # Determine strength/weakness based on consistent performance
+                        if avg_score >= 12:
+                            status = "strong"
+                            label = "Strong"
+                        elif avg_score < 9:
+                            status = "weak"
+                            label = "Needs Improvement"
+                        else:
+                            status = "borderline"
+                            label = "Developing"
+                            
+                        category_stats[category] = {
+                            "average_score": round(avg_score, 1),
+                            "attempt_count": attempt_count,
+                            "status": status,
+                            "label": label,
+                            "latest_attempt": row["latest_attempt"]
+                        }
+                    
+                    # Overall statistics
+                    overall_avg = conn.execute(
+                        """
+                        SELECT AVG(score_total) as avg_total
+                        FROM attempts
+                        WHERE account_id = ? AND score_total IS NOT NULL
+                        """,
+                        (account_id,),
+                    ).fetchone()
+                    
+                    pass_rate = conn.execute(
+                        """
+                        SELECT 
+                            COUNT(*) as total_attempts,
+                            SUM(CASE WHEN score_total >= 36 THEN 1 ELSE 0 END) as passed_attempts
+                        FROM attempts
+                        WHERE account_id = ? AND score_total IS NOT NULL
+                        """,
+                        (account_id,),
+                    ).fetchone()
+                    
+                    # Recent streak (consecutive passed attempts)
+                    streak_data = conn.execute(
+                        """
+                        WITH ordered_attempts AS (
+                            SELECT 
+                                score_total,
+                                ROW_NUMBER() OVER (ORDER BY submitted_at DESC) as rn
+                            FROM attempts
+                            WHERE account_id = ? AND score_total IS NOT NULL
+                        ),
+                        failed_attempts AS (
+                            SELECT MIN(rn) as first_failed_rn
+                            FROM ordered_attempts
+                            WHERE score_total < 36
+                        )
+                        SELECT 
+                            COUNT(*) as streak
+                        FROM ordered_attempts, failed_attempts
+                        WHERE score_total >= 36
+                          AND rn <= COALESCE((SELECT first_failed_rn FROM failed_attempts), 
+                                             (SELECT MAX(rn) FROM ordered_attempts) + 1)
+                        """,
+                        (account_id,),
+                    ).fetchone()
+                
+                json_response(self, HTTPStatus.OK, {
+                    "trends": list(trends_data.values()),
+                    "category_stats": category_stats,
+                    "overall": {
+                        "average_score": round(overall_avg["avg_total"], 1) if overall_avg["avg_total"] else 0,
+                        "pass_rate": round((pass_rate["passed_attempts"] / pass_rate["total_attempts"] * 100) if pass_rate["total_attempts"] > 0 else 0, 1),
+                        "total_attempts": pass_rate["total_attempts"],
+                        "passed_attempts": pass_rate["passed_attempts"],
+                        "current_streak": streak_data["streak"] if streak_data["streak"] else 0
+                    }
+                })
                 return
             answer_match = re.fullmatch(r"/api/attempts/([^/]+)/answers", parsed.path)
             if answer_match:
