@@ -2751,8 +2751,10 @@ async function submitAnswers(options = {}) {
     state.submission = buildSubmission("submitted");
     persistSubmission(state.submission);
     state.evaluation = null;
-    setFlowScreen("results");
+    renderRunner();
     renderSubmission();
+    renderBilling();
+    setFlowScreen("results");
     if (!options.autoSubmitted) {
       setView("submission");
     }

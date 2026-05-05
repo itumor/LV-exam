@@ -65,7 +65,7 @@ test("full learner journey reaches submission history and AI scoring", async ({ 
   expect(stored.some(entry => entry.status === "submitted" && entry.ai_evaluation?.evaluation?.scores?.total === 60)).toBe(true);
 });
 
-test("timer expiry stops the current part and shows zero remaining time", async ({ page }) => {
+test("timer expiry zeros listening timer and advances the exam to reading", async ({ page }) => {
   await enterExamFlow(page);
 
   await page.evaluate(() => {
@@ -79,16 +79,20 @@ test("timer expiry stops the current part and shows zero remaining time", async 
     return Boolean(timer && timer.remaining === 0 && timer.running === false);
   });
 
-  const listeningSnapshot = await page.evaluate(() => {
-    const hooks = window.__a2TestHooks;
-    const listening = hooks && hooks.getState().runner.timers.listening;
-    const mins = Math.floor(listening.remaining / 60);
-    const secs = listening.remaining % 60;
-    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  const snapshot = await page.evaluate(() => {
+    const s = window.__a2TestHooks.getState();
+    return {
+      listening: s.runner.timers.listening,
+      activePart: s.runner.activePart
+    };
   });
-  expect(listeningSnapshot).toBe("00:00");
-  const activeAfterExpiry = await page.evaluate(() => window.__a2TestHooks.getState().runner.activePart);
-  expect(activeAfterExpiry).not.toBe("listening");
+  expect(snapshot.listening.remaining).toBe(0);
+  expect(snapshot.listening.running).toBe(false);
+  expect(snapshot.activePart).toBe("reading");
+
+  await expect(page.getByRole("heading", { name: "Lasīšana / Reading" })).toBeVisible();
+  await expect(page.locator('[data-timer="reading"]')).toBeVisible();
+  await expect(page.locator('button[data-action="start"][data-part="reading"]')).toBeDisabled();
 });
 
 test("AI scoring shows quota errors, then succeeds on retry", async ({ page }) => {
