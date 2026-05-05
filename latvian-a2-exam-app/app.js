@@ -98,7 +98,7 @@ const PART_CONFIG = [
 
 const FLOW_SCREENS = new Set(["home", "register", "instructions", "exam", "results"]);
 const DEBUG_VIEWS = new Set(["markdown", "json", "tts", "prompts", "quality"]);
-const PROTECTED_VIEWS = new Set(["dashboard", "billing", "admin"]);
+const PROTECTED_VIEWS = new Set(["dashboard", "admin"]);
 
 function normalizeIncomingFlowScreen(screen) {
   if (!screen) return "";
@@ -139,6 +139,7 @@ const els = {
   jsonOutput: document.querySelector("#json-output"),
   submissionOutput: document.querySelector("#submission-output"),
   billingOutput: document.querySelector("#billing-output"),
+  helpOutput: document.querySelector("#help-output"),
   ttsOutput: document.querySelector("#tts-output"),
   promptOutput: document.querySelector("#prompt-output"),
   qualityOutput: document.querySelector("#quality-output"),
@@ -210,11 +211,15 @@ async function init() {
     });
   });
 
-  document.getElementById("quick-start-exam")?.addEventListener("click", () => startExamFromMenu());
+  document.getElementById("quick-start-exam")?.addEventListener("click", () => {
+    state.flow.screen = "home";
+    setView("runner");
+    renderRunner();
+  });
   document.getElementById("quick-resume")?.addEventListener("click", () => resumeExam());
   document.getElementById("quick-status")?.addEventListener("click", () => { setView("billing"); handleSubView("billing", "status"); });
   document.getElementById("quick-buy")?.addEventListener("click", () => { setView("billing"); handleSubView("billing", "purchase"); });
-  document.getElementById("quick-help")?.addEventListener("click", () => showToast("Sazinieties ar atbalstu: support@codex.lv"));
+  document.getElementById("quick-help")?.addEventListener("click", () => setView("help"));
   document.getElementById("quick-manual")?.addEventListener("click", () => showManual());
   initializeMegaDropdown();
   document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
@@ -3825,7 +3830,8 @@ function renderHelp() {
    // Determine language: check URL param first, then stored language, then browser
    const urlParams = new URLSearchParams(window.location.search);
    const langParam = urlParams.get('lang');
-   const preferredLang = langParam || state.helpLang || (navigator.language || navigator.userLanguage || '').startsWith('lv') ? 'lv' : 'en';
+   const browserLang = navigator.language || navigator.userLanguage || "";
+   const preferredLang = langParam || state.helpLang || (browserLang.startsWith('lv') ? 'lv' : 'en');
    
    // Fetch and display the manual
    const manualFile = preferredLang === 'lv' ? 'USER_MANUAL.md' : 'USER_MANUAL_EN.md';
@@ -4475,8 +4481,8 @@ function updateQuickActions() {
   const hasInProgress = dashboard?.attempts?.some(a => a.status === "in_progress");
 
   if (quickStart) {
-    quickStart.disabled = attempts <= 0;
-    quickStart.title = attempts <= 0 ? "Nav atlikušu mēģinājumu" : "Sākt jaunu eksāmenu";
+    quickStart.disabled = false;
+    quickStart.title = attempts <= 0 ? "Open exam start and access options" : "Start a new exam";
   }
   if (quickResume) {
     quickResume.classList.toggle("d-none", !hasInProgress);

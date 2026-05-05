@@ -259,9 +259,9 @@ body,
   transform: none;
 }
 
-/* Sidebar Menu - New Navigation Structure */
+/* Legacy sidebar navigation is superseded by the header mega menu. */
 .sidebar-menu {
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 8px;
   margin: 0;
@@ -562,7 +562,7 @@ body,
 }
 
 .sidebar-menu {
-  display: flex;
+  display: none;
 }
 
 .admin-section {
@@ -885,12 +885,11 @@ body,
   color: var(--on-surface);
 }
 
-body[data-authenticated="false"] .view:not(#auth-view):not(#runner-view):not(#submission-view) {
+body[data-authenticated="false"] .view:not(#auth-view):not(#runner-view):not(#submission-view):not(#billing-view):not(#help-view) {
   display: none;
 }
 
-body[data-authenticated="false"] .exam-tools,
-body[data-authenticated="false"] .workspace-bar {
+body[data-authenticated="false"] .exam-tools {
   display: none;
 }
 

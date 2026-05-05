@@ -153,6 +153,29 @@ test("mega dropdown navigates to help, billing, and exam runner destinations", a
   await expect(page.locator("#runner-view")).toHaveClass(/active/);
 });
 
+test("header shortcuts replace the old sidebar navigation", async ({ page }) => {
+  await page.goto("/latvian-a2-exam-app/");
+
+  await expect(page.locator(".sidebar-menu")).toBeHidden();
+  await expect(page.locator("#quick-start-exam")).toBeEnabled();
+
+  await page.locator("#quick-start-exam").click();
+  await expect(page.locator("#workspace-title")).toHaveText("Exam Runner");
+  await expect(page.getByRole("heading", { name: "State Language Exam - Level A2" })).toBeVisible();
+
+  await page.locator("#quick-status").click();
+  await expect(page.locator("#workspace-title")).toHaveText("Billing");
+  await expect(page.getByRole("heading", { name: "Current access" })).toBeVisible();
+
+  await page.locator("#quick-buy").click();
+  await expect(page.locator("#workspace-title")).toHaveText("Billing");
+  await expect(page.getByRole("heading", { name: "Purchase options" })).toBeVisible();
+
+  await page.locator("#quick-help").click();
+  await expect(page.locator("#workspace-title")).toHaveText("User Manual");
+  await expect(page.locator("#help-output")).toContainText(/Lietot|User Manual/i);
+});
+
 test("full learner journey reaches submission history and AI scoring", async ({ page }) => {
   const successPayload = readJson("ai-evaluation-success.json");
 
