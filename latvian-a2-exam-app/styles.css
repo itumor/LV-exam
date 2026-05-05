@@ -53,14 +53,15 @@ body,
   z-index: 50;
   border-bottom: 1px solid var(--outline-variant);
   background: var(--surface-container-lowest);
+  overflow: visible;
 }
 
 .exam-appbar-inner {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto minmax(132px, auto);
-  gap: 26px;
+  grid-template-columns: minmax(220px, 1fr) auto minmax(132px, auto) auto;
+  gap: 22px;
   align-items: center;
-  width: min(100%, 1024px);
+  width: min(100%, 1600px);
   min-height: 72px;
   margin: 0 auto;
   padding: 0 24px;
@@ -385,6 +386,136 @@ body,
 .exam-appbar-actions .btn {
   font-size: 12px;
   padding: 4px 10px;
+}
+
+.mega-nav {
+  position: relative;
+}
+
+.mega-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+
+.mega-trigger span {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 160ms ease;
+}
+
+.mega-trigger[aria-expanded="true"] span {
+  transform: rotate(225deg) translateY(-2px);
+}
+
+.mega-dropdown {
+  position: absolute;
+  top: calc(100% + 18px);
+  right: 0;
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: 230px minmax(420px, 1fr);
+  width: min(920px, calc(100vw - 48px));
+  max-height: min(680px, calc(100vh - 110px));
+  overflow: auto;
+  border: 1px solid var(--outline-variant);
+  border-radius: 8px;
+  background: var(--surface-container-lowest);
+  box-shadow: var(--shadow);
+}
+
+.mega-dropdown[hidden] {
+  display: none;
+}
+
+.mega-dropdown-rail {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--outline-variant);
+  background: var(--surface-container-low);
+}
+
+.mega-rail-item {
+  min-height: 56px;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--outline-variant);
+  background: transparent;
+  color: var(--on-surface);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  padding: 14px 18px;
+}
+
+.mega-rail-item:hover,
+.mega-rail-item:focus-visible,
+.mega-rail-item.active {
+  border-left-color: var(--primary-container);
+  background: var(--surface-container-lowest);
+  color: var(--primary);
+  outline: none;
+}
+
+.mega-dropdown-content {
+  min-width: 0;
+  padding: 28px;
+}
+
+.mega-panel {
+  display: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.mega-panel.active {
+  display: grid;
+}
+
+.mega-panel[hidden] {
+  display: none;
+}
+
+.mega-column {
+  min-width: 0;
+  padding-right: 22px;
+  border-right: 1px solid var(--outline-variant);
+}
+
+.mega-column:last-child {
+  border-right: 0;
+}
+
+.mega-column h2 {
+  margin: 0 0 14px;
+  color: var(--primary-container);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.mega-column button {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--on-surface);
+  font: inherit;
+  text-align: left;
+  padding: 8px 10px;
+}
+
+.mega-column button:hover,
+.mega-column button:focus-visible {
+  background: var(--surface-container);
+  color: var(--primary);
+  outline: 2px solid transparent;
 }
 
 .breadcrumb-nav {
@@ -5516,7 +5647,24 @@ body[data-flow-screen="candidate"] .workspace {
 
 @media (max-width: 767px) {
   .exam-appbar-inner {
-    flex-wrap: nowrap;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    min-height: auto;
+    padding: 10px 14px;
+  }
+
+  .exam-brand-title {
+    white-space: normal;
+    font-size: 15px;
+    line-height: 1.15;
+  }
+
+  .exam-part-nav {
+    display: none;
+  }
+
+  .exam-appbar-status {
+    display: none;
   }
 
   .sidebar {
@@ -5539,13 +5687,72 @@ body[data-flow-screen="candidate"] .workspace {
   }
 
   .exam-appbar-actions {
+    display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
   }
 
   .exam-appbar-actions .btn {
     white-space: nowrap;
     font-size: 12px;
     padding: 4px 8px;
+  }
+
+  .exam-appbar-actions > .btn:not(.mega-trigger) {
+    display: none;
+  }
+
+  .mega-dropdown {
+    position: fixed;
+    top: 58px;
+    right: 12px;
+    left: 12px;
+    grid-template-columns: 1fr;
+    width: auto;
+    max-height: calc(100vh - 76px);
+  }
+
+  .mega-dropdown-rail {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: 0;
+    border-bottom: 1px solid var(--outline-variant);
+  }
+
+  .mega-rail-item {
+    flex: 1 1 132px;
+    min-height: 48px;
+    border-left: 0;
+    border-bottom: 1px solid var(--outline-variant);
+  }
+
+  .mega-rail-item:hover,
+  .mega-rail-item:focus-visible,
+  .mega-rail-item.active {
+    box-shadow: inset 0 -3px 0 var(--primary-container);
+  }
+
+  .mega-dropdown-content {
+    padding: 18px;
+  }
+
+  .mega-panel,
+  .mega-panel.active {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .mega-column {
+    border-right: 0;
+    border-bottom: 1px solid var(--outline-variant);
+    padding: 0 0 16px;
+  }
+
+  .mega-column:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
   }
 }
