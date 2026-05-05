@@ -1,0 +1,20 @@
+{
+  "assignee_id": "a28bed4b-eacf-430a-ae0e-2cd62f9b6759",
+  "assignee_type": "agent",
+  "created_at": "2026-05-01T12:53:39Z",
+  "creator_id": "56f22d06-1f76-4c31-8eda-553a9552317c",
+  "creator_type": "member",
+  "description": "Tasks:\n1. Rename learner-facing UI from Studio to Exam Simulator.\n2. Hide developer/debug panels by default: Markdown, JSON, TTS, Images, Quality.\n3. Add learner flow: welcome, candidate details, instructions, listening, reading, writing, speaking, results.\n4. Add real simulation mode and practice mode.\n5. Implement real mode restrictions: locked order, no answer key exposure, no casual section switching, auto-submit on timer end.\n6. Improve result page with skill scores, pass/fail per skill, total out of 60, weak areas, next-practice suggestions.\n\nAcceptance criteria:\n- Normal learner cannot access answer keys or debug panels.\n- Real simulation mode creates exactly one attempt flow.\n- Practice mode allows section-level practice/review.\n- UI has basic accessibility labels and keyboard navigation.\n- Include tests for mode switching, timer expiry, and results rendering.",
+  "due_date": null,
+  "id": "e60e3ab5-16e0-421e-a080-24eed84f884e",
+  "identifier": "HUM-8",
+  "number": 8,
+  "parent_issue_id": null,
+  "position": 0,
+  "priority": "high",
+  "project_id": "fadba75a-251e-45bb-bc18-d9e6494af677",
+  "status": "todo",
+  "title": "[Frontend] Productize learner exam flow and hide debug views",
+  "updated_at": "2026-05-01T12:53:39Z",
+  "workspace_id": "171c2f75-7788-47d2-85aa-e5753bc2925b"
+}

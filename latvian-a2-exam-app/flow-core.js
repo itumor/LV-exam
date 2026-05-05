@@ -1,7 +1,6 @@
 /* eslint-disable no-undef */
 (function (global) {
   const PART_ORDER = ["listening", "reading", "writing", "speaking"];
-
   const FLOW_STEPS = [
     { key: "welcome", label: "Welcome" },
     { key: "candidate", label: "Candidate details" },
@@ -12,7 +11,6 @@
     { key: "speaking", label: "Speaking" },
     { key: "results", label: "Results" }
   ];
-
   const DEFAULT_SKILL_LABELS = {
     listening: "Listening",
     reading: "Reading",
@@ -25,11 +23,7 @@
       screen: "welcome",
       mode: "exam",
       debugMode: false,
-      candidate: {
-        code: "",
-        firstName: "",
-        lastName: ""
-      },
+      candidate: { code: "", firstName: "", lastName: "" },
       ...overrides
     };
   }
@@ -43,7 +37,7 @@
     const clone = JSON.parse(JSON.stringify(submission));
     delete clone.answer_key;
     delete clone.validation_queue;
-    if (clone.scoring && clone.scoring.items) {
+    if (clone.scoring && Array.isArray(clone.scoring.items)) {
       clone.scoring.items = clone.scoring.items.map(item => ({
         skill: item.skill,
         task: item.task,
@@ -59,10 +53,7 @@
   }
 
   function estimateSkillPoints(score = {}) {
-    if (!score) return 0;
-    if (typeof score.points === "number") {
-      return clampScore(score.points, 0, 15);
-    }
+    if (typeof score.points === "number") return clampScore(score.points, 0, 15);
     const correct = Number(score.objective_correct || 0);
     const possible = Math.max(1, Number(score.objective_possible || 0));
     return clampScore(Math.round((correct / possible) * 15), 0, 15);
@@ -70,14 +61,12 @@
 
   function buildResultsSummary({ submission, evaluation, partConfig = [], skillLabels = DEFAULT_SKILL_LABELS }) {
     const evaluationScores = evaluation?.evaluation?.scores || {};
-    const resolvedScores = partConfig.map(part => {
+    const scores = partConfig.map(part => {
       const rawScore = evaluationScores[part.key];
       const points = rawScore && typeof rawScore.points === "number"
         ? clampScore(rawScore.points, 0, 15)
         : estimateSkillPoints(submission?.scoring?.by_skill?.[part.key]);
-      const passed = rawScore && typeof rawScore.passed === "boolean"
-        ? rawScore.passed
-        : points >= 9;
+      const passed = rawScore && typeof rawScore.passed === "boolean" ? rawScore.passed : points >= 9;
       return {
         key: part.key,
         label: skillLabels[part.key] || part.title || part.key,
@@ -87,30 +76,21 @@
         reason: rawScore?.reason || ""
       };
     });
-
-    const total = resolvedScores.reduce((sum, item) => sum + item.points, 0);
-    const weakAreas = resolvedScores
-      .filter(item => item.points < 9)
-      .map(item => item.label);
-    const sortedByNeed = [...resolvedScores].sort((a, b) => a.points - b.points);
-    const nextPractice = sortedByNeed.slice(0, 2).map(item => item.label);
-
+    const total = scores.reduce((sum, item) => sum + item.points, 0);
+    const weakAreas = scores.filter(item => item.points < 9).map(item => item.label);
+    const nextPractice = [...scores].sort((a, b) => a.points - b.points).slice(0, 2).map(item => item.label);
     return {
       total,
       totalMax: 60,
-      passed: resolvedScores.every(item => item.passed),
-      scores: resolvedScores,
+      passed: scores.every(item => item.passed),
+      scores,
       weakAreas,
       nextPractice
     };
   }
 
   function switchFlowMode(flowState, nextMode) {
-    const mode = nextMode === "practice" ? "practice" : "exam";
-    return {
-      ...flowState,
-      mode
-    };
+    return { ...flowState, mode: nextMode === "practice" ? "practice" : "exam" };
   }
 
   function getNextPart(partKey, partOrder = PART_ORDER) {
@@ -123,13 +103,8 @@
     const currentPart = runnerState.activePart || partOrder[0];
     const nextPart = getNextPart(currentPart, partOrder);
     if (flowState.mode !== "exam") {
-      return {
-        flow: flowState,
-        runner: runnerState,
-        action: "stay"
-      };
+      return { flow: flowState, runner: runnerState, action: "stay" };
     }
-
     if (nextPart) {
       return {
         flow: flowState,
@@ -138,30 +113,18 @@
           activePart: nextPart,
           timers: {
             ...runnerState.timers,
-            [nextPart]: {
-              ...runnerState.timers[nextPart],
-              running: true
-            }
+            [nextPart]: { ...runnerState.timers[nextPart], running: true }
           }
         },
         action: "advance",
         nextPart
       };
     }
-
     return {
-      flow: {
-        ...flowState,
-        screen: "results"
-      },
+      flow: { ...flowState, screen: "results" },
       runner: {
         ...runnerState,
-        timers: Object.fromEntries(
-          Object.entries(runnerState.timers || {}).map(([key, timer]) => [
-            key,
-            { ...timer, running: false }
-          ])
-        )
+        timers: Object.fromEntries(Object.entries(runnerState.timers || {}).map(([key, timer]) => [key, { ...timer, running: false }]))
       },
       action: "submit"
     };

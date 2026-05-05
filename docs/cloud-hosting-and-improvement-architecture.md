@@ -204,8 +204,8 @@ Useful alerts:
 1. Add docs for environment variables and provider modes at the repository root.
 2. Add a generated exam manifest JSON to reduce fragile runtime Markdown parsing.
 3. Add targeted tests for answer-key extraction, submission building, and server provider configuration.
-4. Add basic structured logging in `server.py`.
-5. Add a simple `/healthz` endpoint separate from static HTML serving.
+4. Keep structured logging in `server.py` and ship the logs to the platform or Sentry.
+5. Keep a simple `/healthz` endpoint separate from static HTML serving.
 6. Add frontend request guards for very long free-text answers before evaluation.
 
 ### Medium-Term Improvements
@@ -273,7 +273,6 @@ Cost controls:
 
 Start with a managed container deployment using the current Dockerfile and Groq provider mode. Add authentication and rate limiting if anyone outside a trusted group can access it.
 
-Next, add tests, structured logs, and a `/healthz` endpoint. Once content updates become frequent or user history matters, split static hosting from the API and introduce persistent storage.
+Next, keep tests, structured logs, and `/healthz` covered by smoke checks. Once content updates become frequent or user history matters, split static hosting from the API and introduce persistent storage.
 
 Kubernetes is a good target only if there is already a cluster, GitOps workflow, and operations ownership. Otherwise, managed containers give the best balance of safety, cost, and maintainability for this app.
-

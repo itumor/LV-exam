@@ -83,3 +83,26 @@ test("results summary returns total, weak areas, and practice suggestions", () =
   assert(summary.weakAreas.includes("Listening"));
   assert(summary.nextPractice.length > 0);
 });
+
+test("learner submission view redacts answer keys and validation queues", () => {
+  const sanitized = flowCore.sanitizeSubmissionForLearner({
+    answer_key: { listening: { task1: ["a"] } },
+    validation_queue: [{ skill: "listening" }],
+    scoring: {
+      items: [
+        { skill: "listening", task: "task1", item: 1, correct: true, expected: "a", actual: "b" }
+      ]
+    }
+  });
+
+  assert.equal("answer_key" in sanitized, false);
+  assert.equal("validation_queue" in sanitized, false);
+  assert.deepEqual(sanitized.scoring.items, [
+    { skill: "listening", task: "task1", item: 1, correct: true }
+  ]);
+});
+
+test("debug panels stay hidden unless explicitly enabled", () => {
+  assert.equal(flowCore.shouldShowDebugPanels(false), false);
+  assert.equal(flowCore.shouldShowDebugPanels(true), true);
+});
