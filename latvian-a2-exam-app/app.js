@@ -89,10 +89,10 @@ const state = {
 };
 
 const PART_CONFIG = [
-  { key: "listening", title: "Klausīšanās", english: "Listening", heading: "### Klausīšanās prasmes pārbaude", minutes: 25 },
-  { key: "reading", title: "Lasīšana", english: "Reading", heading: "### Lasītprasmes pārbaude", minutes: 30 },
-  { key: "writing", title: "Rakstīšana", english: "Writing", heading: "### Rakstītprasmes pārbaude", minutes: 35 },
-  { key: "speaking", title: "Runāšana", english: "Speaking", heading: "### Runātprasmes pārbaude", minutes: 15 }
+  { key: "listening", title: "Listening", english: "Listening", heading: "### Listening Skills Test", minutes: 25 },
+  { key: "reading", title: "Reading", english: "Reading", heading: "### Reading Skills Test", minutes: 30 },
+  { key: "writing", title: "Writing", english: "Writing", heading: "### Writing Skills Test", minutes: 35 },
+  { key: "speaking", title: "Speaking", english: "Speaking", heading: "### Speaking Skills Test", minutes: 15 }
 ];
 
 const FLOW_SCREENS = new Set(["home", "register", "instructions", "exam", "results"]);
@@ -210,6 +210,9 @@ async function init() {
   document.getElementById("quick-buy")?.addEventListener("click", () => { setView("billing"); handleSubView("billing", "purchase"); });
   document.getElementById("quick-help")?.addEventListener("click", () => showToast("Sazinieties ar atbalstu: support@codex.lv"));
   document.getElementById("quick-manual")?.addEventListener("click", () => showManual());
+  document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
+    document.querySelector(".sidebar")?.classList.toggle("open");
+  });
 
   document.querySelectorAll(".breadcrumb-item a").forEach(link => {
     link.addEventListener("click", event => {
@@ -673,6 +676,11 @@ function renderAuth() {
   `;
   els.authOutput.querySelector("#login-form")?.addEventListener("submit", event => handleAuthSubmit(event, "login"));
   els.authOutput.querySelector("#register-form")?.addEventListener("submit", event => handleAuthSubmit(event, "register"));
+
+  const authToggle = document.getElementById("auth-toggle");
+  if (authToggle) {
+    authToggle.textContent = state.auth.status === "authenticated" ? "Sign Out" : "Sign In";
+  }
 }
 
 function renderDashboard() {
@@ -1208,27 +1216,26 @@ function renderHomeScreen() {
   return `
     <section class="flow-card flow-home">
       <div class="flow-emblem" aria-hidden="true"></div>
-      <h1>Valsts valodas prasmes pārbaude - A2 līmenis</h1>
-      <p>Oficiāls valsts valodas prasmes pārbaudes simulators, kas sagatavots atbilstoši izglītības un satura standartiem.</p>
+      <h1>State Language Exam - Level A2</h1>
+      <p>Official state language exam simulator prepared according to education and content standards.</p>
       ${renderAccessSummaryCard()}
       ${renderModeBadge()}
       ${renderFlowStepper("welcome")}
       ${renderFlowExamPicker()}
       <div class="mode-switch" role="group" aria-label="Režīms">
-        <button type="button" data-flow-action="set-mode" data-mode="exam" class="btn ${state.flow.mode === "exam" ? "active btn-primary" : "btn-outline-primary"}">Eksāmena režīms</button>
-        <button type="button" data-flow-action="set-mode" data-mode="practice" class="btn ${state.flow.mode === "practice" ? "active btn-primary" : "btn-outline-primary"}">Treniņa režīms</button>
+        <button type="button" data-flow-action="set-mode" data-mode="exam" class="btn ${state.flow.mode === "exam" ? "active btn-primary" : "btn-outline-primary"}">Exam Mode</button>
+        <button type="button" data-flow-action="set-mode" data-mode="practice" class="btn ${state.flow.mode === "practice" ? "active btn-primary" : "btn-outline-primary"}">Practice Mode</button>
       </div>
       <div class="flow-primary-stack">
-        <button type="button" class="btn btn-primary btn-lg flow-primary-button" data-flow-action="register">Sākt pilnu eksāmenu</button>
-        <button type="button" class="btn btn-outline-primary btn-lg flow-secondary-button" data-flow-action="start-practice">Trenēties pa daļām</button>
+        <button type="button" class="btn btn-primary btn-lg flow-primary-button" data-flow-action="register">Start Full Exam</button>
+        <button type="button" class="btn btn-outline-primary btn-lg flow-secondary-button" data-flow-action="start-practice">Practice by Section</button>
       </div>
       <div class="flow-home-links">
-        <button type="button" class="btn btn-outline-primary" data-flow-action="open-auth">Konts / pierakstīties</button>
-        ${isAdminAccount() ? `<button type="button" class="btn btn-outline-primary" data-flow-action="open-admin">Admin</button>` : ""}
-        <button type="button" class="btn btn-outline-primary" data-flow-action="results">Skatīt rezultātus</button>
-        <button type="button" class="btn btn-outline-primary" data-flow-action="instructions">Norādījumi</button>
+        <button type="button" class="btn btn-outline-primary" data-flow-action="open-auth">Account / Sign In</button>
+        <button type="button" class="btn btn-outline-primary" data-flow-action="results">View Results</button>
+        <button type="button" class="btn btn-outline-primary" data-flow-action="instructions">Instructions</button>
       </div>
-      <p class="flow-version">Sistēmas versija 1.2.0 • Oficiālais simulators</p>
+      <p class="flow-version">System Version 1.2.0 • Official Simulator</p>
     </section>
   `;
 }
@@ -1238,27 +1245,27 @@ function renderRegistrationScreen() {
   return `
     <section class="flow-card flow-register">
       <div class="flow-emblem" aria-hidden="true"></div>
-      <h1>Kandidāta reģistrācija</h1>
-      <p>A2 Valsts valodas pārbaudes simulators</p>
+      <h1>Candidate Registration</h1>
+      <p>A2 State Language Exam Simulator</p>
       ${renderModeBadge()}
       ${renderFlowStepper("candidate")}
-      ${renderFlowExamPicker("Izvēlētais eksāmens")}
+      ${renderFlowExamPicker("Selected Exam")}
       <form class="candidate-form" data-candidate-form>
         <label>
-          Kandidāta kods
+          Candidate Code
           <input class="form-control form-control-lg" name="code" value="${escapeHtml(candidate.code)}" autocomplete="off" required>
         </label>
         <label>
-          Vārds
+          First Name
           <input class="form-control form-control-lg" name="firstName" value="${escapeHtml(candidate.firstName)}" autocomplete="given-name" required>
         </label>
         <label>
-          Uzvārds
+          Last Name
           <input class="form-control form-control-lg" name="lastName" value="${escapeHtml(candidate.lastName)}" autocomplete="family-name" required>
         </label>
-        <button type="submit" class="btn btn-success btn-lg flow-success-button">Sākt pārbaudi</button>
+        <button type="submit" class="btn btn-success btn-lg flow-success-button">Start Exam</button>
       </form>
-      <p class="form-note">Lūdzu, ievadiet datus tieši tā, kā norādīts jūsu eksāmena lapā.</p>
+      <p class="form-note">Please enter data exactly as shown on your exam sheet.</p>
     </section>
   `;
 }
@@ -1340,13 +1347,13 @@ function renderResultsScreen() {
   });
   return `
     <section class="results-flow">
-      <h1>Eksāmena Rezultāti</h1>
-      <p>Jūsu snieguma kopsavilkums pa pārbaudījuma daļām.</p>
+      <h1>Exam Results</h1>
+      <p>Your performance summary by exam section.</p>
       ${renderModeBadge()}
       ${renderFlowStepper("results")}
       <div class="results-total">
         <strong>${summary.total} / ${summary.totalMax}</strong>
-        <span>${summary.passed ? "Nokārtots" : "Jātrenējas"}</span>
+        <span>${summary.passed ? "Passed" : "Keep practicing"}</span>
       </div>
       <div class="results-table" role="table" aria-label="Eksāmena rezultāti">
         <div class="results-row results-head" role="row">
@@ -3796,7 +3803,53 @@ function renderBilling() {
       saveLearnerIdentity({ email: emailField.value.trim() });
       renderBilling();
     });
-  }
+   }
+}
+
+function renderHelp() {
+   if (!els.helpOutput) return;
+   
+   // Create a container for the manual
+   const helpContainer = document.createElement('div');
+   helpContainer.style.padding = '20px';
+   helpContainer.style.maxHeight = '80vh';
+   helpContainer.style.overflowY = 'auto';
+   
+   // Fetch and display the manual
+   fetch('USER_MANUAL.md')
+      .then(response => {
+         if (!response.ok) {
+            throw new Error('Failed to load manual');
+         }
+         return response.text();
+      })
+      .then(markdownContent => {
+         // Simple markdown to HTML conversion for basic formatting
+         let htmlContent = markdownContent
+            .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+            .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/^\* (.+)$/gm, '<li>$1</li>')
+            .replace(/^(.+)$/gm, '<p>$1</p>');
+            
+         // Fix list formatting
+         htmlContent = htmlContent.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
+         
+         helpContainer.innerHTML = htmlContent;
+      })
+      .catch(error => {
+         console.error('Failed to load manual:', error);
+         helpContainer.innerHTML = `
+            <div class="alert alert-danger">
+               <h4>Error loading manual</h4>
+               <p>Unable to load the user manual. Please try again later.</p>
+            </div>
+         `;
+      });
+      
+   els.helpOutput.innerHTML = '';
+   els.helpOutput.appendChild(helpContainer);
 }
 
 function renderSkillScore(part, score) {
@@ -4084,25 +4137,27 @@ function setView(viewName) {
     button.hidden = !showButton || !showAdmin;
     button.classList.toggle("active", button.dataset.view === viewName);
   });
-  const titles = {
-    auth: "Account access",
-    dashboard: "Dashboard",
-    admin: "Admin Console",
-    runner: "Exam Runner",
-    submission: "Submission",
-    billing: "Billing",
-    exam: state.exam.title,
-    markdown: "Raw Markdown",
-    json: "Structured JSON",
-    tts: "TTS Audio",
-    prompts: "Generated Images",
-    quality: "Quality Gate"
-  };
+   const titles = {
+     auth: "Account access",
+     dashboard: "Dashboard",
+     admin: "Admin Console",
+     runner: "Exam Runner",
+     submission: "Submission",
+     billing: "Billing",
+     help: "User Manual",
+     exam: state.exam.title,
+     markdown: "Raw Markdown",
+     json: "Structured JSON",
+     tts: "TTS Audio",
+     prompts: "Generated Images",
+     quality: "Quality Gate"
+   };
   els.workspaceTitle.textContent = titles[viewName];
   updateSidebarMenu(viewName);
   updateBreadcrumbs(viewName);
   updateQuickActions();
-  if (viewName === "billing") renderBilling();
+   if (viewName === "billing") renderBilling();
+   if (viewName === "help") renderHelp();
 }
 
 function handleSubView(view, sub) {
@@ -4174,13 +4229,13 @@ function updateStatusBadge() {
 
   if (attempts > 0) {
     badge.className = "status-badge attempts";
-    badge.textContent = `${attempts} mēģ.`;
+    badge.textContent = `${attempts} left`;
   } else if (credits > 0) {
     badge.className = "status-badge credits";
-    badge.textContent = `${credits} kred.`;
+    badge.textContent = `${credits} credits`;
   } else {
     badge.className = "status-badge none";
-    badge.textContent = "Bez pieejas";
+    badge.textContent = "No access";
   }
 }
 
@@ -4212,26 +4267,26 @@ function updateBreadcrumbs(viewName) {
 }
 
 function getBreadcrumbs(viewName) {
-  const crumbs = [{ view: "home", label: "Sākums" }];
+  const crumbs = [{ view: "home", label: "Home" }];
   const sectionMap = {
-    auth: "Mans konts",
-    dashboard: "Mans konts",
-    runner: "Eksāmeni",
-    "exam-list": "Eksāmeni",
-    results: "Rezultāti",
-    billing: "Maksājumi",
-    admin: "Administrators"
+    auth: "My Account",
+    dashboard: "My Account",
+    runner: "Exams",
+    "exam-list": "Exams",
+    results: "Results",
+    billing: "Payments",
+    admin: "Administrator"
   };
   if (sectionMap[viewName]) {
     crumbs.push({ view: viewName, label: sectionMap[viewName] });
   }
   const viewTitles = {
-    auth: "Profils",
-    dashboard: "Mans progress",
-    runner: "Eksāmena starts",
-    "exam-list": "Pieejamie eksāmeni",
-    results: "Rezultāti",
-    billing: "Mans statuss"
+    auth: "Profile",
+    dashboard: "My Progress",
+    runner: "Start Exam",
+    "exam-list": "Available Exams",
+    results: "Results",
+    billing: "My Status"
   };
   if (viewTitles[viewName]) {
     crumbs.push({ view: viewName, label: viewTitles[viewName] });

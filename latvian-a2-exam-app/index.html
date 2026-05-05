@@ -11,24 +11,24 @@
   </head>
   <body class="bg-body-tertiary">
     <header class="exam-appbar navbar">
-      <div class="exam-appbar-inner container-xxl">
-        <div class="exam-brand-title">A2 Valsts valodas pārbaudes simulators</div>
-        <nav id="global-part-nav" class="exam-part-nav nav nav-pills" aria-label="Exam parts"></nav>
+        <div class="exam-appbar-inner container-xxl">
+         <button id="sidebar-toggle" class="btn btn-outline-light btn-sm me-2 d-md-none hamburger" aria-label="Toggle menu">☰</button>
+         <div class="exam-brand-title">A2 State Language Exam Simulator</div>
+         <nav id="global-part-nav" class="exam-part-nav nav nav-pills" aria-label="Exam parts"></nav>
       <div class="exam-appbar-status">
         <span class="timer-icon" aria-hidden="true"></span>
         <span id="topbar-timer" class="topbar-timer">25:00</span>
         <span class="profile-icon" aria-hidden="true"></span>
-        <button id="quick-manual" class="btn btn-outline-info btn-sm ms-2" title="Skatiet lietotāja rokasgrāmatu">Lietotāja rokasgrāmata</button>
       </div>
-        <div class="exam-appbar-actions">
-          <button id="quick-start-exam" class="btn btn-success btn-sm me-2" title="Sākt jaunu eksāmenu">Sākt eksāmenu</button>
-          <button id="quick-resume" class="btn btn-outline-success btn-sm me-2 d-none" title="Turpināt pārtrauktu eksāmenu">Turpināt</button>
-          <button id="quick-status" class="btn btn-outline-info btn-sm me-2" title="Skatīt manu statusu">Mans statuss</button>
-          <button id="quick-buy" class="btn btn-outline-warning btn-sm me-2" title="Iegādāties eksāmenus vai kredītus">Iegādāties</button>
-          <button id="quick-help" class="btn btn-outline-secondary btn-sm" title="Sazinieties ar atbalstu">Palīdzība</button>
-        </div>
-      </div>
-    </header>
+         <div class="exam-appbar-actions">
+           <button id="quick-start-exam" class="btn btn-success btn-sm me-2" title="Start a new exam">Start Exam</button>
+           <button id="quick-resume" class="btn btn-outline-success btn-sm me-2 d-none" title="Resume interrupted exam">Resume</button>
+           <button id="quick-status" class="btn btn-outline-info btn-sm me-2" title="View my status">My Status</button>
+           <button id="quick-buy" class="btn btn-outline-warning btn-sm me-2" title="Purchase exams or credits">Purchase</button>
+           <button id="quick-help" class="btn btn-outline-secondary btn-sm" title="Contact support">Help</button>
+         </div>
+       </div>
+     </header>
     <div class="exam-progress-track" aria-hidden="true">
       <span id="exam-progress-fill"></span>
     </div>
@@ -65,55 +65,60 @@
           </div>
         </div>
 
-        <nav class="sidebar-menu" aria-label="Galvenā navigācija">
+        <nav class="sidebar-menu" aria-label="Main navigation">
           <div class="sidebar-section">
-            <h3 class="sidebar-section-title">Mans konts</h3>
-            <button class="sidebar-item" data-view="dashboard">Mans progress</button>
-            <button class="sidebar-item" data-view="auth">Profils</button>
-            <button class="sidebar-item" data-action="toggle-auth" id="auth-toggle">Pieteikšanās</button>
+            <h3 class="sidebar-section-title">My Account</h3>
+            <button class="sidebar-item" data-view="dashboard">My Progress</button>
+            <button class="sidebar-item" data-view="auth">Profile</button>
+            <button class="sidebar-item" data-action="toggle-auth" id="auth-toggle">Sign In</button>
           </div>
 
           <div class="sidebar-section">
-            <h3 class="sidebar-section-title">Eksāmeni</h3>
-            <button class="sidebar-item active" data-view="runner">Eksāmena starts</button>
-            <button class="sidebar-item" data-view="exam-list" id="exam-catalog">Pieejamie eksāmeni</button>
+            <h3 class="sidebar-section-title">Exams</h3>
+            <button class="sidebar-item active" data-view="runner">Start Exam</button>
+            <button class="sidebar-item" data-view="exam-list" id="exam-catalog">Available Exams</button>
             <div class="sidebar-submenu" id="exam-list-container"></div>
           </div>
 
           <div class="sidebar-section">
-            <h3 class="sidebar-section-title">Rezultāti</h3>
-            <button class="sidebar-item" data-view="results" id="results-latest">Pēdējais mēģinājums</button>
-            <button class="sidebar-item" data-view="results" data-sub="history">Vēsture</button>
-            <button class="sidebar-item" data-view="results" data-sub="detailed" id="results-detailed">Detalizēts vērtējums</button>
+            <h3 class="sidebar-section-title">Results</h3>
+            <button class="sidebar-item" data-view="results" id="results-latest">Latest Attempt</button>
+            <button class="sidebar-item" data-view="results" data-sub="history">History</button>
+            <button class="sidebar-item" data-view="results" data-sub="detailed" id="results-detailed">Detailed Score</button>
           </div>
 
-          <div class="sidebar-section">
-            <h3 class="sidebar-section-title">Maksājumi</h3>
-            <button class="sidebar-item" data-view="billing" data-sub="status" id="billing-status">
-              Mans statuss
-              <span class="status-badge" id="status-badge"></span>
-            </button>
-            <button class="sidebar-item" data-view="billing" data-sub="purchase" id="billing-purchase">Iegādāties</button>
-            <button class="sidebar-item" data-view="billing" data-sub="history" id="billing-history">Norēķinu vēsture</button>
-          </div>
+           <div class="sidebar-section">
+             <h3 class="sidebar-section-title">Payments</h3>
+             <button class="sidebar-item" data-view="billing" data-sub="status" id="billing-status">
+               My Status
+               <span class="status-badge" id="status-badge"></span>
+             </button>
+             <button class="sidebar-item" data-view="billing" data-sub="purchase" id="billing-purchase">Purchase</button>
+             <button class="sidebar-item" data-view="billing" data-sub="history" id="billing-history">Payment History</button>
+           </div>
+
+           <div class="sidebar-section">
+             <h3 class="sidebar-section-title">Help</h3>
+             <button class="sidebar-item" data-view="help" id="help-button">User Manual</button>
+           </div>
 
           <div class="sidebar-section admin-section d-none" id="admin-section">
-            <h3 class="sidebar-section-title">Administrators</h3>
-            <button class="sidebar-item" data-view="admin" data-sub="overview" id="admin-overview">Pārskats</button>
-            <button class="sidebar-item" data-view="admin" data-sub="users" id="admin-users">Lietotāji</button>
-            <button class="sidebar-item" data-view="admin" data-sub="exams" id="admin-exams">Eksāmenu pārvalde</button>
-            <button class="sidebar-item" data-view="admin" data-sub="submissions" id="admin-submissions">Iesniegumi</button>
-            <button class="sidebar-item" data-view="admin" data-sub="settings" id="admin-settings">Iestatījumi</button>
+            <h3 class="sidebar-section-title">Administrator</h3>
+            <button class="sidebar-item" data-view="admin" data-sub="overview" id="admin-overview">Overview</button>
+            <button class="sidebar-item" data-view="admin" data-sub="users" id="admin-users">Users</button>
+            <button class="sidebar-item" data-view="admin" data-sub="exams" id="admin-exams">Exam Management</button>
+            <button class="sidebar-item" data-view="admin" data-sub="submissions" id="admin-submissions">Submissions</button>
+            <button class="sidebar-item" data-view="admin" data-sub="settings" id="admin-settings">Settings</button>
           </div>
 
           <div class="sidebar-section debug-section" id="debug-section" style="display:none;">
-            <h3 class="sidebar-section-title">Atkļūdošana</h3>
-            <button class="sidebar-item" data-view="submission">Iesniegums</button>
+            <h3 class="sidebar-section-title">Debug</h3>
+            <button class="sidebar-item" data-view="submission">Submission</button>
             <button class="sidebar-item" data-view="markdown">Markdown</button>
             <button class="sidebar-item" data-view="json">JSON</button>
             <button class="sidebar-item" data-view="tts">TTS</button>
-            <button class="sidebar-item" data-view="prompts">Attēli</button>
-            <button class="sidebar-item" data-view="quality">Kvalitāte</button>
+            <button class="sidebar-item" data-view="prompts">Images</button>
+            <button class="sidebar-item" data-view="quality">Quality</button>
           </div>
         </nav>
 
@@ -188,10 +193,13 @@
           <div id="prompt-output" class="prompt-grid"></div>
         </section>
 
-        <section id="quality-view" class="view">
-          <div id="quality-output" class="quality-grid"></div>
-        </section>
-      </main>
+         <section id="quality-view" class="view">
+           <div id="quality-output" class="quality-grid"></div>
+         </section>
+         <section id="help-view" class="view">
+           <div id="help-output"></div>
+         </section>
+       </main>
     </div>
 
     <div id="toast" class="toast shadow-sm" role="status" aria-live="polite"></div>

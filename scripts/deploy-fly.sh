@@ -9,15 +9,20 @@ if ! command -v flyctl &>/dev/null; then
   exit 1
 fi
 
-# Check auth
-if ! flyctl auth whoami &>/dev/null; then
-  echo "ERROR: Not logged in. Run: flyctl auth login"
-  exit 1
-fi
-
 # Load env
 if [ -f .env ]; then
   set -a && source .env && set +a
+fi
+
+# Check auth - use token from env if available
+if [ -n "${FLY_API_TOKEN:-}" ]; then
+  echo "Using FLY_API_TOKEN from environment."
+  export FLY_API_TOKEN
+else
+  if ! flyctl auth whoami &>/dev/null; then
+    echo "ERROR: Not logged in and FLY_API_TOKEN not set. Run: flyctl auth login"
+    exit 1
+  fi
 fi
 
 echo ""
