@@ -2862,6 +2862,15 @@ class AppHandler(SimpleHTTPRequestHandler):
             except ApiError as error:
                 api_error_response(self, error)
             return
+        exam_answer_key_match = re.fullmatch(r"/api/exams/([^/]+)/answer-key", parsed.path)
+        if exam_answer_key_match:
+            try:
+                exam_id = exam_answer_key_match.group(1)
+                answer_key = load_server_answer_key(exam_id)
+                json_response(self, HTTPStatus.OK, {"answer_key": answer_key})
+            except ApiError as error:
+                api_error_response(self, error)
+            return
         if self.path == "/api/dashboard":
             try:
                 session = require_session(self)

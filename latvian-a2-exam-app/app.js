@@ -20,6 +20,7 @@ if (!flowCore) {
 const state = {
   exam: EXAMS[0],
   markdown: "",
+  answerKey: null,
   assets: {
     audio: [],
     images: []
@@ -334,6 +335,18 @@ async function loadExamCatalog() {
   }
 }
 
+async function fetchAnswerKey(examId) {
+  try {
+    const response = await fetch(`/api/exams/${examId}/answer-key`);
+    if (response.ok) {
+      const data = await response.json();
+      state.answerKey = data.answer_key || {};
+    }
+  } catch {
+    state.answerKey = null;
+  }
+}
+
 async function loadExam(examId, options = {}) {
   const exam = EXAMS.find(item => item.id === examId) || EXAMS[0];
   if (!exam) {
@@ -345,6 +358,9 @@ async function loadExam(examId, options = {}) {
   els.sourcePath.value = exam.sourcePath;
   els.workspaceTitle.textContent = exam.title;
   els.examOutput.innerHTML = `<div class="loading">Loading ${escapeHtml(exam.sourcePath)}...</div>`;
+  if (state.flow.mode === "practice") {
+    fetchAnswerKey(exam.id);
+  }
 
   try {
     const response = await fetch(`${exam.markdownPath}?v=${Date.now()}`, { cache: "no-store" });
@@ -1854,6 +1870,7 @@ function renderSkillFlow(part, sectionLines) {
               <div class="question-stack">
                 ${renderTaskQuestions(part.key, task, view.questions, view)}
               </div>
+              ${renderTaskHint(part.key, task)}
             </article>
           `;
         }).join("")}
@@ -1918,6 +1935,22 @@ function renderTaskReferencePanel(section, task, referenceLines) {
     return "";
   }
   return `<aside class="task-reference-panel document compact">${renderMarkdown(referenceLines.join("\n"), state.exam)}</aside>`;
+}
+
+function renderTaskHint(section, task) {
+  if (state.flow.mode !== "practice" || !state.answerKey) return "";
+  const taskAnswers = (state.answerKey[section] || {})[task.taskKey];
+  if (!taskAnswers) return "";
+  return `
+    <div class="task-hint">
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-action="toggle-hint" data-section="${section}" data-task="${task.taskKey}">
+        Show Correct Answer
+      </button>
+      <div class="hint-answer" id="hint-${section}-${task.taskKey}" style="display:none;">
+        <strong>Correct Answer:</strong> ${Array.isArray(taskAnswers) ? taskAnswers.join(", ") : taskAnswers}
+      </div>
+    </div>
+  `;
 }
 
 function renderTaskQuestions(section, task, questions, view) {
@@ -2291,7 +2324,13 @@ function bindFlowEvents() {
 async function handleFlowAction(dataset) {
   const { flowAction } = dataset;
   if (flowAction === "set-mode") {
-    state.flow = flowCore.switchFlowMode(state.flow, dataset.mode || "exam");
+    const newMode = dataset.mode || "exam";
+    state.flow = flowCore.switchFlowMode(state.flow, newMode);
+    if (newMode === "practice") {
+      fetchAnswerKey(state.exam.id);
+    } else {
+      state.answerKey = null;
+    }
     renderRunner();
     return;
   }
@@ -3179,7 +3218,18 @@ function bindRunnerEvents() {
 }
 
 function handleRunnerAction(dataset) {
-  const { action, part } = dataset;
+  const { action, part, section, task } = dataset;
+  if (action === "toggle-hint") {
+    const hintDiv = document.getElementById(`hint-${section}-${task}`);
+    if (hintDiv) {
+      hintDiv.style.display = hintDiv.style.display === "none" ? "block" : "none";
+      const button = document.querySelector(`[data-action="toggle-hint"][data-section="${section}"][data-task="${task}"]`);
+      if (button) {
+        button.textContent = hintDiv.style.display === "none" ? "Show Correct Answer" : "Hide Correct Answer";
+      }
+    }
+    return;
+  }
   if (action === "switch-part") {
     switchPart(part);
     return;
