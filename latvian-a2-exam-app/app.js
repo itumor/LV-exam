@@ -1285,8 +1285,19 @@ function restoreLocalDraft() {
     if (draft.timers && typeof draft.timers === "object") {
       for (const [part, timer] of Object.entries(draft.timers)) {
         if (!state.runner.timers[part]) continue;
-        state.runner.timers[part].remaining = Math.max(0, Number(timer.remaining_seconds ?? state.runner.timers[part].remaining) || 0);
-        state.runner.timers[part].running = false;
+        const savedTotal = Number(timer.total_seconds) || state.runner.timers[part].total;
+        const savedRemaining = Number(timer.remaining_seconds) || savedTotal;
+        if (timer.started_at && savedRemaining > 0) {
+          const elapsedWhileAway = Math.floor((Date.now() - timer.started_at) / 1000);
+          state.runner.timers[part].remaining = Math.max(0, savedRemaining - elapsedWhileAway);
+          state.runner.timers[part].running = state.runner.timers[part].remaining > 0;
+          state.runner.timers[part].startedAt = state.runner.timers[part].running ? timer.started_at : null;
+        } else {
+          state.runner.timers[part].remaining = savedRemaining;
+          state.runner.timers[part].running = false;
+          state.runner.timers[part].startedAt = null;
+        }
+        state.runner.timers[part].total = savedTotal;
       }
     }
     if (draft.attemptId) {
@@ -1532,6 +1543,8 @@ function renderRunner() {
         <button type="button" class="btn btn-primary" data-action="submit-exam">Submit answers</button>
         <button type="button" class="btn btn-outline-primary" data-action="evaluate-exam">AI score</button>
         <button type="button" class="btn btn-outline-primary" data-action="open-submission">Review submission</button>
+        <button type="button" class="btn btn-outline-primary" data-action="end-exam">End exam</button>
+        <button type="button" class="btn btn-outline-primary" data-action="start-new-exam">Start new exam</button>
       </div>
     </section>
     ${renderUpgradePrompt("runner")}
@@ -3127,7 +3140,12 @@ function radioChoice(name, value, checked) {
 
 function bindRunnerEvents() {
   document.querySelectorAll("[data-action]").forEach(button => {
-    button.addEventListener("click", () => handleRunnerAction(button.dataset));
+    button.addEventListener("click", () => {
+      Promise.resolve(handleRunnerAction(button.dataset)).catch(error => {
+        console.error(error);
+        showToast(error.message || "Action failed");
+      });
+    });
   });
   document.querySelectorAll("[data-billing-action]").forEach(button => {
     button.addEventListener("click", () => handleBillingAction(button.dataset.billingAction, button.dataset.product));
@@ -3197,6 +3215,12 @@ function handleRunnerAction(dataset) {
     setView("submission");
     return;
   }
+  if (action === "end-exam") {
+    return endCurrentExam();
+  }
+  if (action === "start-new-exam") {
+    return startNewExam();
+  }
   if (action === "start-recording") {
     startMicRecording(dataset.key);
     return;
@@ -3230,9 +3254,75 @@ function handleTimerAction(action, part) {
   renderRunner();
 }
 
+async function expireCurrentAttempt() {
+  if (state.auth.status !== "authenticated" || !state.attempt.id || state.attempt.id.startsWith("local_")) {
+    return;
+  }
+  const response = await fetch(`/api/attempts/${encodeURIComponent(state.attempt.id)}/expire`, {
+    method: "POST",
+    credentials: "same-origin"
+  });
+  if (!response.ok && response.status !== 409) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error?.message || payload.error || `End exam failed with HTTP ${response.status}`);
+  }
+}
+
+function resetExamSession() {
+  resetAnswers();
+  resetTimers();
+  resetAttemptState();
+  clearLocalDraft();
+  state.submission = null;
+  state.evaluation = null;
+  state.evaluating = false;
+  state.runner.activePart = PART_CONFIG[0].key;
+}
+
+async function endCurrentExam() {
+  if (!window.confirm("End this exam attempt? Your current answers will be cleared and this attempt will not be scored.")) return;
+  try {
+    await expireCurrentAttempt();
+  } catch (error) {
+    showToast(error.message || "Could not end the saved attempt");
+    return;
+  }
+  resetExamSession();
+  state.flow.screen = "home";
+  setView("runner");
+  updateExamUrl();
+  renderRunner();
+  showToast("Exam ended");
+}
+
+async function startNewExam() {
+  if (state.attempt.id || getExamProgress().answered > 0) {
+    if (!window.confirm("Start a new exam? Your current answers will be cleared and this attempt will not be scored.")) return;
+    try {
+      await expireCurrentAttempt();
+    } catch (error) {
+      showToast(error.message || "Could not end the saved attempt");
+      return;
+    }
+  }
+  resetExamSession();
+  state.flow = flowCore.switchFlowMode(state.flow, "exam");
+  state.flow.screen = "register";
+  setView("runner");
+  updateExamUrl();
+  renderRunner();
+  showToast("New exam ready");
+}
+
 function startOnlyTimer(part) {
+  const now = Date.now();
   for (const key of Object.keys(state.runner.timers)) {
-    state.runner.timers[key].running = key === part && state.runner.timers[key].remaining > 0;
+    if (key === part && state.runner.timers[key].remaining > 0) {
+      state.runner.timers[key].running = true;
+      state.runner.timers[key].startedAt = state.runner.timers[key].startedAt || now;
+    } else {
+      state.runner.timers[key].running = false;
+    }
   }
 }
 
@@ -4140,7 +4230,8 @@ function snapshotTimers() {
       total_seconds: timer.total,
       remaining_seconds: timer.remaining,
       elapsed_seconds: timer.total - timer.remaining,
-      remaining_display: formatTime(timer.remaining)
+      remaining_display: formatTime(timer.remaining),
+      started_at: timer.startedAt
     }
   ]));
 }
@@ -4803,6 +4894,9 @@ function startExamFromMenu() {
     showToast("Nav atlikušu mēģinājumu. Iegādājieties jaunu eksāmenu.");
     return;
   }
+  if (state.auth.status !== "authenticated") {
+    showToast("Piezīme: atbildes tiks saglabātas lokāli. Nepārlādējiet lapu pirms iesniegšanas.");
+  }
   state.flow.screen = "register";
   setView("runner");
   renderRunner();
@@ -4818,9 +4912,24 @@ async function resumeExam() {
     state.flow.screen = "exam";
     setView("runner");
     renderRunner();
-  } else {
-    showToast("Nav atjaunojamu eksāmenu");
+    return;
   }
+  const localKey = `latvian_a2_exam_draft_${state.billing.learnerId || "guest"}_${state.exam.id}`;
+  const localDraft = (() => {
+    try {
+      return JSON.parse(localStorage.getItem(localKey) || "null");
+    } catch { return null; }
+  })();
+  if (localDraft && localDraft.attemptStatus !== "submitted" && localDraft.attemptStatus !== "scored") {
+    if (restoreLocalDraft()) {
+      state.flow.screen = "exam";
+      setView("runner");
+      renderRunner();
+      showToast("Eksāmens atjaunots no vietējās saglabāšanas");
+      return;
+    }
+  }
+  showToast("Nav atjaunojamu eksāmenu");
 }
 
 function updateSidebarMenu(activeView) {
@@ -4929,7 +5038,15 @@ function updateQuickActions() {
   const billingState = state.billing.state;
   const billingAttempts = (billingState?.paid_attempts_remaining ?? 0) + (billingState?.free_exam_available ? 1 : 0);
   const attempts = dashboard?.summary?.attempts_remaining ?? billingState?.attempts_remaining ?? billingAttempts;
-  const hasInProgress = dashboard?.attempts?.some(a => a.status === "in_progress");
+  const hasServerInProgress = dashboard?.attempts?.some(a => a.status === "in_progress");
+  const hasLocalDraft = (() => {
+    try {
+      const key = `latvian_a2_exam_draft_${state.billing.learnerId || "guest"}_${state.exam.id}`;
+      const draft = JSON.parse(localStorage.getItem(key) || "null");
+      return draft && draft.attemptStatus !== "submitted" && draft.attemptStatus !== "scored";
+    } catch { return false; }
+  })();
+  const hasInProgress = hasServerInProgress || hasLocalDraft;
 
   if (quickStart) {
     quickStart.disabled = false;
@@ -4937,6 +5054,7 @@ function updateQuickActions() {
   }
   if (quickResume) {
     quickResume.classList.toggle("d-none", !hasInProgress);
+    quickResume.title = hasLocalDraft ? "Resume interrupted exam from this browser" : "Resume exam from server";
   }
   if (quickBuy) {
     quickBuy.classList.toggle("d-none", attempts > 0 && (billingState?.ai_credits_remaining ?? 0) > 0);
