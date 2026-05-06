@@ -5766,9 +5766,9 @@ body[data-flow-screen="candidate"] .workspace {
 .hint-answer {
   margin-top: 0.5rem;
   padding: 0.75rem;
-  background-color: var(--surface-container-low);
+  background-color: var(--surface-container-low, #ecf5fe);
   border-radius: 4px;
-  border-left: 3px solid var(--teal);
+  border-left: 3px solid var(--teal, #146b63);
   font-size: 0.9rem;
 }
 

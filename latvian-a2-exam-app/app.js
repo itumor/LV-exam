@@ -1946,7 +1946,7 @@ function renderTaskHint(section, task) {
         Show Correct Answer
       </button>
       <div class="hint-answer" id="hint-${section}-${task.taskKey}" style="display:none;">
-        <strong>Correct Answer:</strong> ${JSON.stringify(taskAnswers)}
+        <strong>Correct Answer:</strong> ${Array.isArray(taskAnswers) ? taskAnswers.join(", ") : taskAnswers}
       </div>
     </div>
   `;
