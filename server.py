@@ -40,6 +40,10 @@ MAX_AUDIO_BYTES = 20_000_000
 DEFAULT_BILLING_DB_PATH = ROOT / "data" / "billing.sqlite3"
 PUBLIC_APP_PREFIX = "/latvian-a2-exam-app/"
 PUBLIC_ATTACHMENT_PREFIX = "/codex/Attachments/"
+PUBLIC_LISTENING_PREFIX = "/latvian-listening-library/"
+PUBLIC_LISTENING_WEB_PREFIX = "/latvian-listening-library/web/"
+PUBLIC_LISTENING_WEB_DATA_PREFIX = "/latvian-listening-library/web/data/"
+PUBLIC_LISTENING_DATA_PREFIX = "/latvian-listening-library/data/"
 PRIVATE_STATIC_EXTENSIONS = {
     ".db",
     ".env",
@@ -57,6 +61,8 @@ PRIVATE_STATIC_EXTENSIONS = {
 }
 PUBLIC_APP_EXTENSIONS = {".css", ".html", ".js", ".md", ".png", ".svg", ".ico", ".txt"}
 PUBLIC_ATTACHMENT_EXTENSIONS = {".mp3", ".ogg", ".wav", ".webm", ".png", ".jpg", ".jpeg", ".gif", ".webp"}
+PUBLIC_LISTENING_WEB_EXTENSIONS = {".css", ".html", ".js", ".json", ".ico", ".png", ".svg", ".txt"}
+PUBLIC_LISTENING_DATA_EXTENSIONS = {".json", ".md", ".mp3"}
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_CODEX_MODEL = "gpt-5.2"
 CODEX_OSS_DEFAULT_MODEL_LABEL = "codex-oss-default"
@@ -664,6 +670,20 @@ def is_public_static_path(raw_path: str) -> bool:
     if path.startswith(PUBLIC_ATTACHMENT_PREFIX):
         suffix = Path(path).suffix.lower()
         return suffix in PUBLIC_ATTACHMENT_EXTENSIONS and suffix not in PRIVATE_STATIC_EXTENSIONS
+    if path in {"/latvian-listening-library", PUBLIC_LISTENING_PREFIX, PUBLIC_LISTENING_WEB_PREFIX}:
+        return True
+    if path.startswith(PUBLIC_LISTENING_WEB_DATA_PREFIX):
+        if path.endswith("/"):
+            return False
+        return Path(path).suffix.lower() in PUBLIC_LISTENING_DATA_EXTENSIONS
+    if path.startswith(PUBLIC_LISTENING_WEB_PREFIX):
+        if path.endswith("/"):
+            return False
+        return Path(path).suffix.lower() in PUBLIC_LISTENING_WEB_EXTENSIONS
+    if path.startswith(PUBLIC_LISTENING_DATA_PREFIX):
+        if path.endswith("/"):
+            return False
+        return Path(path).suffix.lower() in PUBLIC_LISTENING_DATA_EXTENSIONS
     return False
 
 
@@ -671,6 +691,10 @@ def static_cache_control(raw_path: str) -> str:
     path = normalize_request_path(raw_path)
     if path.startswith(PUBLIC_ATTACHMENT_PREFIX):
         return "public, max-age=86400"
+    if path.startswith(PUBLIC_LISTENING_DATA_PREFIX):
+        return "public, max-age=86400"
+    if path.startswith(PUBLIC_LISTENING_WEB_PREFIX) and Path(path).suffix.lower() in {".css", ".js", ".ico", ".png", ".svg"}:
+        return "public, max-age=300"
     if path.startswith(PUBLIC_APP_PREFIX) and Path(path).suffix.lower() in {".css", ".js", ".svg", ".png", ".ico"}:
         return "public, max-age=300"
     return "no-store"
@@ -2814,6 +2838,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         path = normalize_request_path(self.path)
         if path in {"/", "", "/latvian-a2-exam-app"}:
             self.path = PUBLIC_APP_PREFIX
+            return super().send_head()
+        if path in {"/latvian-listening-library", PUBLIC_LISTENING_PREFIX}:
+            self.path = PUBLIC_LISTENING_WEB_PREFIX
             return super().send_head()
         if not is_public_static_path(path):
             self.send_error(HTTPStatus.NOT_FOUND, "Not found")

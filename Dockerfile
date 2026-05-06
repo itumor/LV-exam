@@ -9,6 +9,8 @@ COPY billing.py /app/billing.py
 COPY exam_bank.py /app/exam_bank.py
 COPY latvian-a2-exam-app /app/latvian-a2-exam-app
 COPY codex /app/codex
+COPY latvian-listening-library/web /app/latvian-listening-library/web
+COPY latvian-listening-library/data /app/latvian-listening-library/data
 
 ENV PORT=80
 EXPOSE 80

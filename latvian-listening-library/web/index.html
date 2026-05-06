@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="lv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Latvian Listening Library</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">LV</span>
+          <div>
+            <h1>Klausīšanās</h1>
+            <p>A1 / A2 audio library</p>
+          </div>
+        </div>
+        <label class="search-label" for="search">Meklēt</label>
+        <input id="search" type="search" placeholder="Search by file or text..." autocomplete="off" />
+        <nav id="menu" class="menu" aria-label="Audio lessons"></nav>
+      </aside>
+
+      <main class="reader">
+        <section class="hero">
+          <div>
+            <p class="eyebrow">Latvian listening course</p>
+            <h2 id="title">Select an audio item</h2>
+            <p id="subtitle">Browse transcripts and translations generated from the MP3 source files.</p>
+          </div>
+          <span id="statusBadge" class="badge badge-muted">waiting</span>
+        </section>
+
+        <section class="player-card">
+          <audio id="audio" controls preload="metadata"></audio>
+          <div class="nav-buttons">
+            <button id="prev" type="button">Previous</button>
+            <button id="next" type="button">Next</button>
+          </div>
+        </section>
+
+        <section class="content-grid">
+          <article class="text-panel">
+            <div class="panel-heading">
+              <h3>Latvian Transcript</h3>
+              <a id="lvLink" href="#" target="_blank" rel="noreferrer">Markdown</a>
+            </div>
+            <pre id="lvText" class="reading-text">No transcript selected.</pre>
+          </article>
+          <article class="text-panel">
+            <div class="panel-heading">
+              <h3>English Translation</h3>
+              <a id="enLink" href="#" target="_blank" rel="noreferrer">Markdown</a>
+            </div>
+            <pre id="enText" class="reading-text">No translation selected.</pre>
+          </article>
+        </section>
+      </main>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
