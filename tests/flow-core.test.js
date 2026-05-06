@@ -10,6 +10,10 @@ const PART_CONFIG = [
   { key: "speaking", title: "Runāšana" }
 ];
 
+test("exam part order follows official section sequence", () => {
+  assert.deepEqual(flowCore.PART_ORDER, ["listening", "reading", "writing", "speaking"]);
+});
+
 test("mode switching keeps practice and exam states separate", () => {
   const practice = flowCore.switchFlowMode(flowCore.createFlowState(), "practice");
   assert.equal(practice.mode, "practice");
