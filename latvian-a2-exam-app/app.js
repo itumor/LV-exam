@@ -1635,7 +1635,7 @@ function firstAudioSource(lines) {
 function renderTaskReferencePanel(section, task, referenceLines) {
   if (!referenceLines.length || task.kind === "drag-fill") return "";
   if (task.kind === "ad-match") {
-    return renderAdReferencePanel(section, task.taskKey, referenceLines);
+    return "";
   }
   return `<aside class="task-reference-panel document compact">${renderMarkdown(referenceLines.join("\n"), state.exam)}</aside>`;
 }
@@ -2423,9 +2423,23 @@ function renderAdReferencePanel(section, taskKey, referenceLines) {
 function renderAdMatchQuestions(section, task, questions, referenceLines) {
   const ads = parseAdvertisements(referenceLines);
   const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
-  const options = ads.length
-    ? ads.map(ad => ad.letter)
-    : task.options.map(option => option.toUpperCase());
+  if (ads.length) {
+    const adGroups = chunkArray(ads, 4);
+    const questionsPerGroup = Math.ceil(safeQuestions.length / adGroups.length);
+    const questionGroups = chunkArray(safeQuestions, questionsPerGroup);
+    return `
+      <div class="ad-match-official">
+        ${adGroups.map((group, groupIndex) => renderAdMatchGroup(
+          section,
+          task,
+          group,
+          questionGroups[groupIndex] || [],
+          groupIndex * questionsPerGroup
+        )).join("")}
+      </div>
+    `;
+  }
+  const options = task.options.map(option => option.toUpperCase());
   return `
     <div class="ad-match-list">
       ${safeQuestions.map((question, index) => {
@@ -2446,6 +2460,34 @@ function renderAdMatchQuestions(section, task, questions, referenceLines) {
         `;
       }).join("")}
     </div>
+  `;
+}
+
+function renderAdMatchGroup(section, task, ads, questions, baseIndex) {
+  return `
+    <section class="ad-match-group">
+      ${renderAdChoiceGroup(ads)}
+      <div class="ad-match-list">
+        ${questions.map((question, questionOffset) => {
+          const index = baseIndex + questionOffset;
+          const name = `${section}.${task.taskKey}.${index}`;
+          ensureAnswerSlot(section, task.taskKey, index);
+          const value = state.answers[section][task.taskKey][index] || "";
+          return `
+            <article class="ad-match-row">
+              <div class="ad-match-text document compact">${renderMarkdown(question.lines.join("\n"), state.exam)}</div>
+              <label class="ad-match-answer">
+                <span>${index + 1}</span>
+                <select class="form-select" data-answer="${name}">
+                  <option value=""></option>
+                  ${ads.map(ad => `<option value="${ad.letter}" ${value.toUpperCase() === ad.letter ? "selected" : ""}>${ad.letter}</option>`).join("")}
+                </select>
+              </label>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    </section>
   `;
 }
 
