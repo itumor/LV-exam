@@ -1587,9 +1587,6 @@ function shouldRenderTaskIntro(task) {
 
 function renderTaskIntro(task, view) {
   const intro = stripTaskMediaLines(view.intro).join("\n");
-  if (task.kind === "ad-match" && parseAdvertisements(view.reference).length > 4) {
-    return renderMarkdown(intro.replace(/\(A\s*[–-]\s*L\)/gi, "(A-D)"), state.exam);
-  }
   return renderMarkdown(intro, state.exam);
 }
 
@@ -2406,30 +2403,12 @@ function renderAdReferencePanel(section, taskKey, referenceLines) {
   if (!ads.length) {
     return `<aside class="task-reference-panel document compact">${renderMarkdown(referenceLines.join("\n"), state.exam)}</aside>`;
   }
-  const groups = chunkArray(ads, 4);
-  const groupStateKey = `${state.exam.id}.${section}.${taskKey}`;
-  const activeGroup = Math.min(Number(state.runner.activeAdGroups[groupStateKey] || 0), groups.length - 1);
-  const group = groups[activeGroup] || groups[0];
   return `
     <aside class="ad-reference-panel" aria-label="Sludinājumi">
-      ${groups.length > 1 ? `
-        <div class="ad-group-tabs" aria-label="Sludinājumu grupas">
-          ${groups.map((item, index) => `
-            <button type="button"
-              data-action="show-ad-group"
-              data-part="${section}"
-              data-task="${taskKey}"
-              data-group-index="${index}"
-              class="${index === activeGroup ? "active" : ""}">
-              ${item[0].letter}–${item[item.length - 1].letter}
-            </button>
-          `).join("")}
-        </div>
-      ` : ""}
       <section class="ad-choice-group">
-        <h5>${group[0].letter}–${group[group.length - 1].letter}</h5>
+        <h5>A–L</h5>
         <div class="ad-card-grid">
-          ${group.map(ad => `
+          ${ads.map(ad => `
             <article class="ad-card">
               <strong>${ad.letter}</strong>
               <p>${escapeHtml(ad.text)}</p>
@@ -2450,7 +2429,13 @@ function renderAdMatchQuestions(section, task, questions, referenceLines) {
     const questionGroups = chunkArray(safeQuestions, questionsPerGroup);
     return `
       <div class="ad-match-official">
-        ${adGroups.map((group, groupIndex) => renderAdMatchGroup(section, task, group, questionGroups[groupIndex] || [], groupIndex * questionsPerGroup)).join("")}
+        ${adGroups.map((group, groupIndex) => renderAdMatchGroup(
+          section,
+          task,
+          group,
+          questionGroups[groupIndex] || [],
+          groupIndex * questionsPerGroup
+        )).join("")}
       </div>
     `;
   }
@@ -2479,10 +2464,9 @@ function renderAdMatchQuestions(section, task, questions, referenceLines) {
 }
 
 function renderAdMatchGroup(section, task, ads, questions, baseIndex) {
-  const localLetters = optionLetters.slice(0, ads.length).map(letter => letter.toUpperCase());
   return `
     <section class="ad-match-group">
-      ${renderAdChoiceGroup(ads, localLetters)}
+      ${renderAdChoiceGroup(ads)}
       <div class="ad-match-list">
         ${questions.map((question, questionOffset) => {
           const index = baseIndex + questionOffset;
@@ -2496,7 +2480,7 @@ function renderAdMatchGroup(section, task, ads, questions, baseIndex) {
                 <span>${index + 1}</span>
                 <select class="form-select" data-answer="${name}">
                   <option value=""></option>
-                  ${ads.map((ad, adIndex) => `<option value="${ad.letter}" ${value.toUpperCase() === ad.letter ? "selected" : ""}>${localLetters[adIndex]}</option>`).join("")}
+                  ${ads.map(ad => `<option value="${ad.letter}" ${value.toUpperCase() === ad.letter ? "selected" : ""}>${ad.letter}</option>`).join("")}
                 </select>
               </label>
             </article>

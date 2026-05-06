@@ -237,6 +237,19 @@ test("timer expiry zeros listening timer and advances the exam to reading", asyn
   await expect(page.locator('button[data-action="start"][data-part="reading"]')).toBeDisabled();
 });
 
+test("reading task 2 keeps the A-L prompt and advertisement bank visible", async ({ page }) => {
+  await page.goto("/latvian-a2-exam-app/?exam=01&part=reading&screen=exam");
+
+  await expect(page.getByRole("heading", { name: "Reading / Reading" })).toBeVisible();
+  await expect(page.getByText("Uzdevums 2 no 3: Atrodiet, kurš sludinājums (A–L) atbilst katrai situācijai")).toBeVisible();
+  await expect(page.locator(".ad-reference-panel")).toHaveCount(0);
+  await expect(page.locator(".ad-match-group")).toHaveCount(3);
+  await expect(page.locator(".ad-match-group").first()).toContainText("Izīrē 3 istabu dzīvokli ģimenei pie 5. pamatskolas.");
+  await expect(page.locator(".ad-match-group").nth(1)).toContainText("Veļas mazgātava “Tīrība” atvērta no 8.00 līdz 20.00.");
+  await expect(page.locator(".ad-match-group").last()).toContainText("Bērnu drēbju maiņas tirdziņš svētdien sporta hallē.");
+  await expect(page.locator('select[data-answer="reading.task2.0"] option')).toHaveCount(5);
+});
+
 test("AI scoring shows quota errors, then succeeds on retry", async ({ page }) => {
   const successPayload = readJson("ai-evaluation-success.json");
   const quotaPayload = readJson("ai-evaluation-quota.json");
