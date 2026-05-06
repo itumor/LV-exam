@@ -672,6 +672,11 @@ def is_public_static_path(raw_path: str) -> bool:
         return suffix in PUBLIC_ATTACHMENT_EXTENSIONS and suffix not in PRIVATE_STATIC_EXTENSIONS
     if path in {"/latvian-listening-library", PUBLIC_LISTENING_PREFIX, PUBLIC_LISTENING_WEB_PREFIX}:
         return True
+    if path.startswith(PUBLIC_LISTENING_PREFIX) and not path.startswith(PUBLIC_LISTENING_WEB_PREFIX):
+        suffix = Path(path).suffix.lower()
+        if path.startswith(f"{PUBLIC_LISTENING_PREFIX}data/"):
+            return suffix in PUBLIC_LISTENING_DATA_EXTENSIONS
+        return suffix in PUBLIC_LISTENING_WEB_EXTENSIONS
     if path.startswith(PUBLIC_LISTENING_WEB_DATA_PREFIX):
         if path.endswith("/"):
             return False
@@ -691,6 +696,10 @@ def static_cache_control(raw_path: str) -> str:
     path = normalize_request_path(raw_path)
     if path.startswith(PUBLIC_ATTACHMENT_PREFIX):
         return "public, max-age=86400"
+    if path.startswith(f"{PUBLIC_LISTENING_PREFIX}data/"):
+        return "public, max-age=86400"
+    if path.startswith(PUBLIC_LISTENING_PREFIX) and Path(path).suffix.lower() in {".css", ".js", ".ico", ".png", ".svg"}:
+        return "public, max-age=300"
     if path.startswith(PUBLIC_LISTENING_DATA_PREFIX):
         return "public, max-age=86400"
     if path.startswith(PUBLIC_LISTENING_WEB_PREFIX) and Path(path).suffix.lower() in {".css", ".js", ".ico", ".png", ".svg"}:
@@ -2842,6 +2851,14 @@ class AppHandler(SimpleHTTPRequestHandler):
         if path in {"/latvian-listening-library", PUBLIC_LISTENING_PREFIX}:
             self.path = PUBLIC_LISTENING_WEB_PREFIX
             return super().send_head()
+        if path.startswith(PUBLIC_LISTENING_PREFIX) and not path.startswith(PUBLIC_LISTENING_WEB_PREFIX):
+            if not is_public_static_path(path):
+                self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+                return None
+            suffix_path = path[len(PUBLIC_LISTENING_PREFIX) :]
+            if suffix_path:
+                self.path = f"{PUBLIC_LISTENING_WEB_PREFIX}{suffix_path}"
+                return super().send_head()
         if not is_public_static_path(path):
             self.send_error(HTTPStatus.NOT_FOUND, "Not found")
             return None
