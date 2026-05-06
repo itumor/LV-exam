@@ -111,6 +111,14 @@ DEFAULT_PRODUCTS: tuple[ProductDefinition, ...] = (
 )
 
 
+class ClosingConnection(sqlite3.Connection):
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        try:
+            return bool(super().__exit__(exc_type, exc, tb))
+        finally:
+            self.close()
+
+
 class BillingStore:
     def __init__(self, db_path: str | Path, *, free_exam_id: str = FREE_EXAM_ID) -> None:
         self.db_path = Path(db_path)
@@ -120,7 +128,7 @@ class BillingStore:
         self._initialize_schema()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path, timeout=30)
+        conn = sqlite3.connect(self.db_path, timeout=30, factory=ClosingConnection)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         return conn
@@ -498,6 +506,23 @@ class BillingStore:
         allowed = False
         reason = "no_attempts_left"
         with self._lock, self._connect() as conn:
+            if source_event_id or source_reference:
+                existing = conn.execute(
+                    """
+                    SELECT consumption_id
+                    FROM entitlement_consumptions
+                    WHERE learner_id = ?
+                      AND consumption_type IN ('free_exam', 'exam_attempt')
+                      AND (
+                        (? IS NOT NULL AND source_event_id = ?)
+                        OR (? IS NOT NULL AND source_reference = ?)
+                      )
+                    LIMIT 1
+                    """,
+                    (learner_id, source_event_id, source_event_id, source_reference, source_reference),
+                ).fetchone()
+                if existing is not None:
+                    return {"allowed": True, "reason": "already_consumed", "state": self.get_state(learner_id)}
             state = self.get_state(learner_id)
             if state["frozen"]:
                 return {"allowed": False, "reason": "account_frozen", "state": state}
@@ -552,6 +577,23 @@ class BillingStore:
         allowed = False
         reason = "no_ai_credits_left"
         with self._lock, self._connect() as conn:
+            if source_event_id or source_reference:
+                existing = conn.execute(
+                    """
+                    SELECT consumption_id
+                    FROM entitlement_consumptions
+                    WHERE learner_id = ?
+                      AND consumption_type = 'ai_score'
+                      AND (
+                        (? IS NOT NULL AND source_event_id = ?)
+                        OR (? IS NOT NULL AND source_reference = ?)
+                      )
+                    LIMIT 1
+                    """,
+                    (learner_id, source_event_id, source_event_id, source_reference, source_reference),
+                ).fetchone()
+                if existing is not None:
+                    return {"allowed": True, "reason": "already_consumed", "state": self.get_state(learner_id)}
             state = self.get_state(learner_id)
             if state["frozen"]:
                 return {"allowed": False, "reason": "account_frozen", "state": state}

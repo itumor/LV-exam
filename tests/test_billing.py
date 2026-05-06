@@ -41,6 +41,70 @@ class BillingStoreTests(unittest.TestCase):
         self.assertFalse(state["free_exam_available"])
         self.assertEqual(state["paid_attempts_remaining"], 0)
 
+    def test_exam_access_consumption_is_idempotent_by_attempt_id(self) -> None:
+        first = self.store.consume_exam_access(
+            self.learner_id,
+            FREE_EXAM_ID,
+            source_reference="attempt_123",
+            source_event_id="attempt_123",
+        )
+        duplicate = self.store.consume_exam_access(
+            self.learner_id,
+            FREE_EXAM_ID,
+            source_reference="attempt_123",
+            source_event_id="attempt_123",
+        )
+        third = self.store.consume_exam_access(
+            self.learner_id,
+            FREE_EXAM_ID,
+            source_reference="attempt_456",
+            source_event_id="attempt_456",
+        )
+
+        self.assertTrue(first["allowed"])
+        self.assertEqual(first["reason"], "free_exam_consumed")
+        self.assertTrue(duplicate["allowed"])
+        self.assertEqual(duplicate["reason"], "already_consumed")
+        self.assertFalse(third["allowed"])
+        self.assertEqual(third["reason"], "no_attempts_left")
+
+    def test_ai_credit_consumption_is_idempotent_by_submission_id(self) -> None:
+        self.store.process_stripe_event(
+            {
+                "id": "evt_ai_credits",
+                "type": "checkout.session.completed",
+                "data": {
+                    "object": {
+                        "id": "cs_ai_credits",
+                        "customer": "cus_ai",
+                        "payment_intent": "pi_ai",
+                        "metadata": {
+                            "learner_id": self.learner_id,
+                            "product_key": "ai_credits",
+                        },
+                    }
+                },
+            }
+        )
+
+        first = self.store.consume_ai_credit(
+            self.learner_id,
+            source_reference="submission_123",
+            source_event_id="submission_123",
+        )
+        duplicate = self.store.consume_ai_credit(
+            self.learner_id,
+            source_reference="submission_123",
+            source_event_id="submission_123",
+        )
+        state = self.store.get_state(self.learner_id)
+
+        self.assertTrue(first["allowed"])
+        self.assertEqual(first["reason"], "ai_credit_consumed")
+        self.assertTrue(duplicate["allowed"])
+        self.assertEqual(duplicate["reason"], "already_consumed")
+        self.assertEqual(state["ai_credits_remaining"], 9)
+
     def test_exam_pack_grants_attempts_and_ai_credits(self) -> None:
         event = {
             "id": "evt_pack_1",

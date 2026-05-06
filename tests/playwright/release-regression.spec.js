@@ -423,11 +423,79 @@ test("admin has unlimited access and AI scoring without credits", async ({ page 
     })
   );
 
-  await page.route("**/codex/A2_Mock_Exam_01.md", route =>
+  await page.route("**/api/exams/01/content", route =>
     route.fulfill({
       status: 200,
       contentType: "text/markdown",
       body: "# Mock Exam\n\n## Listening\n\nTask 1: ..."
+    })
+  );
+  await page.route("**/api/attempts/start", async route => {
+    const requestBody = route.request().postDataJSON();
+    route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        attempt: {
+          id: requestBody.attempt_id || "attempt_admin_1",
+          status: "started",
+          exam_id: "01",
+          exam_title: "A2 Mock Exam 01",
+          content_version: 1,
+          answers: {},
+          score_payload: {},
+          submission_payload: {}
+        }
+      })
+    });
+  });
+  await page.route("**/api/attempts/*/answers", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        attempt: {
+          id: "attempt_admin_1",
+          status: "in_progress",
+          exam_id: "01",
+          exam_title: "A2 Mock Exam 01",
+          content_version: 1,
+          answers: {},
+          score_payload: {},
+          submission_payload: {}
+        }
+      })
+    })
+  );
+  await page.route("**/api/attempts/*/submit", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        attempt: {
+          id: "attempt_admin_1",
+          status: "scored",
+          exam_id: "01",
+          exam_title: "A2 Mock Exam 01",
+          content_version: 1,
+          answers: {},
+          score_payload: {},
+          submission_payload: {}
+        },
+        score: {
+          mode: "mixed",
+          objective_correct: 0,
+          objective_possible: 0,
+          manual_review_possible: 60,
+          by_skill: {
+            listening: { objective_correct: 0, objective_possible: 0, manual_review_possible: 15 },
+            reading: { objective_correct: 0, objective_possible: 0, manual_review_possible: 15 },
+            writing: { objective_correct: 0, objective_possible: 0, manual_review_possible: 15 },
+            speaking: { objective_correct: 0, objective_possible: 0, manual_review_possible: 15 }
+          },
+          items: []
+        }
+      })
     })
   );
 

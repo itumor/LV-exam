@@ -38,6 +38,25 @@ UPLOAD_ROOT = ROOT / "data" / "uploads"
 MAX_BODY_BYTES = 1_500_000
 MAX_AUDIO_BYTES = 20_000_000
 DEFAULT_BILLING_DB_PATH = ROOT / "data" / "billing.sqlite3"
+PUBLIC_APP_PREFIX = "/latvian-a2-exam-app/"
+PUBLIC_ATTACHMENT_PREFIX = "/codex/Attachments/"
+PRIVATE_STATIC_EXTENSIONS = {
+    ".db",
+    ".env",
+    ".err",
+    ".json",
+    ".lock",
+    ".log",
+    ".py",
+    ".sqlite",
+    ".sqlite3",
+    ".sql",
+    ".toml",
+    ".yaml",
+    ".yml",
+}
+PUBLIC_APP_EXTENSIONS = {".css", ".html", ".js", ".md", ".png", ".svg", ".ico", ".txt"}
+PUBLIC_ATTACHMENT_EXTENSIONS = {".mp3", ".ogg", ".wav", ".webm", ".png", ".jpg", ".jpeg", ".gif", ".webp"}
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_CODEX_MODEL = "gpt-5.2"
 CODEX_OSS_DEFAULT_MODEL_LABEL = "codex-oss-default"
@@ -519,6 +538,15 @@ def json_response(handler: SimpleHTTPRequestHandler, status: int, payload: dict[
     handler.wfile.write(body)
 
 
+def text_response(handler: SimpleHTTPRequestHandler, status: int, body: str, content_type: str) -> None:
+    raw = body.encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Content-Length", str(len(raw)))
+    handler.end_headers()
+    handler.wfile.write(raw)
+
+
 def api_error_response(handler: SimpleHTTPRequestHandler, error: ApiError) -> None:
     payload: dict[str, Any] = {
         "error": {
@@ -604,6 +632,50 @@ def json_response_with_headers(
     handler.wfile.write(body)
 
 
+def is_production() -> bool:
+    return os.getenv("APP_ENV", "").strip().lower() == "production"
+
+
+def normalize_request_path(raw_path: str) -> str:
+    parsed_path = urllib.parse.urlparse(raw_path).path
+    decoded = urllib.parse.unquote(parsed_path)
+    normalized = os.path.normpath(decoded)
+    if decoded.endswith("/") and not normalized.endswith("/"):
+        normalized += "/"
+    if not normalized.startswith("/"):
+        normalized = "/" + normalized
+    return normalized
+
+
+def path_has_private_segment(path: str) -> bool:
+    return any(part.startswith(".") for part in Path(path).parts if part not in {"/", ""})
+
+
+def is_public_static_path(raw_path: str) -> bool:
+    path = normalize_request_path(raw_path)
+    if ".." in Path(path).parts or path_has_private_segment(path):
+        return False
+    if path == PUBLIC_APP_PREFIX:
+        return True
+    if path.startswith(PUBLIC_APP_PREFIX):
+        if path.endswith("/"):
+            return False
+        return Path(path).suffix.lower() in PUBLIC_APP_EXTENSIONS
+    if path.startswith(PUBLIC_ATTACHMENT_PREFIX):
+        suffix = Path(path).suffix.lower()
+        return suffix in PUBLIC_ATTACHMENT_EXTENSIONS and suffix not in PRIVATE_STATIC_EXTENSIONS
+    return False
+
+
+def static_cache_control(raw_path: str) -> str:
+    path = normalize_request_path(raw_path)
+    if path.startswith(PUBLIC_ATTACHMENT_PREFIX):
+        return "public, max-age=86400"
+    if path.startswith(PUBLIC_APP_PREFIX) and Path(path).suffix.lower() in {".css", ".js", ".svg", ".png", ".ico"}:
+        return "public, max-age=300"
+    return "no-store"
+
+
 def safe_read_json(handler: SimpleHTTPRequestHandler) -> dict[str, Any]:
     length = int(handler.headers.get("Content-Length", "0") or "0")
     if length <= 0:
@@ -625,7 +697,9 @@ def safe_read_raw_body(handler: SimpleHTTPRequestHandler) -> bytes:
 
 def request_base_url(handler: SimpleHTTPRequestHandler) -> str:
     host = handler.headers.get("Host", "localhost:4173")
-    return f"http://{host}"
+    proto = handler.headers.get("X-Forwarded-Proto", "").split(",", 1)[0].strip()
+    scheme = proto or ("https" if is_production() else "http")
+    return f"{scheme}://{host}"
 
 
 def billing_db_path() -> Path:
@@ -673,10 +747,18 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+class ClosingSqliteConnection(sqlite3.Connection):
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        try:
+            return bool(super().__exit__(exc_type, exc, tb))
+        finally:
+            self.close()
+
+
 def db_connection() -> sqlite3.Connection:
     path = Path(os.getenv("AUTH_DB_PATH", str(AUTH_DB_PATH)))
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(path, factory=ClosingSqliteConnection)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
@@ -907,8 +989,16 @@ def ensure_bootstrap_superadmin(conn: sqlite3.Connection) -> None:
     existing = conn.execute("SELECT id FROM accounts WHERE role = 'superadmin' AND deleted_at IS NULL LIMIT 1").fetchone()
     if existing is not None:
         return
-    email = normalize_email(os.getenv("A2_BOOTSTRAP_SUPERADMIN_EMAIL", "superadmin@example.com"))
-    password = os.getenv("A2_BOOTSTRAP_SUPERADMIN_PASSWORD", "ChangeMe123!")
+    configured_email = os.getenv("A2_BOOTSTRAP_SUPERADMIN_EMAIL", "").strip()
+    configured_password = os.getenv("A2_BOOTSTRAP_SUPERADMIN_PASSWORD", "")
+    if is_production() and (not configured_email or not configured_password):
+        log_event("warning", "superadmin_bootstrap_skipped", reason="missing_explicit_production_credentials")
+        return
+    if is_production() and len(configured_password) < 8:
+        log_event("warning", "superadmin_bootstrap_skipped", reason="weak_explicit_production_password")
+        return
+    email = normalize_email(configured_email or "superadmin@example.com")
+    password = configured_password or "ChangeMe123!"
     if len(password) < 8:
         password = "ChangeMe123!"
     account = conn.execute("SELECT * FROM accounts WHERE email = ?", (email,)).fetchone()
@@ -951,15 +1041,17 @@ def make_session_token() -> str:
 
 def session_cookie_header(token: str) -> str:
     expires = datetime.now(timezone.utc) + timedelta(days=AUTH_SESSION_TTL_DAYS)
+    secure = "; Secure" if is_production() else ""
     return (
-        f"{AUTH_SESSION_COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax; "
+        f"{AUTH_SESSION_COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax{secure}; "
         f"Expires={expires.strftime('%a, %d %b %Y %H:%M:%S GMT')}"
     )
 
 
 def expired_session_cookie_header() -> str:
+    secure = "; Secure" if is_production() else ""
     return (
-        f"{AUTH_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; "
+        f"{AUTH_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax{secure}; "
         "Expires=Thu, 01 Jan 1970 00:00:00 GMT"
     )
 
@@ -1041,6 +1133,35 @@ def serialize_attempt(row: sqlite3.Row) -> dict[str, Any]:
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
+
+
+def redact_score_payload_for_learner(score_payload: Any) -> Any:
+    clone = json.loads(json.dumps(score_payload or {}))
+    scoring = clone.get("scoring") if isinstance(clone, dict) else None
+    if scoring is None and isinstance(clone, dict) and isinstance(clone.get("evaluation"), dict):
+        scoring = clone["evaluation"].get("scoring")
+    if isinstance(scoring, dict) and isinstance(scoring.get("items"), list):
+        scoring["items"] = [
+            {key: item.get(key) for key in ("skill", "task", "item", "actual", "correct", "scoring")}
+            for item in scoring["items"]
+            if isinstance(item, dict)
+        ]
+    return clone
+
+
+def serialize_attempt_for_learner(row: sqlite3.Row) -> dict[str, Any]:
+    attempt = serialize_attempt(row)
+    return redact_attempt_for_learner(attempt)
+
+
+def redact_attempt_for_learner(attempt: dict[str, Any]) -> dict[str, Any]:
+    attempt = json.loads(json.dumps(attempt))
+    attempt["exam_snapshot"].pop("answer_key", None)
+    if isinstance(attempt.get("submission_payload"), dict):
+        attempt["submission_payload"].pop("answer_key", None)
+        attempt["submission_payload"].pop("validation_queue", None)
+    attempt["score_payload"] = redact_score_payload_for_learner(attempt.get("score_payload"))
+    return attempt
 
 
 def parse_json_object(value: Any, default: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -1228,7 +1349,7 @@ def build_dashboard(conn: sqlite3.Connection, account_id: str) -> dict[str, Any]
         """,
         (account_id,),
     ).fetchall()
-    serialized_attempts = [serialize_attempt(row) for row in attempts]
+    serialized_attempts = [serialize_attempt_for_learner(row) for row in attempts]
     latest = serialized_attempts[0] if serialized_attempts else None
     skill_progress: dict[str, dict[str, int]] = {}
     for attempt in serialized_attempts:
@@ -1309,123 +1430,40 @@ def login_account(payload: dict[str, Any]) -> tuple[dict[str, Any], str]:
 
 
 def persist_attempt(payload: dict[str, Any], session: dict[str, Any]) -> dict[str, Any]:
-    submission = payload.get("submission")
-    if not isinstance(submission, dict):
-        raise ValueError("Payload must include a submission object.")
-    attempt_id = str(submission.get("submission_id") or payload.get("attempt_id") or f"attempt_{secrets.token_hex(8)}")
-    exam_id = str(submission.get("exam_id") or "unknown_exam")
-    exam_title = str(submission.get("exam_title") or "Untitled exam")
-    status = str(submission.get("status") or "draft")
-    if status not in ATTEMPT_STATUSES and status != "draft":
-        status = "submitted" if submission.get("submitted_at") else "started"
-    submitted_at = str(submission.get("submitted_at") or now_iso())
-    content_version = int(submission.get("content_version") or payload.get("content_version") or 1)
-    exam_snapshot = parse_json_object(payload.get("exam_snapshot")) or {
-        "exam_id": exam_id,
-        "exam_title": exam_title,
-        "content_version": content_version,
-        "source_path": submission.get("source_path"),
-        "answer_key": submission.get("answer_key") or {},
-    }
-    answer_payload = parse_json_object(submission.get("answers"))
-    score_payload = payload.get("evaluation") or submission.get("ai_evaluation")
-    score_total = None
-    if isinstance(score_payload, dict):
-        if isinstance(score_payload.get("evaluation"), dict):
-            score_total = score_payload["evaluation"].get("scores", {}).get("total")
-        else:
-            score_total = score_payload.get("scores", {}).get("total")
-    else:
-        scoring = submission.get("scoring", {})
-        if isinstance(scoring, dict):
-            score_payload = {"scoring": scoring}
-            score_total = scoring.get("objective_correct")
-    with db_connection() as conn:
-        conn.execute(
-            """
-            INSERT INTO attempts (
-                id, account_id, exam_id, exam_title, status, submitted_at,
-                score_total, score_payload, submission_payload, created_at, updated_at,
-                content_version, exam_snapshot_payload, answer_payload, started_at, expires_at, scored_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                status = excluded.status,
-                submitted_at = excluded.submitted_at,
-                score_total = excluded.score_total,
-                score_payload = excluded.score_payload,
-                submission_payload = excluded.submission_payload,
-                content_version = excluded.content_version,
-                exam_snapshot_payload = excluded.exam_snapshot_payload,
-                answer_payload = excluded.answer_payload,
-                scored_at = excluded.scored_at,
-                updated_at = excluded.updated_at
-            """,
-            (
-                attempt_id,
-                session["account"]["id"],
-                exam_id,
-                exam_title,
-                status,
-                submitted_at,
-                score_total,
-                json.dumps(score_payload, ensure_ascii=False),
-                json.dumps(submission, ensure_ascii=False),
-                now_iso(),
-                now_iso(),
-                content_version,
-                json.dumps(exam_snapshot, ensure_ascii=False),
-                json.dumps(answer_payload, ensure_ascii=False),
-                submission.get("created_at") or now_iso(),
-                submission.get("expires_at"),
-                now_iso() if score_total is not None else None,
-            ),
-        )
-        attempt = conn.execute("SELECT * FROM attempts WHERE id = ?", (attempt_id,)).fetchone()
-    return {"attempt": serialize_attempt(attempt)}
+    raise ApiError(
+        HTTPStatus.GONE,
+        "legacy_attempt_upsert_disabled",
+        "Client-trusted attempt upserts are disabled. Use /api/attempts/start, /answers, and /submit.",
+    )
 
 
 def start_attempt(payload: dict[str, Any], session: dict[str, Any]) -> dict[str, Any]:
-    exam_id = str(payload.get("exam_id", "")).strip()
+    exam_id = exam_catalog_id(str(payload.get("exam_id", "")).strip())
     if not exam_id:
         raise ApiError(HTTPStatus.BAD_REQUEST, "invalid_request", "exam_id is required.")
-    exam_title = str(payload.get("exam_title") or payload.get("title") or "Untitled exam")
-    content_version = int(payload.get("content_version") or 1)
-    answer_key = parse_json_object(payload.get("answer_key"))
-    exam_snapshot = parse_json_object(payload.get("exam_snapshot")) or {
-        "exam_id": exam_id,
-        "exam_title": exam_title,
-        "content_version": content_version,
-        "answer_key": answer_key,
-        "manifest": payload.get("manifest") if isinstance(payload.get("manifest"), dict) else {},
-    }
-    if "answer_key" not in exam_snapshot:
-        exam_snapshot["answer_key"] = answer_key
     now = now_iso()
     attempt_id = str(payload.get("attempt_id") or f"attempt_{secrets.token_hex(8)}")
     expires_at = str(payload.get("expires_at") or "")
     with db_connection() as conn:
-        conn.execute(
-            """
-            INSERT INTO exams (id, title, content_version, status, manifest_payload, answer_key_payload, created_at, updated_at)
-            VALUES (?, ?, ?, 'published', ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                title = excluded.title,
-                content_version = excluded.content_version,
-                manifest_payload = excluded.manifest_payload,
-                answer_key_payload = excluded.answer_key_payload,
-                updated_at = excluded.updated_at
-            """,
-            (
-                exam_id,
-                exam_title,
-                content_version,
-                json.dumps(exam_snapshot.get("manifest") or exam_snapshot, ensure_ascii=False),
-                json.dumps(exam_snapshot.get("answer_key") or {}, ensure_ascii=False),
-                now,
-                now,
-            ),
-        )
+        existing = conn.execute("SELECT * FROM attempts WHERE id = ?", (attempt_id,)).fetchone()
+        if existing is not None:
+            if existing["account_id"] != session["account"]["id"]:
+                raise ApiError(HTTPStatus.FORBIDDEN, "attempt_id_conflict", "Attempt ID belongs to another account.")
+            return {"attempt": serialize_attempt(existing)}
+        exam_row = load_exam_catalog_row(conn, exam_id, published_only=True)
+        if exam_row is None:
+            raise ApiError(HTTPStatus.NOT_FOUND, "exam_not_found", "Exam not found.")
+        manifest = parse_json_object(exam_row["manifest_payload"])
+        exam_title = exam_row["title"]
+        content_version = int(exam_row["content_version"] or 1)
+        answer_key = load_server_answer_key(exam_id)
+        exam_snapshot = {
+            "exam_id": exam_id,
+            "exam_title": exam_title,
+            "content_version": content_version,
+            "answer_key": answer_key,
+            "manifest": manifest,
+        }
         conn.execute(
             """
             INSERT INTO attempts (
@@ -1520,16 +1558,20 @@ def save_attempt_answer(attempt_id: str, payload: dict[str, Any], session: dict[
 
 
 def submit_attempt(attempt_id: str, session: dict[str, Any]) -> dict[str, Any]:
-    check_scoring_rate_limit(session["account"]["id"])
     now = now_iso()
     with db_connection() as conn:
         attempt = load_owned_attempt(conn, attempt_id, session)
         if attempt["status"] not in MUTABLE_ATTEMPT_STATUSES:
+            if attempt["status"] in {"submitted", "scored"}:
+                score_payload = parse_json_object(attempt["score_payload"])
+                existing_score = score_payload.get("scoring") or score_payload.get("evaluation", {}).get("scoring") or score_payload
+                return {"attempt": serialize_attempt(attempt), "score": existing_score, "idempotent": True}
             raise ApiError(
                 HTTPStatus.CONFLICT,
                 "invalid_attempt_transition",
                 f"Cannot submit attempt when status is {attempt['status']}.",
             )
+        check_scoring_rate_limit(session["account"]["id"])
         snapshot = parse_json_object(attempt["exam_snapshot_payload"])
         answer_key = parse_json_object(snapshot.get("answer_key"))
         answers = parse_json_object(attempt["answer_payload"])
@@ -1652,7 +1694,7 @@ def export_account(session: dict[str, Any]) -> dict[str, Any]:
     return {
         "account": serialize_account(account),
         "profile": serialize_profile(profile),
-        "attempts": [serialize_attempt(row) for row in attempts],
+        "attempts": [serialize_attempt_for_learner(row) for row in attempts],
     }
 
 
@@ -1687,7 +1729,7 @@ def serialize_exam_catalog(row: sqlite3.Row, *, include_answer_key: bool = False
         "description": manifest.get("description", ""),
         "content_version": row["content_version"],
         "status": row["status"],
-        "markdownPath": manifest.get("markdownPath") or manifest.get("markdown_path") or f"/codex/A2_Mock_Exam_{row['id']}.md",
+        "markdownPath": f"/api/exams/{row['id']}/content",
         "sourcePath": manifest.get("sourcePath") or manifest.get("source_path") or f"codex/A2_Mock_Exam_{row['id']}.md",
         "attachmentRoot": manifest.get("attachmentRoot") or manifest.get("attachment_root") or f"/codex/Attachments/A2_Mock_Exam_{row['id']}/",
         "created_at": row["created_at"],
@@ -1696,6 +1738,7 @@ def serialize_exam_catalog(row: sqlite3.Row, *, include_answer_key: bool = False
     if include_answer_key:
         payload["answer_key"] = parse_json_object(row["answer_key_payload"])
         payload["manifest"] = manifest
+        payload["rawMarkdownPath"] = manifest.get("markdownPath") or manifest.get("markdown_path") or f"/codex/A2_Mock_Exam_{row['id']}.md"
     return payload
 
 
@@ -1972,6 +2015,10 @@ def compact_exam_context(markdown: str) -> str:
     lines = markdown.splitlines()
     kept: list[str] = []
     skip_headings = {
+        "## Answer Key",
+        "## Listening Transcripts",
+        "## Writing Model Answers",
+        "## Speaking Teacher Notes",
         "## JSON Export",
         "## TTS Export",
         "## Image Generation Prompts",
@@ -1985,6 +2032,138 @@ def compact_exam_context(markdown: str) -> str:
         if not skipping:
             kept.append(line)
     return "\n".join(kept).strip()
+
+
+def student_exam_markdown(markdown: str) -> str:
+    lines = markdown.splitlines()
+    kept: list[str] = []
+    private_section = False
+    private_headings = {
+        "## Answer Key",
+        "## Listening Transcripts",
+        "## Writing Model Answers",
+        "## Speaking Teacher Notes",
+        "## Teacher Version",
+        "## Teacher Key",
+        "## JSON Export",
+        "## TTS Export",
+        "## Image Generation Prompts",
+        "## TTS Scripts",
+    }
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            private_section = stripped in private_headings
+        if not private_section:
+            kept.append(line)
+    return "\n".join(kept).strip() + "\n"
+
+
+def parse_answer_values(value: str) -> list[str]:
+    matches = re.findall(r"(\d+)\.\s*([^,;\n]+)", value)
+    return [re.sub(r"\s{2,}", " ", match[1]).strip().removesuffix(".") for match in matches]
+
+
+def skill_key_from_heading(value: str) -> str:
+    normalized = value.lower()
+    if "klaus" in normalized:
+        return "listening"
+    if "las" in normalized:
+        return "reading"
+    if "rakst" in normalized:
+        return "writing"
+    if "run" in normalized:
+        return "speaking"
+    return ""
+
+
+def extract_answer_key_from_markdown(markdown: str) -> dict[str, Any]:
+    lines = markdown.splitlines()
+    answer_lines: list[str] = []
+    in_answer_key = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "## Answer Key":
+            in_answer_key = True
+            continue
+        if in_answer_key and stripped.startswith("## "):
+            break
+        if in_answer_key:
+            answer_lines.append(line)
+
+    key: dict[str, Any] = {}
+    current_skill = ""
+    for line in answer_lines:
+        stripped = line.strip()
+        heading = re.match(r"^###\s+(.+)$", stripped)
+        if heading:
+            current_skill = skill_key_from_heading(heading.group(1))
+            if current_skill:
+                key.setdefault(current_skill, {})
+            continue
+        clean_line = stripped.replace("**", "")
+        task_line = re.match(r"^(\d+)\.?\s*uzdevums:?\s*(.+)$", clean_line, flags=re.IGNORECASE)
+        if task_line and current_skill:
+            key[current_skill][f"task{task_line.group(1)}"] = parse_answer_values(task_line.group(2))
+    return key
+
+
+def exam_catalog_id(exam_id: str) -> str:
+    raw = str(exam_id or "").strip()
+    match = re.fullmatch(r"a2_mock_exam_(\d+)", raw)
+    if match:
+        return match.group(1).zfill(2)
+    return raw.zfill(2) if raw.isdigit() and len(raw) < 2 else raw
+
+
+def load_exam_catalog_row(conn: sqlite3.Connection, exam_id: str, *, published_only: bool = True) -> sqlite3.Row | None:
+    catalog_id = exam_catalog_id(exam_id)
+    if published_only:
+        return conn.execute("SELECT * FROM exams WHERE id = ? AND status = 'published'", (catalog_id,)).fetchone()
+    return conn.execute("SELECT * FROM exams WHERE id = ?", (catalog_id,)).fetchone()
+
+
+def exam_markdown_path_from_manifest(manifest: dict[str, Any], exam_id: str) -> Path:
+    configured = str(manifest.get("sourcePath") or manifest.get("source_path") or "").strip()
+    if not configured:
+        markdown_path = str(manifest.get("markdownPath") or manifest.get("markdown_path") or "").strip().lstrip("/")
+        configured = markdown_path or f"codex/A2_Mock_Exam_{exam_catalog_id(exam_id)}.md"
+    candidate = (ROOT / configured).resolve()
+    if not candidate.is_file() or ROOT not in candidate.parents:
+        raise ApiError(HTTPStatus.NOT_FOUND, "exam_content_not_found", "Exam content was not found.")
+    return candidate
+
+
+def load_exam_markdown(exam_id: str) -> str:
+    with db_connection() as conn:
+        row = load_exam_catalog_row(conn, exam_id)
+        if row is None:
+            raise ApiError(HTTPStatus.NOT_FOUND, "exam_not_found", "Exam not found.")
+        manifest = parse_json_object(row["manifest_payload"])
+        path = exam_markdown_path_from_manifest(manifest, row["id"])
+    return path.read_text(encoding="utf-8")
+
+
+def load_server_answer_key(exam_id: str, fallback: dict[str, Any] | None = None) -> dict[str, Any]:
+    with db_connection() as conn:
+        row = load_exam_catalog_row(conn, exam_id, published_only=False)
+        if row is not None:
+            stored = parse_json_object(row["answer_key_payload"])
+            if stored:
+                return stored
+            manifest = parse_json_object(row["manifest_payload"])
+            try:
+                markdown = exam_markdown_path_from_manifest(manifest, row["id"]).read_text(encoding="utf-8")
+            except ApiError:
+                markdown = ""
+            extracted = extract_answer_key_from_markdown(markdown) if markdown else {}
+            if extracted:
+                conn.execute(
+                    "UPDATE exams SET answer_key_payload = ?, updated_at = ? WHERE id = ?",
+                    (json.dumps(extracted, ensure_ascii=False), now_iso(), row["id"]),
+                )
+                return extracted
+    return fallback or {}
 
 
 def compact_submission(submission: dict[str, Any]) -> dict[str, Any]:
@@ -2012,7 +2191,6 @@ def compact_submission(submission: dict[str, Any]) -> dict[str, Any]:
         "pass_rule": submission.get("pass_rule", {}),
         "progress": submission.get("progress", {}),
         "answers": submission.get("answers", {}),
-        "answer_key": submission.get("answer_key", {}),
         "scoring": compact_scoring,
         "validation_queue": submission.get("validation_queue", []),
     }
@@ -2022,19 +2200,15 @@ def ai_scoring_submission(submission: dict[str, Any]) -> dict[str, Any]:
     scoring = submission.get("scoring", {})
     by_skill = scoring.get("by_skill", {}) if isinstance(scoring, dict) else {}
     answers = submission.get("answers", {}) if isinstance(submission, dict) else {}
-    answer_key = submission.get("answer_key", {}) if isinstance(submission, dict) else {}
     validation_queue = submission.get("validation_queue", []) if isinstance(submission, dict) else []
     if not isinstance(validation_queue, list):
         validation_queue = []
 
     free_text_answers: dict[str, Any] = {}
-    free_text_answer_key: dict[str, Any] = {}
     free_text_scores: dict[str, Any] = {}
     for skill in FREE_TEXT_SKILLS:
         if isinstance(answers, dict) and isinstance(answers.get(skill), dict):
             free_text_answers[skill] = answers[skill]
-        if isinstance(answer_key, dict) and isinstance(answer_key.get(skill), dict):
-            free_text_answer_key[skill] = answer_key[skill]
         skill_summary = by_skill.get(skill, {}) if isinstance(by_skill, dict) else {}
         if not isinstance(skill_summary, dict):
             skill_summary = {}
@@ -2063,14 +2237,13 @@ def ai_scoring_submission(submission: dict[str, Any]) -> dict[str, Any]:
         "pass_rule": submission.get("pass_rule", {}),
         "progress": submission.get("progress", {}),
         "answers": free_text_answers,
-        "answer_key": free_text_answer_key,
         "scoring": {
             "objective_correct": scoring.get("objective_correct", 0) if isinstance(scoring, dict) else 0,
             "objective_possible": scoring.get("objective_possible", 0) if isinstance(scoring, dict) else 0,
             "manual_review_possible": scoring.get("manual_review_possible", 0) if isinstance(scoring, dict) else 0,
             "by_skill": free_text_scores,
             "items": [
-                item
+                {key: item.get(key) for key in ("skill", "task", "item", "actual", "correct", "scoring")}
                 for item in scoring.get("items", []) if isinstance(item, dict) and item.get("skill") in FREE_TEXT_SKILLS
             ] if isinstance(scoring, dict) else [],
         },
@@ -2612,6 +2785,41 @@ class AppHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
+    def end_headers(self) -> None:
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        self.send_header("Permissions-Policy", "camera=(), microphone=(self)")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "img-src 'self' data: blob:; "
+            "media-src 'self' blob:; "
+            "connect-src 'self'; "
+            "base-uri 'self'; "
+            "frame-ancestors 'none'; "
+            "form-action 'self'",
+        )
+        if is_production():
+            self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        if getattr(self, "command", "") in {"GET", "HEAD"} and not normalize_request_path(getattr(self, "path", "")).startswith("/api/"):
+            self.send_header("Cache-Control", static_cache_control(getattr(self, "path", "")))
+        elif normalize_request_path(getattr(self, "path", "")).startswith("/api/"):
+            self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
+    def send_head(self):  # type: ignore[override]
+        path = normalize_request_path(self.path)
+        if path in {"/", "", "/latvian-a2-exam-app"}:
+            self.path = PUBLIC_APP_PREFIX
+            return super().send_head()
+        if not is_public_static_path(path):
+            self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+            return None
+        return super().send_head()
+
     def log_message(self, format: str, *args: Any) -> None:
         log_event(
             "info",
@@ -2646,6 +2854,14 @@ class AppHandler(SimpleHTTPRequestHandler):
             session = current_session_record(self)
             json_response(self, HTTPStatus.OK, list_exam_catalog(session))
             return
+        exam_content_match = re.fullmatch(r"/api/exams/([^/]+)/content", parsed.path)
+        if exam_content_match:
+            try:
+                markdown = load_exam_markdown(exam_content_match.group(1))
+                text_response(self, HTTPStatus.OK, student_exam_markdown(markdown), "text/markdown; charset=utf-8")
+            except ApiError as error:
+                api_error_response(self, error)
+            return
         if self.path == "/api/dashboard":
             try:
                 session = require_session(self)
@@ -2669,7 +2885,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "SELECT * FROM attempts WHERE account_id = ? ORDER BY submitted_at DESC",
                         (session["account"]["id"],),
                     ).fetchall()
-                json_response(self, HTTPStatus.OK, {"attempts": [serialize_attempt(row) for row in attempts]})
+                json_response(self, HTTPStatus.OK, {"attempts": [serialize_attempt_for_learner(row) for row in attempts]})
             except PermissionError as error:
                 json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
             return
@@ -2679,7 +2895,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 session = require_session(self)
                 with db_connection() as conn:
                     attempt = load_owned_attempt(conn, attempt_match.group(1), session)
-                json_response(self, HTTPStatus.OK, {"attempt": serialize_attempt(attempt)})
+                json_response(self, HTTPStatus.OK, {"attempt": serialize_attempt_for_learner(attempt)})
             except ApiError as error:
                 api_error_response(self, error)
             except PermissionError as error:
@@ -2884,14 +3100,44 @@ class AppHandler(SimpleHTTPRequestHandler):
                 json_response(self, HTTPStatus.OK, save_admin_settings(payload))
                 return
             if self.path == "/api/attempts":
-                payload = safe_read_json(self)
-                session = require_session(self)
-                json_response(self, HTTPStatus.OK, persist_attempt(payload, session))
+                raise ApiError(
+                    HTTPStatus.GONE,
+                    "legacy_attempt_upsert_disabled",
+                    "Client-trusted attempt upserts are disabled. Use the attempt lifecycle endpoints.",
+                )
                 return
             if self.path == "/api/attempts/start":
                 payload = safe_read_json(self)
                 session = require_session(self)
-                json_response(self, HTTPStatus.CREATED, start_attempt(payload, session))
+                if not payload.get("attempt_id"):
+                    payload["attempt_id"] = f"attempt_{secrets.token_hex(8)}"
+                with db_connection() as conn:
+                    existing_attempt = conn.execute(
+                        "SELECT * FROM attempts WHERE id = ?",
+                        (payload["attempt_id"],),
+                    ).fetchone()
+                    exam_exists = load_exam_catalog_row(conn, str(payload.get("exam_id", "")), published_only=True) is not None
+                if existing_attempt is not None and existing_attempt["account_id"] != session["account"]["id"]:
+                    raise ApiError(HTTPStatus.FORBIDDEN, "attempt_id_conflict", "Attempt ID belongs to another account.")
+                if existing_attempt is None and not exam_exists:
+                    raise ApiError(HTTPStatus.NOT_FOUND, "exam_not_found", "Exam not found.")
+                if existing_attempt is None:
+                    learner_id = session["account"]["id"]
+                    store = get_billing_store()
+                    store.ensure_learner(learner_id, email=session["account"].get("email"))
+                    billing_access = store.consume_exam_access(
+                        learner_id,
+                        exam_catalog_id(str(payload.get("exam_id", ""))),
+                        source_reference=str(payload["attempt_id"]),
+                        source_event_id=str(payload["attempt_id"]),
+                        user_role=account_role(session),
+                    )
+                    if not billing_access["allowed"]:
+                        json_response(self, HTTPStatus.PAYMENT_REQUIRED, billing_access)
+                        return
+                result = start_attempt(payload, session)
+                result["attempt"] = redact_attempt_for_learner(result["attempt"])
+                json_response(self, HTTPStatus.CREATED, result)
                 return
             if self.path == "/api/attempts/history":
                 session = require_session(self)
@@ -2934,7 +3180,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                             """,
                             (account_id, limit),
                         ).fetchall()
-                json_response(self, HTTPStatus.OK, {"attempts": [serialize_attempt(row) for row in attempts]})
+                json_response(self, HTTPStatus.OK, {"attempts": [serialize_attempt_for_learner(row) for row in attempts]})
                 return
             if self.path == "/api/attempts/analytics":
                 session = require_session(self)
@@ -3082,17 +3328,24 @@ class AppHandler(SimpleHTTPRequestHandler):
             if answer_match:
                 payload = safe_read_json(self)
                 session = require_session(self)
-                json_response(self, HTTPStatus.OK, save_attempt_answer(answer_match.group(1), payload, session))
+                result = save_attempt_answer(answer_match.group(1), payload, session)
+                result["attempt"] = redact_attempt_for_learner(result["attempt"])
+                json_response(self, HTTPStatus.OK, result)
                 return
             submit_match = re.fullmatch(r"/api/attempts/([^/]+)/submit", parsed.path)
             if submit_match:
                 session = require_session(self)
-                json_response(self, HTTPStatus.OK, submit_attempt(submit_match.group(1), session))
+                result = submit_attempt(submit_match.group(1), session)
+                result["attempt"] = redact_attempt_for_learner(result["attempt"])
+                result["score"] = redact_score_payload_for_learner({"scoring": result.get("score", {})}).get("scoring", result.get("score", {}))
+                json_response(self, HTTPStatus.OK, result)
                 return
             expire_match = re.fullmatch(r"/api/attempts/([^/]+)/expire", parsed.path)
             if expire_match:
                 session = require_session(self)
-                json_response(self, HTTPStatus.OK, expire_attempt(expire_match.group(1), session))
+                result = expire_attempt(expire_match.group(1), session)
+                result["attempt"] = redact_attempt_for_learner(result["attempt"])
+                json_response(self, HTTPStatus.OK, result)
                 return
             if self.path == "/api/account/delete":
                 session = require_session(self)
@@ -3154,29 +3407,42 @@ class AppHandler(SimpleHTTPRequestHandler):
                     store = get_billing_store()
                     store.ensure_learner(learner_id, email=learner_email or None)
                     if billing_result["ai_credit_required"]:
-                        ai_credit_result = store.consume_ai_credit(
-                            learner_id,
-                            source_reference=submission.get("submission_id"),
-                            source_event_id=submission.get("submission_id"),
-                            user_role=user_role,
-                        )
-                        if not ai_credit_result["allowed"]:
+                        billing_state = store.get_state(learner_id, user_role=user_role)
+                        if billing_state.get("frozen") or int(billing_state.get("ai_credits_remaining") or 0) <= 0:
                             json_response(
                                 self,
                                 HTTPStatus.PAYMENT_REQUIRED,
                                 {
                                     "error": "AI scoring requires an available AI credit or active subscription.",
-                                    "billing_state": ai_credit_result["state"],
+                                    "billing_state": billing_state,
                                 },
                             )
                             return
-                        billing_result["ai_credit_consumed"] = True
-                        billing_result["billing_state"] = ai_credit_result["state"]
+                        billing_result["billing_state"] = billing_state
                     else:
                         billing_result["billing_state"] = store.get_state(learner_id)
                 elif billing_result["ai_credit_required"]:
                     raise ValueError("Payload must include learner_id text.")
                 result = evaluate_submission(submission, exam_markdown)
+                if learner_id and billing_result["ai_credit_required"]:
+                    ai_credit_result = get_billing_store().consume_ai_credit(
+                        learner_id,
+                        source_reference=submission.get("submission_id"),
+                        source_event_id=submission.get("submission_id"),
+                        user_role=user_role,
+                    )
+                    if not ai_credit_result["allowed"]:
+                        json_response(
+                            self,
+                            HTTPStatus.PAYMENT_REQUIRED,
+                            {
+                                "error": "AI scoring completed but the credit could not be committed. Please retry from your saved attempt.",
+                                "billing_state": ai_credit_result["state"],
+                            },
+                        )
+                        return
+                    billing_result["ai_credit_consumed"] = True
+                    billing_result["billing_state"] = ai_credit_result["state"]
                 result["billing"] = billing_result
                 json_response(self, HTTPStatus.OK, result)
                 return

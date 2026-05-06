@@ -37,6 +37,13 @@ class AttemptLifecycleTests(unittest.TestCase):
                 VALUES ('acct_test', 'learner@example.test', 'salt', 'hash', 'active', '2026-05-05T00:00:00Z', NULL)
                 """
             )
+            conn.execute(
+                """
+                INSERT INTO exams (id, title, content_version, status, manifest_payload, answer_key_payload, created_at, updated_at)
+                VALUES ('exam_a', 'Exam A', 7, 'published', '{}', ?, '2026-05-05T00:00:00Z', '2026-05-05T00:00:00Z')
+                """,
+                ('{"listening":{"task1":["A","B"]}}',),
+            )
 
     def tearDown(self) -> None:
         self.auth_db_patch.stop()
@@ -47,9 +54,9 @@ class AttemptLifecycleTests(unittest.TestCase):
             {
                 "attempt_id": "attempt_1",
                 "exam_id": "exam_a",
-                "exam_title": "Exam A",
+                "exam_title": "Client supplied title should be ignored",
                 "content_version": 7,
-                "answer_key": {"listening": {"task1": ["A", "B"]}},
+                "answer_key": {"listening": {"task1": ["client-key"]}},
             },
             session_for(),
         )["attempt"]
@@ -75,6 +82,9 @@ class AttemptLifecycleTests(unittest.TestCase):
         self.assertEqual(submitted["score"]["objective_correct"], 1)
         self.assertEqual(submitted["score"]["objective_possible"], 2)
         self.assertEqual(submitted["attempt"]["exam_snapshot"]["answer_key"]["listening"]["task1"], ["A", "B"])
+        redacted = server.redact_attempt_for_learner(submitted["attempt"])
+        self.assertNotIn("answer_key", redacted["exam_snapshot"])
+        self.assertNotIn("expected", redacted["score_payload"]["scoring"]["items"][0])
 
         with server.db_connection() as conn:
             rows = conn.execute("SELECT * FROM attempts WHERE account_id = ? ORDER BY submitted_at DESC", ("acct_test",)).fetchall()
@@ -97,9 +107,9 @@ class AttemptLifecycleTests(unittest.TestCase):
         self.assertEqual(save_ctx.exception.status_code, 409)
         self.assertEqual(save_ctx.exception.code, "invalid_attempt_transition")
 
-        with self.assertRaises(server.ApiError) as submit_ctx:
-            server.submit_attempt("attempt_2", session_for())
-        self.assertEqual(submit_ctx.exception.status_code, 409)
+        resubmitted = server.submit_attempt("attempt_2", session_for())
+        self.assertTrue(resubmitted["idempotent"])
+        self.assertEqual(resubmitted["attempt"]["status"], "scored")
 
     def test_scoring_rate_limit_blocks_excess_submissions(self) -> None:
         server.SCORING_RATE_LIMIT_MAX_REQUESTS = 1
