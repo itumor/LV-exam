@@ -355,7 +355,6 @@ async function loadExam(examId, options = {}) {
   }
   state.exam = exam;
   els.examSelect.value = exam.id;
-  els.sourcePath.value = exam.sourcePath;
   els.workspaceTitle.textContent = exam.title;
   els.examOutput.innerHTML = `<div class="loading">Loading ${escapeHtml(exam.sourcePath)}...</div>`;
   if (state.flow.mode === "practice") {
