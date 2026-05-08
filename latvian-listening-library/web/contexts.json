@@ -1,0 +1,161 @@
+[
+  {
+    "id": "janis",
+    "title": "Jāņi",
+    "title_en": "Midsummer Festival",
+    "explanation": "Jāņi is Latvia's most important traditional celebration, held on the night of June 23-24. It celebrates the summer solstice and the harvest. Families gather to sing traditional songs (jāņu dziesmas), dance, and feast. The holiday is named after John the Baptist.",
+    "practical_note": "If you're in Latvia during Jāņi, expect shops to be closed on June 23rd. Many families travel to the countryside. It's a great time to experience Latvian culture - ask locals if you can join their celebrations!",
+    "phrases": [
+      {"lv": "Laimīgi Jāņi!", "en": "Happy Midsummer!", "usage": "Standard greeting during the Jāņi holiday period"},
+      {"lv": "Garbijas maize", "en": "Wheat bread", "usage": "Traditional Jāņi bread, often given to guests"},
+      {"lv": "Līgo nakts", "en": "Ligo night", "usage": "The night before Jāņi, when celebrations peak"}
+    ],
+    "related_vocabulary": ["vasara", "saulgrieži", "dziesma", "koris", "sēne", "zāle"],
+    "lesson_ids": ["A1-29ac14e2da565172", "A1-bb3b91782ae2e7bd"]
+  },
+  {
+    "id": "name_days",
+    "title": "Vārda dienas",
+    "title_en": "Name Days",
+    "explanation": "Latvians celebrate Name Days (vārda dienas) more often than birthdays. Each day is assigned specific names, and people named after those saints receive greetings and small gifts. It's a tradition worth joining - wish someone 'Laimīgu vārda dienu!'",
+    "practical_note": "You can find today's Name Day in any Latvian calendar or online. It's considered polite to acknowledge Name Days, especially with colleagues. Many shops sell small cards or flowers for this purpose.",
+    "phrases": [
+      {"lv": "Laimīgu vārda dienu!", "en": "Happy Name Day!", "usage": "Standard greeting for someone celebrating their Name Day"},
+      {"lv": "Kuru vārda dienu tu svin?", "en": "When is your Name Day?", "usage": "Asking someone about their Name Day"},
+      {"lv": "Mana vārda diena ir...", "en": "My Name Day is...", "usage": "Sharing your Name Day"}
+    ],
+    "related_vocabulary": ["vārds", "kalendārs", "svinēt", "dāvana", "zieds"],
+    "lesson_ids": ["A1-bb3b91782ae2e7bd", "A1-c8bb435d7549d189"]
+  },
+  {
+    "id": "weather_small_talk",
+    "title": "Laika sarunas",
+    "title_en": "Weather Small Talk",
+    "explanation": "Weather is the safest topic for small talk in Latvia. Latvians often comment on the weather, especially the rain. It's a conversation starter that leads easily to other topics. The weather is unpredictable, giving everyone something to discuss!",
+    "practical_note": "Start conversations with 'Kāds šodien laiks?' (What's the weather today?) or 'Beidzot saule!' (Finally some sun!). This works well with strangers, in shops, or with colleagues. It's a low-stakes way to practice Latvian.",
+    "phrases": [
+      {"lv": "Kāds šodien laiks?", "en": "What's the weather like today?", "usage": "Common opening for weather conversation"},
+      {"lv": "Līst lietus", "en": "It's raining", "usage": "Very common in Latvia!"},
+      {"lv": "Šodien ir labs laiks", "en": "The weather is good today", "usage": "Positive comment about weather"},
+      {"lv": "Karsts", "en": "Hot", "usage": "Describing warm weather"},
+      {"lv": "Auksts", "en": "Cold", "usage": "Describing cold weather"},
+      {"lv": "Mitrs", "en": "Humid/damp", "usage": "Common Latvian weather description"}
+    ],
+    "related_vocabulary": ["laiks", "saule", "lietus", "sniegs", "vējš", "mākonis"],
+    "lesson_ids": ["A1-c411c203d18f447d", "A1-dec02fe5c3f69d2c"]
+  },
+  {
+    "id": "latvian_politeness",
+    "title": "Latvian Politeness",
+    "title_en": "Latvian Politeness & Formality",
+    "explanation": "Latvians value politeness and formality, especially with strangers. Use 'Lūdzu' (please) and 'Paldies' (thank you) frequently. When addressing someone you don't know, use their title and last name. Young people often use 'jūs' (formal you) even with peers in service situations.",
+    "practical_note": "In shops and restaurants, always greet with 'Labdien' (good day) and say 'Paldies' when leaving. Even if your Latvian is basic, these phrases make a good impression. Don't be surprised if younger people are more formal than you'd expect.",
+    "phrases": [
+      {"lv": "Lūdzu", "en": "Please", "usage": "Essential polite word"},
+      {"lv": "Paldies", "en": "Thank you", "usage": "Very important - say it often!"},
+      {"lv": "Atvainojiet", "en": "Excuse me / Sorry", "usage": "Getting attention or apologizing"},
+      {"lv": "Labdien", "en": "Good day (hello/goodbye)", "usage": "Standard greeting any time of day"},
+      {"lv": "Jūs", "en": "You (formal)", "usage": "Use with strangers and in formal settings"}
+    ],
+    "related_vocabulary": ["uzticēšanās", "kultūra", "cieņa", "apakša", "virsa"],
+    "lesson_ids": ["A1-7ca1a1ab7a5b7307", "A1-9786a741af8cf963"]
+  },
+  {
+    "id": "supermarket_habits",
+    "title": "Iepirkšanās",
+    "title_en": "Supermarket & Shopping Culture",
+    "explanation": "Supermarkets in Latvia (Rimi, Maxima, Lidl) are similar to other European countries. However, bring your own bag or buy one at checkout - plastic bags cost extra. Markets (tirgus) are popular for fresh produce and are a great place to practice Latvian.",
+    "practical_note": "Self-checkout is common and works well. In smaller shops, queue politely and wait your turn. Markets are usually open early morning. Don't forget to bring a reusable bag! You can find local products at 'Latvijas produkts' labelled items.",
+    "phrases": [
+      {"lv": "Cik maksā?", "en": "How much does it cost?", "usage": "Asking for price"},
+      {"lv": "Es gribu...", "en": "I want...", "usage": "Ordering at a counter"},
+      {"lv": "Viens, divi, trīs...", "en": "One, two, three...", "usage": "Counting items"},
+      {"lv": "Maksāšu skaidrā naudā", "en": "I'll pay in cash", "usage": "Cash payment option"},
+      {"lv": "Vai ir kartes?", "en": "Do you have bags?", "usage": "Asking for shopping bags"}
+    ],
+    "related_vocabulary": ["cena", "produkts", "maize", "piens", "gaļa", "dārzenis"],
+    "lesson_ids": ["A1-d4a2e1c3b5f67890", "A1-e5f6a7b8c9d01234"]
+  },
+  {
+    "id": "school_kindergarten",
+    "title": "Skola un bērnudārzs",
+    "title_en": "School & Kindergarten Communication",
+    "explanation": "If you have children in Latvian schools, expect regular communication with teachers. Parent-teacher meetings happen by appointment. Schools send notes home in students' diaries (dienasgrāmata). Kindergarten parents typically talk to teachers when picking up children.",
+    "practical_note": "Register for parent portals if available. Attend school events and concerts - they're important for integration. Learning some school-related vocabulary helps you understand what's happening. Most schools have websites with information.",
+    "phrases": [
+      {"lv": "Skola", "en": "School", "usage": "Basic school term"},
+      {"lv": "Skolotājs / Skolotāja", "en": "Teacher (m/f)", "usage": "Addressing or referring to teacher"},
+      {"lv": "Stunda", "en": "Lesson/class", "usage": "School period"},
+      {"lv": "Mājasdarbs", "en": "Homework", "usage": "School work at home"},
+      {"lv": "Bērnudārzs", "en": "Kindergarten", "usage": "Pre-school for children"},
+      {"lv": "Vecāku sapulce", "en": "Parent meeting", "usage": "School parent gathering"}
+    ],
+    "related_vocabulary": ["bērns", "skolēns", "klase", "mācības", "atzīme"],
+    "lesson_ids": ["A1-f6a7b8c9d0e12345", "A1-a1b2c3d4e5f67890"]
+  },
+  {
+    "id": "doctor_appointment",
+    "title": "Ārsts un slimība",
+    "title_en": "Doctor & Healthcare Culture",
+    "explanation": "Healthcare in Latvia uses a family doctor (ģimenes ārsts) system. You register with one doctor who handles referrals to specialists. In emergencies, go to the hospital emergency room (traumpunkts). Pharmacies (aptieka) are widely available and staff can give basic health advice.",
+    "practical_note": "Bring your ID and health insurance documentation. For non-emergencies, call your family doctor first. Many doctors speak English, but not all. Pharmacies have good English in cities.记住: 'aptieka' = pharmacy, 'ārsts' = doctor.",
+    "phrases": [
+      {"lv": "Man ir slikti", "en": "I feel sick", "usage": "General sick feeling"},
+      {"lv": "Man sāp...", "en": "...hurts (my)", "usage": "Describing pain - head, stomach, etc."},
+      {"lv": "Man ir temperatūra", "en": "I have a fever", "usage": "Being sick with fever"},
+      {"lv": "Nepieciešama palīdzība", "en": "I need help", "usage": "Urgent situation"},
+      {"lv": "Kur ir slimnīca?", "en": "Where is the hospital?", "usage": "Finding healthcare"},
+      {"lv": "Aptieka", "en": "Pharmacy", "usage": "Place for medicine"}
+    ],
+    "related_vocabulary": ["veselība", "slimība", "zāles", "recepte", "karte"],
+    "lesson_ids": ["A1-b2c3d4e5f6a7890", "A1-c3d4e5f6a7b8901"]
+  },
+  {
+    "id": "public_transport",
+    "title": "Sabiedriskais transports",
+    "title_en": "Public Transport Etiquette",
+    "explanation": "Riga has buses, trams, and trolleybuses. Tickets can be bought via the 'Riga' mobile app, at kiosks, or from the driver (more expensive). Outside Riga, transport is more limited. In all public transport, give up your seat to elderly passengers and pregnant women.",
+    "practical_note": "Validate your ticket when boarding (if not using app). Don't talk loudly on phone calls. Small dogs need muzzles. In Riga, download the 'Riga' app for easy ticketing. For intercity travel, check 'luxexpress' or 'ecolines' buses.",
+    "phrases": [
+      {"lv": "Bilet", "en": "Ticket", "usage": "Transport ticket"},
+      {"lv": "Kur ir autobuss?", "en": "Where is the bus?", "usage": "Finding your transport"},
+      {"lv": "Vai šī ir pareizā pietura?", "en": "Is this the right stop?", "usage": "Checking your stop"},
+      {"lv": "Nākamā pietura", "en": "Next stop", "usage": "Announcement or question"},
+      {"lv": "Pietura", "en": "Stop (for transport)", "usage": "Bus/tram stop"}
+    ],
+    "related_vocabulary": ["autobuss", "tramvajs", "vilciens", "biļete", " pietura"],
+    "lesson_ids": ["A1-d4e5f6a7b8c9012", "A1-e5f6a7b8c9d0123"]
+  },
+  {
+    "id": "government_offices",
+    "title": "Valsts iestādes",
+    "title_en": "Government Offices & Bureaucracy",
+    "explanation": "Latvian government offices (i.e., the Office of Citizenship and Migration Affairs - PMLP, the State Revenue Service - VID) require appointments for most services. Bring all required documents and arrive on time. English availability varies - bring a translator if possible.",
+    "practical_note": "Book appointments online at 'latvija.lv' portal. Bring extra copies of all documents. Arrive 15 minutes early. Some services require 'e-'identité' (e-ID) - set this up early if you plan to live in Latvia long-term. Processing times can be slow.",
+    "phrases": [
+      {"lv": "Pieraksts", "en": "Appointment", "usage": "Booking time at office"},
+      {"lv": "Dokumenti", "en": "Documents", "usage": "Required paperwork"},
+      {"lv": "Personas kods", "en": "Personal ID code", "usage": "Latvian ID number (11 digits)"},
+      {"lv": "Pase", "en": "Passport", "usage": "Travel document"},
+      {"lv": "Uztures kods", "en": "Residence permit", "usage": "Legal stay document"}
+    ],
+    "related_vocabulary": ["valsts", "iestāde", "dokuments", "tauts", "kods"],
+    "lesson_ids": ["A1-f6a7b8c9d0e1234", "A1-a7b8c9d0e1f2345"]
+  },
+  {
+    "id": "filler_words",
+    "title": "Izpildvārdi",
+    "title_en": "Common Filler Words",
+    "explanation": "Latvians use filler words like 'tā kā' (like/you know), 'nu' (well), and 'kā jau' (as it is) in conversation. These are natural in spoken Latvian and help conversations flow. Learning them makes your Latvian sound more natural.",
+    "practical_note": "Don't overuse them, but don't be afraid to use them either. 'Nu' is very common at the start of sentences. 'Tā kā' works like 'like' in English. Listen to how native speakers use them and try to copy the rhythm.",
+    "phrases": [
+      {"lv": "Nu...", "en": "Well...", "usage": "Conversation filler, similar to English 'well'"},
+      {"lv": "Tā kā...", "en": "Like / You know...", "usage": "Filler similar to English 'like'"},
+      {"lv": "Kā jau...", "en": "As it is...", "usage": "Natural transition word"},
+      {"lv": "Zini?", "en": "You know?", "usage": "Asking for confirmation"},
+      {"lv": "Protams", "en": "Of course", "usage": "Agreement or confirmation"}
+    ],
+    "related_vocabulary": ["saruna", "valoda", "sarunvaloda", "ikdiena"],
+    "lesson_ids": ["A1-b8c9d0e1f23456", "A1-c9d0e1f2345678"]
+  }
+]
