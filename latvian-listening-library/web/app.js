@@ -34,6 +34,9 @@ const visualLessons = [
 let catalog = [];
 let filtered = [];
 let selectedIndex = -1;
+let audioSource = null;
+let analyticsInstance = null;
+let isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('127.0.0.1');
 
 function badgeClass(status) {
   if (status === "completed") return "badge badge-completed";
@@ -44,6 +47,130 @@ function badgeClass(status) {
 
 function setText(node, value, fallback) {
   node.textContent = value && value.trim() ? value : fallback;
+}
+
+function initAnalytics() {
+  const sinkUrl = isDev ? null : window.ANALYTICS_SINK_URL || null;
+  const AnalyticsLib = window.Analytics || {
+    EventTypes: {
+      AUDIO_PLAY: 'audio_play',
+      AUDIO_PAUSE: 'audio_pause',
+      SENTENCE_REPLAY: 'sentence_replay',
+      LESSON_COMPLETE: 'lesson_complete',
+      QUIZ_SUBMIT: 'quiz_submit',
+      FLASHCARD_REVIEW: 'flashcard_review',
+      EXAM_SIMULATION_COMPLETE: 'exam_simulation_complete',
+    }
+  };
+  
+  const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+  analyticsInstance = {
+    sessionId,
+    events: [],
+    track(eventType, payload = {}) {
+      const event = {
+        id: 'evt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+        type: eventType,
+        timestamp: new Date().toISOString(),
+        session_id: this.sessionId,
+        payload,
+      };
+      this.events.push(event);
+      if (isDev) {
+        console.log('[Analytics]', event.type, event.payload);
+      }
+      if (sinkUrl) {
+        fetch(sinkUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(event),
+        }).catch(() => {});
+      }
+    },
+    export() {
+      return JSON.stringify(this.events, null, 2);
+    }
+  };
+  
+  if (audio) {
+    audio.addEventListener('play', () => {
+      if (filtered[selectedIndex]) {
+        analyticsInstance.track(AnalyticsLib.EventTypes.AUDIO_PLAY, {
+          lesson_id: filtered[selectedIndex].id,
+          filename: filtered[selectedIndex].original_filename,
+        });
+      }
+    });
+    
+    audio.addEventListener('pause', () => {
+      if (filtered[selectedIndex]) {
+        analyticsInstance.track(AnalyticsLib.EventTypes.AUDIO_PAUSE, {
+          lesson_id: filtered[selectedIndex].id,
+          filename: filtered[selectedIndex].original_filename,
+        });
+      }
+    });
+  }
+}
+
+function validateLesson(lesson) {
+  const requiredFields = ['id', 'level', 'original_filename', 'audio_url', 'status'];
+  const errors = [];
+  
+  for (const field of requiredFields) {
+    if (!lesson[field]) {
+      errors.push(`Missing required field: ${field}`);
+    }
+  }
+  
+  if (lesson.level && !['A1', 'A2'].includes(lesson.level)) {
+    errors.push(`Invalid level: ${lesson.level}`);
+  }
+  
+  if (isDev && errors.length > 0) {
+    console.warn('[LessonValidation]', lesson.id, errors);
+  }
+  
+  return { valid: errors.length === 0, errors };
+}
+
+function validateCatalog(items) {
+  if (!Array.isArray(items)) {
+    return { valid: false, errors: ['Catalog must be an array'], count: 0 };
+  }
+  
+  const invalidLessons = [];
+  items.forEach((lesson, index) => {
+    const result = validateLesson(lesson);
+    if (!result.valid) {
+      invalidLessons.push({ index, id: lesson.id, errors: result.errors });
+    }
+  });
+  
+  if (isDev && invalidLessons.length > 0) {
+    console.warn('[LessonValidation] Invalid lessons:', invalidLessons);
+  }
+  
+  return {
+    valid: invalidLessons.length === 0,
+    errors: invalidLessons.flatMap(l => l.errors),
+    count: items.length,
+    invalidCount: invalidLessons.length,
+  };
+}
+
+function getAudioSource() {
+  if (!audioSource) {
+    audioSource = {
+      getAudioUrl(audioPath) {
+        return audioPath;
+      },
+      getWaveformUrl(audioPath) {
+        return audioPath.replace('.mp3', '.waveform.json');
+      }
+    };
+  }
+  return audioSource;
 }
 
 function renderMenu() {
@@ -109,9 +236,14 @@ function selectItem(index) {
   if (index < 0 || index >= filtered.length) return;
   selectedIndex = index;
   const item = filtered[index];
+  const source = getAudioSource();
+  
   setText(title, item.title || item.original_filename, "Untitled audio");
   setText(subtitle, `${levelLabels[item.level] || item.level} · ${item.original_filename || ""}`, "");
-  audio.src = item.audio_url || "";
+  
+  audio.src = source.getAudioUrl(item.audio_url || "");
+  audio.preload = "metadata";
+  
   setText(lvText, item.lv_text, "Latvian transcript is not available yet.");
   setText(enText, item.en_text, "English translation is not available yet.");
   lvLink.href = item.lv_markdown_url || "#";
@@ -120,6 +252,13 @@ function selectItem(index) {
   statusBadge.className = badgeClass(item.status);
   previousButton.disabled = selectedIndex <= 0;
   nextButton.disabled = selectedIndex >= filtered.length - 1;
+  
+  if (item.waveform_url) {
+    fetch(source.getWaveformUrl(item.waveform_url), { cache: "no-store" })
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null);
+  }
+  
   renderMenu();
 }
 
@@ -151,14 +290,22 @@ previousButton.addEventListener("click", () => selectItem(selectedIndex - 1));
 nextButton.addEventListener("click", () => selectItem(selectedIndex + 1));
 search.addEventListener("input", applyFilter);
 
+initAnalytics();
+
 fetch("catalog.json", { cache: "no-store" })
   .then((response) => {
     if (!response.ok) throw new Error(`Catalog request failed: ${response.status}`);
     return response.json();
   })
   .then((items) => {
+    const validation = validateCatalog(items);
     catalog = Array.isArray(items) ? items : [];
-    filtered = catalog.slice();
+    if (validation.valid) {
+      filtered = catalog.slice();
+    } else {
+      console.warn('[Catalog] Validation failed, using catalog anyway:', validation.errors);
+      filtered = catalog.slice();
+    }
     renderMenu();
     if (filtered.length) {
       selectItem(0);
@@ -171,3 +318,5 @@ fetch("catalog.json", { cache: "no-store" })
     setText(title, "Catalog not ready", "Catalog not ready");
     setText(subtitle, "Run scripts/build_catalog.py after processing audio.", "");
   });
+
+window.analytics = analyticsInstance;
