@@ -57,6 +57,39 @@
         </section>
       </main>
     </div>
+
+    <button id="communityToggle" type="button" class="community-toggle" aria-label="Open community panel" title="Community">💬</button>
+
+    <aside id="communityPanel" class="community-panel" aria-label="Community discussion">
+      <div class="community-header">
+        <h3>Community</h3>
+        <button id="communityClose" type="button" class="panel-close" aria-label="Close panel">×</button>
+      </div>
+      <div class="community-tabs">
+        <button type="button" data-tab="questions" class="tab active">Questions</button>
+        <button type="button" data-tab="comments" class="tab">Comments</button>
+        <button type="button" data-tab="translations" class="tab">Translations</button>
+      </div>
+      <div class="community-form">
+        <select id="entryType">
+          <option value="question">Question</option>
+          <option value="comment">Comment</option>
+          <option value="translation_suggestion">Translation suggestion</option>
+        </select>
+        <input id="authorName" type="text" placeholder="Your name" maxlength="50" />
+        <textarea id="entryBody" placeholder="Share your thoughts..." maxlength="500"></textarea>
+        <button id="submitEntry" type="button">Add</button>
+      </div>
+      <div class="community-sort">
+        <label>Sort by:</label>
+        <select id="sortOrder">
+          <option value="newest">Newest</option>
+          <option value="helpful">Most Helpful</option>
+        </select>
+      </div>
+      <div id="communityList" class="community-list"></div>
+    </aside>
+
     <script src="app.js"></script>
   </body>
 </html>
