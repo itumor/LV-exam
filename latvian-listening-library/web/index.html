@@ -18,6 +18,16 @@
         </div>
         <label class="search-label" for="search">Meklēt</label>
         <input id="search" type="search" placeholder="Search by file or text..." autocomplete="off" />
+        <label class="search-label" for="styleFilter">Speaking Style</label>
+        <select id="styleFilter">
+          <option value="">All styles</option>
+          <option value="clear">Clear</option>
+          <option value="slow">Slow</option>
+          <option value="normal">Normal</option>
+          <option value="casual">Casual</option>
+          <option value="announcement">Announcement</option>
+          <option value="dialogue">Dialogue</option>
+        </select>
         <nav id="menu" class="menu" aria-label="Audio lessons"></nav>
       </aside>
 
@@ -32,12 +42,15 @@
         </section>
 
         <section class="player-card">
+          <span id="speakerBadge" class="speaker-badge" style="display:none"></span>
           <audio id="audio" controls preload="metadata"></audio>
           <div class="nav-buttons">
             <button id="prev" type="button">Previous</button>
             <button id="next" type="button">Next</button>
           </div>
         </section>
+
+        <p id="voiceRecommendation" class="voice-recommendation"></p>
 
         <section class="content-grid">
           <article class="text-panel">
