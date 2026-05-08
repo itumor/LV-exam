@@ -314,3 +314,32 @@ audio {
     flex-direction: column;
   }
 }
+
+.sidebar-links {
+  margin-bottom: 20px;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.sidebar-link:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.link-icon {
+  font-size: 18px;
+}
+
+.link-text {
+  font-size: 14px;
+  font-weight: 500;
+}
