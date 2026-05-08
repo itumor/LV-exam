@@ -55,6 +55,36 @@
             <pre id="enText" class="reading-text">No translation selected.</pre>
           </article>
         </section>
+
+        <section class="tabs">
+          <button id="transcriptTabBtn" type="button" class="tab active">Transcript</button>
+          <button id="vocabTabBtn" type="button" class="tab">Vocabulary</button>
+          <button id="reviewTabBtn" type="button" class="tab">Review</button>
+          <button id="deckTabBtn" type="button" class="tab">Deck</button>
+        </section>
+
+        <section id="vocabSection" class="vocab-section" style="display:none">
+          <div class="panel-heading"><h3>Vocabulary from this lesson</h3></div>
+          <div id="vocabList" class="vocab-list"></div>
+        </section>
+
+        <section id="reviewSection" class="review-section" style="display:none">
+          <div class="panel-heading"><h3>Review flashcards</h3></div>
+          <div id="reviewContainer" class="review-container"></div>
+        </section>
+
+        <section id="deckSection" class="deck-section" style="display:none">
+          <div class="panel-heading">
+            <h3>Your flashcard deck</h3>
+            <div class="deck-actions">
+              <button id="exportAnkiBtn" type="button" class="btn-action">Export Anki CSV</button>
+              <button id="exportJsonBtn" type="button" class="btn-action">Export JSON</button>
+              <label class="btn-action"><input type="file" id="importJsonBtn" accept=".json" style="display:none">Import JSON</label>
+            </div>
+          </div>
+          <div id="deckStats" class="deck-stats"></div>
+          <div id="deckList" class="deck-list"></div>
+        </section>
       </main>
     </div>
     <script src="app.js"></script>
