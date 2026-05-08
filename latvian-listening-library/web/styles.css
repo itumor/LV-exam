@@ -295,6 +295,213 @@ audio {
   white-space: pre-wrap;
 }
 
+.comp-filters {
+  margin-bottom: 14px;
+}
+
+.comp-filter-label {
+  color: #9fb2c0;
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.comp-filter-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.comp-filter-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  color: #9fb2c0;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  transition: all 0.15s;
+}
+
+.comp-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+}
+
+.comp-filter-btn.active {
+  background: var(--magenta-soft);
+  border-color: var(--magenta-soft);
+  color: white;
+}
+
+.comp-meter-card {
+  background: rgba(255, 253, 248, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 28px;
+  box-shadow: 0 24px 70px rgba(8, 47, 73, 0.12);
+  margin-bottom: 18px;
+  padding: 22px 26px;
+}
+
+.comp-meter-header {
+  align-items: baseline;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.comp-meter-header h3 {
+  color: var(--navy);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.comp-estimate-note {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+.comp-meter-display {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.comp-bar-track {
+  background: var(--line);
+  border-radius: 999px;
+  flex: 1;
+  height: 12px;
+  overflow: hidden;
+}
+
+.comp-bar-fill {
+  border-radius: 999px;
+  height: 100%;
+  transition: width 0.4s ease, background 0.4s ease;
+}
+
+.comp-bar-easy { background: var(--success); }
+.comp-bar-manageable { background: #2b9e5f; }
+.comp-bar-challenging { background: var(--warn); }
+.comp-bar-advanced { background: var(--danger); }
+
+.comp-pct {
+  color: var(--navy);
+  font-size: 1.1rem;
+  font-weight: 900;
+  min-width: 140px;
+  white-space: nowrap;
+}
+
+.comp-label {
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  padding: 4px 12px;
+  white-space: nowrap;
+}
+
+.comp-label-easy { background: rgba(15, 143, 97, 0.15); color: var(--success); }
+.comp-label-manageable { background: rgba(43, 158, 95, 0.15); color: #2b9e5f; }
+.comp-label-challenging { background: rgba(183, 121, 31, 0.15); color: var(--warn); }
+.comp-label-advanced { background: rgba(197, 48, 48, 0.15); color: var(--danger); }
+
+.comp-stats {
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 24px;
+  margin-bottom: 14px;
+  padding-top: 14px;
+}
+
+.comp-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.comp-stat-n {
+  color: var(--navy);
+  font-size: 1.5rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.comp-stat-l {
+  color: var(--muted);
+  font-size: 0.72rem;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.comp-unknown-words {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.comp-unknown-words h4 {
+  color: var(--navy);
+  font-size: 0.85rem;
+  margin: 0 0 10px;
+}
+
+.unknown-word-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.unknown-word-wrap {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.unknown-word-tag {
+  background: rgba(214, 10, 79, 0.1);
+  border: 1px solid rgba(214, 10, 79, 0.25);
+  border-radius: 999px;
+  color: var(--magenta);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  transition: all 0.15s;
+}
+
+.unknown-word-tag:hover {
+  background: rgba(214, 10, 79, 0.2);
+}
+
+.unknown-word-remove {
+  background: rgba(15, 143, 97, 0.12);
+  border: 1px solid rgba(15, 143, 97, 0.25);
+  border-radius: 999px;
+  color: var(--success);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 900;
+  padding: 3px 7px;
+  transition: all 0.15s;
+}
+
+.unknown-word-remove:hover {
+  background: rgba(15, 143, 97, 0.25);
+}
+
+.unknown-empty {
+  color: var(--success);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+}
+
 @media (max-width: 900px) {
   .app-shell,
   .content-grid {
@@ -312,5 +519,13 @@ audio {
   .hero {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .comp-meter-display {
+    flex-wrap: wrap;
+  }
+
+  .comp-stats {
+    gap: 14px;
   }
 }
