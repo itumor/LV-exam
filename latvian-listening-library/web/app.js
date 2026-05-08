@@ -151,6 +151,252 @@ previousButton.addEventListener("click", () => selectItem(selectedIndex - 1));
 nextButton.addEventListener("click", () => selectItem(selectedIndex + 1));
 search.addEventListener("input", applyFilter);
 
+const aiService = new window.AIExplanationService();
+let currentExplanationSentence = null;
+
+const aiPanel = document.querySelector("#aiPanel");
+const aiPanelContent = document.querySelector("#aiPanelContent");
+const aiLoading = document.querySelector("#aiLoading");
+const aiError = document.querySelector("#aiError");
+const aiOverlay = document.querySelector("#aiOverlay");
+const closeAIPanelBtn = document.querySelector("#closeAIPanel");
+const aiModeToggle = document.querySelector("#aiModeToggle");
+const retryBtn = document.querySelector("#retryBtn");
+
+function openAIPanel() {
+  aiPanel.classList.add("open");
+  aiPanel.setAttribute("aria-hidden", "false");
+  aiOverlay.hidden = false;
+}
+
+function closeAIPanel() {
+  aiPanel.classList.remove("open");
+  aiPanel.setAttribute("aria-hidden", "true");
+  aiOverlay.hidden = true;
+}
+
+closeAIPanelBtn.addEventListener("click", closeAIPanel);
+aiOverlay.addEventListener("click", closeAIPanel);
+
+aiModeToggle.addEventListener("change", (e) => {
+  aiService.setExplanationMode(e.target.checked ? "detailed" : "simple");
+  if (currentExplanationSentence) {
+    fetchExplanation(currentExplanationSentence);
+  }
+});
+
+retryBtn.addEventListener("click", () => {
+  if (currentExplanationSentence) {
+    fetchExplanation(currentExplanationSentence);
+  }
+});
+
+function parseTranscriptToSentences(text) {
+  if (!text) return [];
+  const sentences = text
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+  return sentences;
+}
+
+function renderTranscriptWithClickableSentences(text) {
+  const sentences = parseTranscriptToSentences(text);
+  if (sentences.length === 0) {
+    return text;
+  }
+
+  return sentences
+    .map(
+      (sentence, idx) =>
+        `<span class="sentence-block" data-sentence="${idx}" title="Click for AI explanation">${escapeHtml(sentence)}</span>`
+    )
+    .join(" ");
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function fetchExplanation(sentence) {
+  aiLoading.hidden = false;
+  aiError.hidden = true;
+  aiPanelContent.innerHTML = "";
+
+  const item = filtered[selectedIndex];
+  const lessonId = item ? item.id : "default";
+  aiService.setLessonId(lessonId);
+
+  try {
+    const explanation = await aiService.explainSentence(sentence, { lessonId });
+    displayExplanation(explanation, sentence);
+  } catch (err) {
+    console.error("AI explanation error:", err);
+    aiLoading.hidden = true;
+    aiError.hidden = false;
+  }
+}
+
+function displayExplanation(explanation, sentence) {
+  aiLoading.hidden = true;
+
+  let html = `
+    <div class="explanation-section">
+      <h4>Natural Translation</h4>
+      <p>${escapeHtml(explanation.naturalTranslation)}</p>
+    </div>
+  `;
+
+  if (explanation.literalTranslation && explanation.literalTranslation !== explanation.naturalTranslation) {
+    html += `
+      <div class="explanation-section">
+        <h4>Word-by-Word</h4>
+        <p>${escapeHtml(explanation.literalTranslation)}</p>
+      </div>
+    `;
+  }
+
+  if (explanation.vocabulary && explanation.vocabulary.length > 0) {
+    html += `<div class="explanation-section"><h4>Key Vocabulary</h4>`;
+    explanation.vocabulary.forEach(v => {
+      html += `
+        <div class="vocab-item">
+          <span class="vocab-word">${escapeHtml(v.word)}</span>
+          <span class="vocab-pos">${escapeHtml(v.pos || "")}</span>
+          <div class="vocab-meaning">${escapeHtml(v.meaning || "")}</div>
+          ${v.example ? `<div class="vocab-example">${escapeHtml(v.example)}</div>` : ""}
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
+  if (explanation.grammarNotes && explanation.grammarNotes.length > 0) {
+    html += `<div class="explanation-section"><h4>Grammar Notes</h4>`;
+    explanation.grammarNotes.forEach(g => {
+      html += `<div class="grammar-note"><p>${escapeHtml(g)}</p></div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (explanation.verbForms && explanation.verbForms.length > 0) {
+    html += `<div class="explanation-section"><h4>Verb Forms</h4>`;
+    explanation.verbForms.forEach(v => {
+      html += `
+        <span class="verb-form" title="${escapeHtml(v.meaning || "")}">
+          ${escapeHtml(v.form || v.verb)}
+        </span>
+      `;
+    });
+    html += `</div>`;
+  }
+
+  if (explanation.caseNotes && explanation.caseNotes.length > 0) {
+    html += `<div class="explanation-section"><h4>Case Notes</h4>`;
+    explanation.caseNotes.forEach(c => {
+      html += `
+        <div class="grammar-note">
+          <div class="grammar-note-title">${escapeHtml(c.case)}</div>
+          <p>${escapeHtml(c.explanation)}</p>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
+  if (explanation.whyThisForm && explanation.whyThisForm.length > 0) {
+    html += `<div class="explanation-section"><h4>Why This Form?</h4>`;
+    explanation.whyThisForm.forEach(w => {
+      html += `
+        <div class="grammar-note">
+          <p><strong>${escapeHtml(w.phrase || "Explanation")}:</strong> ${escapeHtml(w.explanation || w.pattern || "")}</p>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
+  aiPanelContent.innerHTML = html;
+}
+
+lvText.addEventListener("click", (e) => {
+  const target = e.target;
+  
+  if (target.classList.contains("word-highlight")) {
+    const word = target.dataset.word;
+    const sentence = target.closest(".sentence-block")?.textContent || "";
+    fetchWordExplanation(word, sentence);
+    return;
+  }
+
+  const sentenceBlock = target.closest(".sentence-block");
+  if (sentenceBlock) {
+    const sentences = parseTranscriptToSentences(lvText.textContent);
+    const idx = parseInt(sentenceBlock.dataset.sentence, 10);
+    if (!isNaN(idx) && sentences[idx]) {
+      currentExplanationSentence = sentences[idx];
+      openAIPanel();
+      fetchExplanation(currentExplanationSentence);
+    }
+  }
+});
+
+async function fetchWordExplanation(word, sentence) {
+  aiLoading.hidden = false;
+  aiError.hidden = true;
+  aiPanelContent.innerHTML = "";
+
+  try {
+    const explanation = await aiService.explainWord(word, sentence);
+    displayWordExplanation(explanation);
+  } catch (err) {
+    console.error("AI word explanation error:", err);
+    aiLoading.hidden = true;
+    aiError.hidden = false;
+  }
+}
+
+function displayWordExplanation(explanation) {
+  aiLoading.hidden = true;
+
+  const html = `
+    <div class="word-explanation">
+      <span class="word">${escapeHtml(explanation.word)}</span>
+      ${explanation.lemma ? `<span class="lemma">(${escapeHtml(explanation.lemma)})</span>` : ""}
+      ${explanation.partOfSpeech ? `<span class="pos">${escapeHtml(explanation.partOfSpeech)}</span>` : ""}
+      <div class="meaning">${escapeHtml(explanation.meaning || "No explanation available")}</div>
+      ${explanation.caseOrTense ? `<div><strong>Case/Tense:</strong> ${escapeHtml(explanation.caseOrTense)}</div>` : ""}
+      ${explanation.simpleExample ? `<div class="example">Example: ${escapeHtml(explanation.simpleExample)}</div>` : ""}
+      ${explanation.inContext ? `<div class="example"><em>In context: ${escapeHtml(explanation.inContext)}</em></div>` : ""}
+    </div>
+  `;
+
+  aiPanelContent.innerHTML = html;
+}
+
+const originalSelectItem = selectItem;
+selectItem = function (index) {
+  originalSelectItem(index);
+  if (index >= 0 && index < filtered.length) {
+    const item = filtered[index];
+    const transcript = lvText.textContent;
+    if (transcript && transcript !== "Latvian transcript is not available yet." && transcript !== "No transcript selected.") {
+      lvText.innerHTML = renderTranscriptWithClickableSentences(transcript);
+    }
+  }
+};
+
+const originalApplyFilter = applyFilter;
+applyFilter = function () {
+  originalApplyFilter();
+  const transcript = lvText.textContent;
+  if (transcript && transcript !== "Latvian transcript is not available yet." && transcript !== "No transcript selected.") {
+    lvText.innerHTML = renderTranscriptWithClickableSentences(transcript);
+  }
+};
+
 fetch("catalog.json", { cache: "no-store" })
   .then((response) => {
     if (!response.ok) throw new Error(`Catalog request failed: ${response.status}`);

@@ -45,7 +45,7 @@
               <h3>Latvian Transcript</h3>
               <a id="lvLink" href="#" target="_blank" rel="noreferrer">Markdown</a>
             </div>
-            <pre id="lvText" class="reading-text">No transcript selected.</pre>
+            <pre id="lvText" class="reading-text clickable">No transcript selected.</pre>
           </article>
           <article class="text-panel">
             <div class="panel-heading">
@@ -56,7 +56,35 @@
           </article>
         </section>
       </main>
+
+      <aside id="aiPanel" class="ai-panel" aria-hidden="true">
+        <div class="ai-panel-header">
+          <h3>AI Assistant</h3>
+          <button id="closeAIPanel" class="ai-close-btn" aria-label="Close panel">&times;</button>
+        </div>
+        <div class="ai-panel-controls">
+          <label class="ai-mode-toggle">
+            <input type="checkbox" id="aiModeToggle" />
+            <span class="toggle-label">Detailed mode</span>
+          </label>
+        </div>
+        <div id="aiPanelContent" class="ai-panel-content">
+          <p class="ai-hint">Click a sentence in the Latvian transcript to get an AI explanation.</p>
+        </div>
+        <div id="aiLoading" class="ai-loading" hidden>
+          <div class="spinner"></div>
+          <span>Getting explanation...</span>
+        </div>
+        <div id="aiError" class="ai-error" hidden>
+          <p>Unable to get explanation. <button id="retryBtn" class="ai-retry-btn">Try again</button></p>
+        </div>
+        <div class="ai-panel-footer">
+          <p class="ai-disclaimer">AI explanations are automated and may not be perfect. They are designed to help A2-level learners.</p>
+        </div>
+      </aside>
+      <div id="aiOverlay" class="ai-overlay" hidden></div>
     </div>
+    <script src="ai-transcript-service.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
