@@ -25,6 +25,7 @@ body {
     linear-gradient(135deg, #dfe9ee 0%, #eef5f7 100%);
   color: var(--ink);
   font-family: "Trebuchet MS", "Aptos", sans-serif;
+  padding-bottom: 80px;
 }
 
 .app-shell {
@@ -39,6 +40,22 @@ body {
   padding: 24px 18px;
   overflow-y: auto;
   box-shadow: 12px 0 30px rgba(8, 47, 73, 0.18);
+  z-index: 100;
+}
+
+.sidebar-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 8px;
+  margin-left: auto;
+  margin-bottom: 16px;
+}
+
+.menu-trigger-wrapper {
+  display: none;
 }
 
 .brand {
@@ -167,6 +184,11 @@ body {
 
 .reader {
   padding: 38px;
+  overflow-x: hidden;
+}
+
+.sticky-player {
+  display: none;
 }
 
 .hero,
@@ -257,6 +279,10 @@ audio {
   padding: 10px 16px;
 }
 
+.desktop-only {
+  display: block;
+}
+
 .content-grid {
   display: grid;
   gap: 18px;
@@ -281,6 +307,27 @@ audio {
   margin: 0;
 }
 
+.panel-actions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.collapse-toggle {
+  background: var(--muted);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 900;
+  padding: 4px 8px;
+}
+
+.collapse-toggle:hover {
+  background: var(--navy);
+}
+
 .panel-heading a {
   color: var(--magenta);
   font-weight: 900;
@@ -295,22 +342,316 @@ audio {
   white-space: pre-wrap;
 }
 
+.reading-text.collapsed {
+  display: none;
+}
+
+.reading-text.interactive {
+  cursor: pointer;
+}
+
+.reading-text.interactive:empty::before {
+  content: "Tap to load transcript";
+  color: var(--muted);
+  font-style: italic;
+}
+
+.offline-indicator {
+  align-items: center;
+  background: var(--success);
+  border-radius: 999px;
+  bottom: 12px;
+  color: white;
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px;
+  position: fixed;
+  right: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.install-prompt {
+  background: var(--navy);
+  border-radius: 16px;
+  bottom: 24px;
+  left: 24px;
+  max-width: 400px;
+  padding: 16px;
+  position: fixed;
+  z-index: 1000;
+  box-shadow: 0 12px 40px rgba(8, 47, 73, 0.3);
+}
+
+.install-content {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.install-content span {
+  color: white;
+  font-size: 0.95rem;
+}
+
+.install-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.install-dismiss {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  padding: 8px 14px;
+}
+
+.install-action {
+  background: var(--magenta);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 8px 14px;
+}
+
 @media (max-width: 900px) {
-  .app-shell,
-  .content-grid {
+  .app-shell {
     grid-template-columns: 1fr;
   }
 
   .sidebar {
-    max-height: 52vh;
+    height: 100vh;
+    left: 0;
+    max-height: 100vh;
+    position: fixed;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    width: 85%;
+    max-width: 360px;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-toggle {
+    display: flex;
+  }
+
+  .menu-trigger-wrapper {
+    display: block;
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 99;
+  }
+
+  .menu-trigger {
+    align-items: center;
+    background: var(--magenta);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    padding: 12px;
+    box-shadow: 0 4px 16px rgba(214, 10, 79, 0.3);
+  }
+
+  .menu-trigger svg {
+    display: block;
   }
 
   .reader {
-    padding: 18px;
+    padding: 18px 16px 90px;
+  }
+
+  .sticky-player {
+    align-items: center;
+    background: var(--navy);
+    border-radius: 16px;
+    bottom: 16px;
+    box-shadow: 0 8px 32px rgba(8, 47, 73, 0.25);
+    display: flex;
+    gap: 12px;
+    left: 16px;
+    padding: 14px 16px;
+    position: fixed;
+    right: 16px;
+    z-index: 90;
+  }
+
+  .sticky-player.hidden {
+    display: none;
+  }
+
+  .sticky-play-btn {
+    align-items: center;
+    background: var(--magenta);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    flex-shrink: 0;
+    height: 52px;
+    justify-content: center;
+    padding: 0;
+    width: 52px;
+  }
+
+  .sticky-play-btn svg {
+    display: block;
+  }
+
+  .sticky-player-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sticky-title {
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sticky-progress {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .progress-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+    flex: 1;
+    height: 6px;
+  }
+
+  .progress-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    background: white;
+    border-radius: 50%;
+    cursor: pointer;
+    height: 14px;
+    width: 14px;
+  }
+
+  .progress-slider::-moz-range-thumb {
+    background: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    height: 14px;
+    width: 14px;
+  }
+
+  .sticky-time {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .sticky-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .control-btn {
+    align-items: center;
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .speed-btn {
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 6px 10px;
   }
 
   .hero {
     align-items: flex-start;
     flex-direction: column;
+    padding: 20px;
+  }
+
+  .hero h2 {
+    font-size: 1.65rem;
+  }
+
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .text-panel {
+    padding: 18px;
+  }
+
+  .reading-text {
+    font-size: 1.05rem;
+    line-height: 1.8;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  .install-prompt {
+    left: 16px;
+    right: 16px;
+    max-width: none;
+  }
+
+  body {
+    padding-bottom: 110px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-mark {
+    height: 44px;
+    width: 44px;
+  }
+
+  .brand h1 {
+    font-size: 1.15rem;
+  }
+
+  .sticky-player {
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .sticky-play-btn {
+    height: 46px;
+    width: 46px;
+  }
+
+  .sticky-play-btn svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .reader {
+    padding: 14px 12px 100px;
   }
 }
