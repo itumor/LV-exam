@@ -878,6 +878,155 @@ function renderMenu() {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // LearningEventTracker — track learning events for adaptive recommendations
+  // ---------------------------------------------------------------------------
+  var LearningEventTracker = {
+    events: [],
+    EVENT_TYPES: {
+      LESSON_OPENED: 'lesson_opened',
+      AUDIO_PLAY: 'audio_play',
+      AUDIO_PAUSE: 'audio_pause',
+      SENTENCE_REPLAY: 'sentence_replay',
+      PLAYBACK_SPEED_CHANGE: 'playback_speed_change',
+      TRANSCRIPT_HIDE: 'transcript_hide',
+      QUIZ_ANSWER: 'quiz_answer',
+      FLASHCARD_MISSED: 'flashcard_missed',
+      EXAM_COMPLETE: 'exam_complete'
+    },
+
+    load: function() {
+      try {
+        var raw = localStorage.getItem('lll_learning_events');
+        if (raw) this.events = JSON.parse(raw);
+      } catch(e) { this.events = []; }
+    },
+
+    save: function() {
+      try {
+        localStorage.setItem('lll_learning_events', JSON.stringify(this.events));
+      } catch(e) {}
+    },
+
+    track: function(eventType, data) {
+      this.events.push({
+        type: eventType,
+        timestamp: Date.now(),
+        data: data
+      });
+      this.save();
+      this.updateWeakSkills();
+    },
+
+    getEventsByType: function(eventType) {
+      return this.events.filter(function(e) { return e.type === eventType; });
+    },
+
+    getWeakSkills: function() {
+      var skills = {
+        numbersDates: { name: 'Numbers & Dates', count: 0, events: [] },
+        placesDirections: { name: 'Places & Directions', count: 0, events: [] },
+        everydayServices: { name: 'Everyday Services', count: 0, events: [] },
+        listeningComprehension: { name: 'Listening Comprehension', count: 0, events: [] },
+        vocabularyRetention: { name: 'Vocabulary Retention', count: 0, events: [] }
+      };
+
+      var replayEvents = this.getEventsByType(this.EVENT_TYPES.SENTENCE_REPLAY);
+      var pauseEvents = this.getEventsByType(this.EVENT_TYPES.AUDIO_PAUSE);
+      var missedCards = this.getEventsByType(this.EVENT_TYPES.FLASHCARD_MISSED);
+
+      replayEvents.forEach(function(e) {
+        if (e.data && e.data.sentence) {
+          var text = e.data.sentence.toLowerCase();
+          if (text.match(/laiks|minūt|stund|diena|mēnes|gada|numur|vienpadsmit|divdesmit/)) {
+            skills.numbersDates.count++;
+            skills.numbersDates.events.push(e);
+          }
+          if (text.match(/kur|kuriene|celš|uz|no|pie|blakus|pretī/)) {
+            skills.placesDirections.count++;
+            skills.placesDirections.events.push(e);
+          }
+          if (text.match(/veikals|banka|pasts|ārsts|aptieka|iedzīvotājs/)) {
+            skills.everydayServices.count++;
+            skills.everydayServices.events.push(e);
+          }
+        }
+      });
+
+      var lessonEvents = this.getEventsByType(this.EVENT_TYPES.LESSON_OPENED);
+      skills.listeningComprehension.count = Math.max(0, 20 - pauseEvents.length - replayEvents.length);
+
+      skills.vocabularyRetention.count = missedCards.length;
+
+      return skills;
+    },
+
+    updateWeakSkills: function() {
+      var weakSkillsEl = document.getElementById('weakSkillsList');
+      if (!weakSkillsEl) return;
+
+      var skills = this.getWeakSkills();
+      var html = '';
+
+      Object.keys(skills).forEach(function(key) {
+        var skill = skills[key];
+        var level = skill.count < 3 ? 'good' : (skill.count < 7 ? 'medium' : 'weak');
+        html += '<div class="skill-item skill-' + level + '">';
+        html += '<span class="skill-name">' + skill.name + '</span>';
+        html += '<span class="skill-bar"><span class="skill-fill" style="width:' + Math.min(100, skill.count * 10) + '%"></span></span>';
+        html += '<span class="skill-count">' + skill.count + ' struggles</span>';
+        html += '</div>';
+      });
+
+      weakSkillsEl.innerHTML = html;
+    },
+
+    reset: function() {
+      this.events = [];
+      this.save();
+      this.updateWeakSkills();
+    }
+  };
+
+  LearningEventTracker.load();
+
+  // Initialize weak skills display
+  LearningEventTracker.updateWeakSkills();
+
+  // Wire up reset learning progress button
+  var resetLearningBtn = document.getElementById('resetLearningBtn');
+  if (resetLearningBtn) {
+    resetLearningBtn.addEventListener('click', function() {
+      if (confirm('Are you sure you want to reset all learning progress? This cannot be undone.')) {
+        LearningEventTracker.reset();
+        ProgressTracker._completed = {};
+        ProgressTracker.save = function() {
+          try {
+            localStorage.setItem('lll_completed', JSON.stringify(ProgressTracker._completed));
+          } catch(e) {}
+          ProgressTracker.updateUI();
+        };
+        localStorage.removeItem('lll_completed');
+        ProgressTracker._completed = {};
+        ProgressTracker.updateUI();
+      }
+    });
+  }
+
+  // Wire up event tracking
+  function trackEvent(type, data) {
+    LearningEventTracker.track(type, data);
+  }
+
+  // Track audio plays
+  if (audio) {
+    audio.addEventListener('play', function() {
+      trackEvent(LearningEventTracker.EVENT_TYPES.AUDIO_PLAY, {
+        lessonId: State.filtered[State.selectedIndex] ? State.filtered[State.selectedIndex].id : null
+      });
+    });
+  }
+
 function selectItem(index) {
   if (index < 0 || index >= State.filtered.length) return;
   State.selectedIndex = index;
@@ -2872,6 +3021,14 @@ fetch("catalog.json", { cache: "no-store" })
         activeBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
       this.currentSentenceIndex = index;
+
+      // Track sentence replay for weak skills analysis
+      if (typeof trackEvent === 'function' && this.sentences[index]) {
+        trackEvent(LearningEventTracker.EVENT_TYPES.SENTENCE_REPLAY, {
+          sentence: this.sentences[index].text,
+          lessonId: State.filtered[State.selectedIndex] ? State.filtered[State.selectedIndex].id : null
+        });
+      }
     },
 
     setupClozeExercises: function() {

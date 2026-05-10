@@ -3318,3 +3318,77 @@ line-height: 1;
   font-size: var(--font-size-xs);
   font-style: italic;
 }
+
+/* Weak Skills Dashboard */
+.weak-skills {
+  background: var(--color-surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+}
+
+.weak-skills h4 {
+  color: var(--navy);
+  font-size: var(--font-size-base);
+  margin: 0 0 var(--spacing-md);
+}
+
+.weak-skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.skill-item {
+  align-items: center;
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+}
+
+.skill-name {
+  flex: 0 0 150px;
+  font-size: var(--font-size-sm);
+}
+
+.skill-bar {
+  background: var(--ice);
+  border-radius: var(--radius-pill);
+  flex: 1;
+  height: 8px;
+  overflow: hidden;
+}
+
+.skill-fill {
+  display: block;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.skill-good .skill-fill { background: var(--success); }
+.skill-medium .skill-fill { background: #f59e0b; }
+.skill-weak .skill-fill { background: var(--danger); }
+
+.skill-count {
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+  flex: 0 0 80px;
+  text-align: right;
+}
+
+.reset-learning-btn {
+  background: transparent;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.reset-learning-btn:hover {
+  background: var(--danger);
+  color: white;
+}
