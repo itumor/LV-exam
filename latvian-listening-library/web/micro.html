@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="lv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Micro Practice — Latvian Listening</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .micro-shell {
+        min-height: 100vh;
+        padding: 20px;
+        max-width: 480px;
+        margin: 0 auto;
+      }
+
+      .micro-header {
+        text-align: center;
+        margin-bottom: 24px;
+      }
+
+      .micro-header h1 {
+        font-size: 1.8rem;
+        color: var(--navy);
+        margin: 0 0 8px;
+      }
+
+      .micro-header p {
+        color: var(--muted);
+        margin: 0;
+      }
+
+      .micro-card {
+        background: white;
+        border-radius: 24px;
+        box-shadow: 0 12px 40px rgba(8, 47, 73, 0.15);
+        padding: 24px;
+        margin-bottom: 20px;
+      }
+
+      .micro-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+
+      .micro-tag {
+        font-size: 0.7rem;
+        font-weight: 900;
+        padding: 4px 10px;
+        border-radius: 999px;
+        text-transform: uppercase;
+      }
+
+      .tag-difficulty-a1 { background: #d4edda; color: #155724; }
+      .tag-difficulty-a2 { background: #fff3cd; color: #856404; }
+      .tag-category { background: var(--ice); color: var(--navy); }
+
+      .micro-audio {
+        width: 100%;
+        margin-bottom: 16px;
+      }
+
+      .micro-prompt {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--navy);
+        margin-bottom: 16px;
+        line-height: 1.5;
+      }
+
+      .micro-options {
+        display: grid;
+        gap: 10px;
+      }
+
+      .micro-option {
+        background: var(--ice);
+        border: 2px solid transparent;
+        border-radius: 12px;
+        padding: 14px 16px;
+        cursor: pointer;
+        font-size: 1rem;
+        text-align: left;
+        transition: all 0.2s ease;
+      }
+
+      .micro-option:hover {
+        border-color: var(--magenta);
+        background: white;
+      }
+
+      .micro-option.selected {
+        border-color: var(--navy);
+        background: white;
+      }
+
+      .micro-option.correct {
+        border-color: var(--success);
+        background: #d4edda;
+      }
+
+      .micro-option.incorrect {
+        border-color: var(--danger);
+        background: #f8d7da;
+      }
+
+      .micro-transcript {
+        margin-top: 16px;
+        padding: 16px;
+        background: #f8f9fa;
+        border-radius: 12px;
+        display: none;
+      }
+
+      .micro-transcript.visible {
+        display: block;
+      }
+
+      .micro-transcript-label {
+        font-size: 0.75rem;
+        font-weight: 900;
+        color: var(--muted);
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+
+      .micro-transcript-text {
+        font-family: Georgia, serif;
+        font-size: 0.95rem;
+        line-height: 1.6;
+      }
+
+      .micro-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+
+      .micro-btn {
+        border: none;
+        border-radius: 999px;
+        padding: 10px 16px;
+        font-weight: 900;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .btn-reveal {
+        background: var(--navy);
+        color: white;
+      }
+
+      .btn-reveal:hover {
+        background: var(--navy-deep);
+      }
+
+      .btn-save {
+        background: var(--ice);
+        color: var(--navy);
+      }
+
+      .btn-save:hover {
+        background: #d0dbe3;
+      }
+
+      .btn-copy {
+        background: var(--magenta);
+        color: white;
+      }
+
+      .btn-copy:hover {
+        background: var(--magenta-soft);
+      }
+
+      .btn-next, .btn-prev {
+        background: var(--navy);
+        color: white;
+      }
+
+      .micro-feedback {
+        margin-top: 16px;
+        padding: 16px;
+        border-radius: 12px;
+        display: none;
+      }
+
+      .micro-feedback.visible {
+        display: block;
+      }
+
+      .feedback-correct {
+        background: #d4edda;
+        border: 1px solid var(--success);
+      }
+
+      .feedback-incorrect {
+        background: #f8d7da;
+        border: 1px solid var(--danger);
+      }
+
+      .feedback-title {
+        font-weight: 900;
+        margin-bottom: 8px;
+      }
+
+      .feedback-explanation {
+        font-size: 0.95rem;
+        line-height: 1.5;
+      }
+
+      .micro-nav {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .micro-nav button {
+        flex: 1;
+        padding: 14px;
+      }
+
+      .micro-nav button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--navy);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 999px;
+        font-weight: 600;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 1000;
+      }
+
+      .toast.visible {
+        opacity: 1;
+      }
+
+      .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--navy);
+        font-weight: 900;
+        text-decoration: none;
+        margin-bottom: 20px;
+      }
+
+      .back-link:hover {
+        color: var(--magenta);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="micro-shell">
+      <a href="index.html" class="back-link">← Atpakaļ uz bibliotēku</a>
+
+      <header class="micro-header">
+        <h1>Micro Practice</h1>
+        <p>Ātras praktiskas nodarbības — klausies un atbildi!</p>
+      </header>
+
+      <main id="microContainer"></main>
+
+      <nav class="micro-nav" id="microNav">
+        <button class="micro-btn btn-prev" id="prevBtn">Iepriekšējais</button>
+        <button class="micro-btn btn-next" id="nextBtn">Nākamais</button>
+      </nav>
+
+      <div class="toast" id="toast">Saite nokopēta!</div>
+    </div>
+
+    <script src="micro.js"></script>
+  </body>
+</html>
