@@ -159,6 +159,16 @@
   var statusBadge = document.querySelector('#statusBadge');
   var previousButton = document.querySelector('#prev');
   var nextButton = document.querySelector('#next');
+  var compBarFill = document.querySelector('#compBarFill');
+  var compPct = document.querySelector('#compPct');
+  var compLabel = document.querySelector('#compLabel');
+  var compEstimateNote = document.querySelector('#compEstimateNote');
+  var compMeterCard = document.querySelector('#compMeterCard');
+  var statTotal = document.querySelector('#statTotal');
+  var statUnique = document.querySelector('#statUnique');
+  var statUnknown = document.querySelector('#statUnknown');
+  var unknownWordList = document.querySelector('#unknownWordList');
+  var activeCompFilter = 'all';
 
   if (audio) {
     audio.addEventListener('play', function() {
@@ -197,6 +207,93 @@
     if (status === 'transcribed only' || status === 'translation failed') return 'badge badge-transcribed';
     if (status === 'failed') return 'badge badge-failed';
     return 'badge badge-muted';
+  }
+
+  function renderComprehensionMeter(text) {
+    if (!compMeterCard || !window.ComprehensionMeter || !text || !text.trim()) {
+      if (compMeterCard) compMeterCard.hidden = true;
+      return;
+    }
+
+    compMeterCard.hidden = false;
+    var stats = ComprehensionMeter.computeLessonStats(text);
+    var result = ComprehensionMeter.getComprehensionLabel(stats.comprehensionPct);
+
+    if (compBarFill) {
+      compBarFill.style.width = stats.comprehensionPct + '%';
+      compBarFill.className = 'comp-bar-fill comp-bar-' + result.key;
+    }
+    if (compPct) compPct.textContent = 'You may understand ~' + stats.comprehensionPct + '%';
+    if (compLabel) {
+      compLabel.textContent = result.label;
+      compLabel.className = 'comp-label comp-label-' + result.key;
+    }
+    if (compEstimateNote) {
+      compEstimateNote.textContent = stats.isEstimate
+        ? 'Rough estimate - no vocabulary saved yet'
+        : 'Estimate based on your saved words';
+    }
+    if (statTotal) statTotal.textContent = stats.totalWords;
+    if (statUnique) statUnique.textContent = stats.uniqueWords;
+    if (statUnknown) statUnknown.textContent = stats.unknownUniqueWords + ' unknown';
+
+    if (!unknownWordList) return;
+    unknownWordList.textContent = '';
+    if (stats.topUnknownWords.length === 0) {
+      var empty = document.createElement('p');
+      empty.className = 'unknown-empty';
+      empty.textContent = 'Great - no unknown words detected!';
+      unknownWordList.appendChild(empty);
+      return;
+    }
+
+    stats.topUnknownWords.forEach(function(item) {
+      var tag = document.createElement('button');
+      tag.type = 'button';
+      tag.className = 'unknown-word-tag';
+      tag.textContent = item.word + (item.count > 1 ? ' (' + item.count + ')' : '');
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'unknown-word-remove';
+      removeBtn.textContent = '✓';
+      removeBtn.title = 'Mark as known';
+
+      function markKnown() {
+        ComprehensionMeter.saveKnownWord(item.word, 'manual');
+        renderComprehensionMeter(text);
+        applyCombinedFilters();
+      }
+
+      tag.addEventListener('click', markKnown);
+      removeBtn.addEventListener('click', markKnown);
+
+      var wrap = document.createElement('span');
+      wrap.className = 'unknown-word-wrap';
+      wrap.append(tag, removeBtn);
+      unknownWordList.appendChild(wrap);
+    });
+  }
+
+  function filterByComprehension(items) {
+    if (activeCompFilter === 'all' || !window.ComprehensionMeter) return items;
+    return ComprehensionMeter.filterCatalogByLabel(items, activeCompFilter);
+  }
+
+  function applyCombinedFilters() {
+    var query = search ? search.value.trim() : '';
+    State.filtered = filterByComprehension(applyFilter(State.catalog, query));
+    State.selectedIndex = State.filtered.length ? 0 : -1;
+    Renderer.renderMenu(
+      State.filtered,
+      State.selectedIndex,
+      ProgressTracker ? ProgressTracker.getCompleted() : {}
+    );
+    if (State.filtered.length) {
+      Renderer.selectItem(0);
+    } else if (compMeterCard) {
+      compMeterCard.hidden = true;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -356,6 +453,7 @@
         State.selectedIndex,
         ProgressTracker ? ProgressTracker.getCompleted() : {}
       );
+      renderComprehensionMeter(item.lv_text || '');
     },
 
     renderEmptyState: function(type) {
@@ -582,17 +680,7 @@
       searchInput.addEventListener('input', function() {
         clearTimeout(SearchHandler._timer);
         SearchHandler._timer = setTimeout(function() {
-          var query = searchInput.value.trim();
-          State.filtered = applyFilter(State.catalog, query);
-          State.selectedIndex = State.filtered.length ? 0 : -1;
-          Renderer.renderMenu(
-            State.filtered,
-            State.selectedIndex,
-            ProgressTracker ? ProgressTracker.getCompleted() : {}
-          );
-          if (State.filtered.length) {
-            Renderer.selectItem(0);
-          }
+          applyCombinedFilters();
         }, 300);
       });
     }
@@ -613,6 +701,17 @@
     });
   }
 
+  document.querySelectorAll('.comp-filter-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.comp-filter-btn').forEach(function(other) {
+        other.classList.remove('active');
+      });
+      btn.classList.add('active');
+      activeCompFilter = btn.getAttribute('data-filter') || 'all';
+      applyCombinedFilters();
+    });
+  });
+
   AudioController.init();
 
   // ---------------------------------------------------------------------------
@@ -630,7 +729,7 @@
         console.warn('[Catalog] Lesson data validation failed:', validation.errors);
       }
       State.catalog = Array.isArray(items) ? items : [];
-      State.filtered = State.catalog.slice();
+      State.filtered = filterByComprehension(State.catalog.slice());
       SkeletonHelper.hideSidebar();
       Renderer.renderMenu(
         State.filtered,

@@ -23,6 +23,15 @@
         </button>
         <label class="search-label" for="search">Meklēt</label>
         <input id="search" type="search" placeholder="Search by file or text..." autocomplete="off" />
+        <div class="comp-filters">
+          <span class="comp-filter-label">Rādīt pēc grūtības:</span>
+          <div class="comp-filter-buttons">
+            <button class="comp-filter-btn active" data-filter="all" type="button">Visi</button>
+            <button class="comp-filter-btn" data-filter="easy" type="button">Viegli</button>
+            <button class="comp-filter-btn" data-filter="manageable" type="button">Ietiekams</button>
+            <button class="comp-filter-btn" data-filter="challenging" type="button">Grūti</button>
+          </div>
+        </div>
         <nav id="menu" class="menu" aria-label="Audio lessons">
           <section class="level-section">
             <div class="item-list">
@@ -68,6 +77,29 @@
               Exam readiness: <span id="exam-pct">0%</span> (estimated)
             </div>
             <a href="micro.html" class="micro-link" style="display: inline-block; margin-top: 16px; background: var(--magenta); color: white; padding: 12px 20px; border-radius: 999px; font-weight: 900; text-decoration: none;">Try Micro Practice →</a>
+          </div>
+        </section>
+
+        <section class="comp-meter-card" id="compMeterCard" hidden>
+          <div class="comp-meter-header">
+            <h3>Comprehension Meter</h3>
+            <span class="comp-estimate-note" id="compEstimateNote">Estimate based on common words</span>
+          </div>
+          <div class="comp-meter-display" id="compMeterDisplay">
+            <div class="comp-bar-track">
+              <div class="comp-bar-fill" id="compBarFill" style="width: 0%"></div>
+            </div>
+            <div class="comp-pct" id="compPct">-</div>
+            <div class="comp-label" id="compLabel">-</div>
+          </div>
+          <div class="comp-stats" id="compStats">
+            <div class="comp-stat"><span class="comp-stat-n" id="statTotal">-</span><span class="comp-stat-l">total words</span></div>
+            <div class="comp-stat"><span class="comp-stat-n" id="statUnique">-</span><span class="comp-stat-l">unique words</span></div>
+            <div class="comp-stat"><span class="comp-stat-n" id="statUnknown">-</span><span class="comp-stat-l">new words</span></div>
+          </div>
+          <div class="comp-unknown-words" id="compUnknownWords">
+            <h4>Top Unknown Words</h4>
+            <div class="unknown-word-list" id="unknownWordList"></div>
           </div>
         </section>
 
@@ -129,6 +161,7 @@
       <input id="sticky-seek" type="range" min="0" max="100" value="0" aria-label="Seek" />
       <span id="sticky-time" class="sticky-time">0:00</span>
     </div>
+    <script src="comprehension-meter.js"></script>
     <script src="lib.js"></script>
     <script src="app.js"></script>
   </body>
