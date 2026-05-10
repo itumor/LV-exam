@@ -118,30 +118,6 @@ const enLink = document.querySelector("#enLink");
 const statusBadge = document.querySelector("#statusBadge");
 const previousButton = document.querySelector("#prev");
 const nextButton = document.querySelector("#next");
-=======
-(function () {
-  // ---------------------------------------------------------------------------
-  // ThemeManager — apply theme before any paint
-  // ---------------------------------------------------------------------------
-  var ThemeManager = {
-    apply: function (theme) {
-      document.documentElement.setAttribute('data-theme', theme);
-      var btn = document.getElementById('theme-toggle');
-      if (btn) {
-        var result = toggleTheme(theme);
-        btn.setAttribute('aria-label', result.ariaLabel);
-      }
-    },
-    toggle: function () {
-      var current = document.documentElement.getAttribute('data-theme') || 'light';
-      var result = toggleTheme(current);
-      ThemeManager.apply(result.theme);
-      try { localStorage.setItem('theme', result.theme); } catch (e) {}
-    },
-    init: function () {
-      var stored;
-      try { stored = localStorage.getItem('theme'); } catch (e) {}
-      if (stored === 'dark' || stored === 'light') {
         ThemeManager.apply(stored);
       }
     }
@@ -658,7 +634,6 @@ const nextButton = document.querySelector("#next");
   "pats": { en: "self", grammar: "pron" },
   "paties": { en: "oneself", grammar: "pron" }
 };
->>>>>>> origin/main
 
 const levelLabels = {
   A1: "A1 Klausīšanās",
@@ -719,143 +694,8 @@ function renderMenu() {
       button.type = "button";
       button.className = "audio-item";
       if (filtered[selectedIndex] && filtered[selectedIndex].id === item.id) {
-        button.classList.add("active");
-=======
-(function () {
-  // ---------------------------------------------------------------------------
-  // ThemeManager — apply theme before any paint
-  // ---------------------------------------------------------------------------
-  var ThemeManager = {
-    apply: function (theme) {
-      document.documentElement.setAttribute('data-theme', theme);
-      var btn = document.getElementById('theme-toggle');
-      if (btn) {
-        var result = toggleTheme(theme);
-        btn.setAttribute('aria-label', result.ariaLabel);
+button.classList.add("active");
       }
-    },
-    toggle: function () {
-      var current = document.documentElement.getAttribute('data-theme') || 'light';
-      var result = toggleTheme(current);
-      ThemeManager.apply(result.theme);
-      try { localStorage.setItem('theme', result.theme); } catch (e) {}
-    },
-    init: function () {
-      var stored;
-      try { stored = localStorage.getItem('theme'); } catch (e) {}
-      if (stored === 'dark' || stored === 'light') {
-        ThemeManager.apply(stored);
->>>>>>> origin/main
-      }
-    }
-  };
-
-  // Apply theme synchronously before any DOM manipulation / paint
-  ThemeManager.init();
-
-  // ---------------------------------------------------------------------------
-  // State — in-memory application state
-  // ---------------------------------------------------------------------------
-  var State = {
-    catalog: [],
-    filtered: [],
-    selectedIndex: -1,
-    isPlaying: false,
-    currentTime: 0,
-    duration: 0,
-    waveformData: null
-  };
-  var isDev = window.location.hostname === 'localhost' || window.location.hostname.indexOf('127.0.0.1') !== -1;
-  var audioSource = new AudioSource(AudioSourceType.MP3, window.AUDIO_BASE_URL || '');
-  var analyticsTracker = createAnalyticsTracker(isDev ? null : window.ANALYTICS_SINK_URL || null);
-
-  // ---------------------------------------------------------------------------
-  // SkeletonHelper — show/hide skeleton loading states
-  // ---------------------------------------------------------------------------
-  var SkeletonHelper = {
-    showSidebar: function() {
-      document.querySelectorAll('#menu .skeleton-item').forEach(function(el) { el.hidden = false; });
-      document.querySelectorAll('#menu .audio-item').forEach(function(el) { el.hidden = true; });
-    },
-    hideSidebar: function() {
-      document.querySelectorAll('#menu .skeleton-item').forEach(function(el) { el.hidden = true; });
-    },
-    showPanels: function() {
-      document.querySelectorAll('.panel-body .skeleton-line').forEach(function(el) { el.hidden = false; });
-      document.querySelectorAll('.reading-text').forEach(function(el) { el.hidden = true; });
-    },
-    hidePanels: function() {
-      document.querySelectorAll('.panel-body .skeleton-line').forEach(function(el) { el.hidden = true; });
-      document.querySelectorAll('.reading-text').forEach(function(el) { el.hidden = false; });
-    }
-  };
-
-  // ---------------------------------------------------------------------------
-  // ProgressTracker — localStorage-backed lesson completion tracking
-  // ---------------------------------------------------------------------------
-  var ProgressTracker = {
-    _completed: {},
-    load: function() {
-      try {
-        var raw = localStorage.getItem('lll_completed');
-        if (raw) ProgressTracker._completed = JSON.parse(raw);
-      } catch(e) {}
-    },
-    save: function(id) {
-      ProgressTracker._completed[id] = true;
-      try {
-        localStorage.setItem('lll_completed', JSON.stringify(ProgressTracker._completed));
-      } catch(e) {}
-      ProgressTracker.updateUI();
-    },
-    isCompleted: function(id) {
-      return ProgressTracker._completed[id] === true;
-    },
-    getCompleted: function() {
-      return ProgressTracker._completed;
-    },
-    updateUI: function() {
-      // Update completion dots on sidebar buttons
-      var buttons = document.querySelectorAll('.audio-item[data-lesson-id]');
-      buttons.forEach(function(btn) {
-        var id = btn.getAttribute('data-lesson-id');
-        var dot = btn.querySelector('.completion-dot');
-        if (dot) {
-          if (ProgressTracker.isCompleted(id)) {
-            btn.classList.add('completed');
-          } else {
-            btn.classList.remove('completed');
-          }
-        }
-      });
-      // Update progress bar for current level
-      var item = State.filtered[State.selectedIndex];
-      if (!item) return;
-      var levelItems = State.catalog.filter(function(l) { return l.level === item.level; });
-      var levelIds = levelItems.map(function(l) { return l.id; });
-      var progress = calcProgress(levelIds, ProgressTracker._completed);
-      var bar = document.getElementById('level-progress-bar');
-      var label = document.getElementById('level-progress-label');
-      if (bar) {
-        bar.setAttribute('aria-valuenow', progress.valuenow);
-        bar.style.width = progress.valuenow + '%';
-      }
-      if (label) label.textContent = progress.label;
-      // Show/hide exam readiness
-      var examItems = levelItems.filter(function(l) { return l.exam; });
-      var examEl = document.getElementById('exam-readiness');
-      var examPct = document.getElementById('exam-pct');
-      if (examEl && examItems.length > 0) {
-        var examCompleted = examItems.filter(function(l) { return ProgressTracker.isCompleted(l.id); }).length;
-        var pct = Math.round(examCompleted / examItems.length * 100);
-        if (examPct) examPct.textContent = pct + '%';
-        examEl.hidden = false;
-      } else if (examEl) {
-        examEl.hidden = true;
-      }
-    }
-  };
-  ProgressTracker.load();
 
   // ---------------------------------------------------------------------------
   // DOM references
@@ -1317,7 +1157,7 @@ fetch("catalog.json", { cache: "no-store" })
     renderMenu();
     if (filtered.length) {
       selectItem(0);
-=======
+  }
   var voiceTypeLabels = {
     cashier: 'Cashier',
     doctor: 'Doctor',
@@ -1428,7 +1268,6 @@ fetch("catalog.json", { cache: "no-store" })
         { lv: 'Kur es varu atrast maizi?', en: 'Where can I find bread?', context: 'Finding products' },
         { lv: 'Vai es varu maksat ar karti?', en: 'Can I pay by card?', context: 'Card payment' }
       ]
->>>>>>> origin/main
     }
   ];
 
