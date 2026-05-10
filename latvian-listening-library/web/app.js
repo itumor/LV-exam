@@ -2748,5 +2748,234 @@ fetch("catalog.json", { cache: "no-store" })
     Analytics: analyticsTracker
   };
   window.analytics = analyticsTracker;
->>>>>>> origin/main
+
+  // ---------------------------------------------------------------------------
+  // InteractiveListeningMode — sentence highlighting, speed controls, cloze
+  // ---------------------------------------------------------------------------
+  var InteractiveListeningMode = {
+    sentences: [],
+    currentSentenceIndex: -1,
+    isTranscriptVisible: true,
+    clozeWords: [],
+    clozeUserAnswers: [],
+
+    init: function() {
+      this.setupSpeedControls();
+      this.setupHideTranscript();
+      this.setupSentenceClickEvents();
+      this.setupAudioTimeUpdate();
+      this.setupClozeExercises();
+    },
+
+    setupSpeedControls: function() {
+      var speedBtn = document.getElementById('speed-btn');
+      var speedMenu = document.getElementById('speed-menu');
+      var audio = document.querySelector('#audio');
+      if (!speedBtn || !speedMenu || !audio) return;
+
+      speedBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        speedMenu.classList.toggle('hidden');
+      });
+
+      speedMenu.querySelectorAll('.speed-option').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var speed = parseFloat(btn.getAttribute('data-speed'));
+          audio.playbackRate = speed;
+          speedBtn.textContent = speed + 'x';
+          speedMenu.classList.add('hidden');
+        });
+      });
+
+      document.addEventListener('click', function() {
+        if (!speedMenu.classList.contains('hidden')) {
+          speedMenu.classList.add('hidden');
+        }
+      });
+    },
+
+    setupHideTranscript: function() {
+      var hideBtn = document.getElementById('hide-transcript-btn');
+      var lvTextEl = document.getElementById('lvText');
+      var enTextEl = document.getElementById('enText');
+      if (!hideBtn || !lvTextEl) return;
+
+      hideBtn.addEventListener('click', function() {
+        this.isTranscriptVisible = !this.isTranscriptVisible;
+        lvTextEl.style.display = this.isTranscriptVisible ? '' : 'none';
+        if (enTextEl) enTextEl.style.display = this.isTranscriptVisible ? '' : 'none';
+        hideBtn.textContent = this.isTranscriptVisible ? '👁️' : '👁️‍🗨️';
+      }.bind(this));
+    },
+
+    setupSentenceClickEvents: function() {
+      var self = this;
+      document.addEventListener('click', function(e) {
+        var target = e.target;
+        if (target.classList.contains('sentence-block')) {
+          var index = parseInt(target.getAttribute('data-sentence'), 10);
+          self.highlightSentence(index);
+        }
+      });
+    },
+
+    setupAudioTimeUpdate: function() {
+      var audio = document.querySelector('#audio');
+      var self = this;
+      if (!audio) return;
+
+      audio.addEventListener('timeupdate', function() {
+        if (self.sentences.length === 0) return;
+        var currentTime = audio.currentTime;
+        for (var i = 0; i < self.sentences.length; i++) {
+          var sent = self.sentences[i];
+          if (currentTime >= sent.start && currentTime < sent.end) {
+            if (self.currentSentenceIndex !== i) {
+              self.highlightSentence(i);
+            }
+            return;
+          }
+        }
+      });
+    },
+
+    parseSentences: function(text) {
+      if (!text) return [];
+      var rawSentences = text.split(/(?<=[.!?])\s+/);
+      var sentences = [];
+      var totalDuration = 0;
+      var audio = document.querySelector('#audio');
+      var duration = audio ? audio.duration : 180;
+
+      rawSentences.forEach(function(sent, i) {
+        sent = sent.trim();
+        if (sent.length > 0) {
+          var avgWordDuration = duration / Math.max(1, sent.split(/\s+/).length);
+          sentences.push({
+            index: i,
+            text: sent,
+            start: totalDuration,
+            end: totalDuration + avgWordDuration * sent.split(/\s+/).length
+          });
+          totalDuration += avgWordDuration * sent.split(/\s+/).length;
+        }
+      });
+      return sentences;
+    },
+
+    highlightSentence: function(index) {
+      var blocks = document.querySelectorAll('.sentence-block');
+      blocks.forEach(function(block) { block.classList.remove('active-sentence'); });
+      var activeBlock = document.querySelector('.sentence-block[data-sentence="' + index + '"]');
+      if (activeBlock) {
+        activeBlock.classList.add('active-sentence');
+        activeBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      this.currentSentenceIndex = index;
+    },
+
+    setupClozeExercises: function() {
+      var checkBtn = document.getElementById('checkClozeBtn');
+      var resetBtn = document.getElementById('resetClozeBtn');
+      var self = this;
+
+      if (checkBtn) checkBtn.addEventListener('click', function() { self.checkClozeAnswers(); });
+      if (resetBtn) resetBtn.addEventListener('click', function() { self.generateCloze(); });
+    },
+
+    generateCloze: function() {
+      var item = State.filtered[State.selectedIndex];
+      if (!item || !item.lv_text) return;
+
+      var text = item.lv_text;
+      var words = text.split(/\s+/).filter(function(w) { return w.length > 3; });
+      var stopwords = ['un', 'un', 'bet', 'vai', 'ir', 'bija', 'būs', 'nav', 'būt', 'ka', 'lai', 'kas', 'kur', 'kad', 'kā', 'jo', 'līdz', 'par', 'pēc'];
+      var candidateWords = words.filter(function(w) {
+        var clean = w.replace(/[.,!?;:"''()[\]{}]/g, '').toLowerCase();
+        return stopwords.indexOf(clean) === -1 && clean.length > 3;
+      });
+
+      var numToHide = Math.min(5, Math.max(3, Math.floor(candidateWords.length * 0.15)));
+      var shuffled = candidateWords.slice().sort(function() { return Math.random() - 0.5; });
+      this.clozeWords = shuffled.slice(0, numToHide);
+      this.clozeUserAnswers = new Array(numToHide).fill('');
+
+      var clozeContainer = document.getElementById('clozeContainer');
+      var clozeSection = document.getElementById('clozeSection');
+      if (!clozeContainer || !clozeSection) return;
+
+      clozeSection.style.display = 'block';
+      clozeContainer.innerHTML = '';
+
+      var displayText = text;
+      this.clozeWords.forEach(function(word, i) {
+        var clean = word.replace(/[.,!?;:"''()[\]{}]/g, '');
+        var regex = new RegExp('\\b' + clean + '\\b', 'gi');
+        displayText = displayText.replace(regex, '<input type="text" class="cloze-input" data-index="' + i + '" placeholder="..." aria-label="Missing word ' + (i+1) + '">');
+      });
+
+      clozeContainer.innerHTML = '<div class="cloze-text">' + displayText + '</div>';
+
+      clozeContainer.querySelectorAll('.cloze-input').forEach(function(input) {
+        input.addEventListener('input', function() {
+          var idx = parseInt(this.getAttribute('data-index'), 10);
+          self.clozeUserAnswers[idx] = this.value.toLowerCase();
+        });
+      });
+
+      document.getElementById('clozeProgress').textContent = '0/' + this.clozeWords.length;
+    },
+
+    checkClozeAnswers: function() {
+      var correct = 0;
+      var inputs = document.querySelectorAll('.cloze-input');
+
+      this.clozeWords.forEach(function(word, i) {
+        var clean = word.replace(/[.,!?;:"''()[\]{}]/g, '').toLowerCase();
+        var input = inputs[i];
+        if (!input) return;
+
+        var userAnswer = this.clozeUserAnswers[i] || '';
+        var isCorrect = userAnswer.trim() === clean;
+
+        input.classList.remove('correct', 'incorrect');
+        input.classList.add(isCorrect ? 'correct' : 'incorrect');
+        if (isCorrect) correct++;
+      }.bind(this));
+
+      document.getElementById('clozeProgress').textContent = correct + '/' + this.clozeWords.length + ' correct';
+    },
+
+    onLessonSelect: function(item) {
+      this.sentences = this.parseSentences(item.lv_text || '');
+      this.generateCloze();
+    }
+  };
+
+  // Initialize interactive listening when lesson is selected
+  var originalSelectItem = window.__lll && window.__lll.selectItem;
+  if (originalSelectItem) {
+    var wrappedSelectItem = function(index) {
+      originalSelectItem(index);
+      var item = State.filtered[index];
+      if (item) InteractiveListeningMode.onLessonSelect(item);
+    };
+    window.__lll.selectItem = wrappedSelectItem;
+  }
+
+  // Also hook into existing selectItem function by patching Renderer.selectItem
+  if (Renderer && Renderer.selectItem) {
+    var originalRendererSelectItem = Renderer.selectItem;
+    Renderer.selectItem = function(index) {
+      originalRendererSelectItem.apply(this, arguments);
+      var item = State.filtered[index];
+      if (item) InteractiveListeningMode.onLessonSelect(item);
+    };
+  }
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    InteractiveListeningMode.init();
+  });
+
 })();
