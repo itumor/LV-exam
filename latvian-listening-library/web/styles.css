@@ -1755,3 +1755,213 @@ audio::-webkit-media-controls-volume-slider {
   font-size: 14px;
   font-weight: 500;
 }
+
+/* Dark mode */
+body.dark {
+  --paper: #1a1a2e;
+  --ink: #e8e8e8;
+  --line: #3a3a5c;
+  --ice: #2a2a4a;
+  --muted: #a0a0b0;
+  --navy: #0f0f1a;
+  --navy-deep: #080810;
+}
+
+body.dark .sidebar {
+  background: var(--navy-deep);
+}
+
+body.dark .item-list {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--line);
+}
+
+body.dark .level-toggle {
+  background: #2a2a4a;
+  color: var(--ink);
+}
+
+body.dark #search {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+body.dark .hero,
+body.dark .player-card,
+body.dark .text-panel {
+  background: #232338;
+  border-color: var(--line);
+}
+
+body.dark .hero {
+  background: linear-gradient(135deg, #232338 0%, #1a1a2e 100%);
+}
+
+body.dark .reading-text {
+  background: #1a1a2e;
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+body.dark .panel-heading {
+  border-color: var(--line);
+}
+
+body.dark .panel-heading h3 {
+  color: var(--ink);
+}
+
+body.dark .brand-mark {
+  background: var(--ink);
+  color: var(--magenta);
+}
+
+body.dark body {
+  background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+}
+
+/* Theme toggle */
+.theme-toggle {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-md);
+  color: white;
+  cursor: pointer;
+  padding: var(--spacing-sm);
+  margin-left: auto;
+  transition: all 0.2s ease;
+}
+
+.theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.theme-icon {
+  font-size: 1.25rem;
+}
+
+/* Progress section */
+.progress-section {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.progress-label {
+  font-size: var(--font-size-sm);
+  color: #bbceda;
+}
+
+.progress-count {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--magenta-soft);
+}
+
+.progress-bar-container {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-pill);
+  height: 8px;
+  overflow: hidden;
+  margin-bottom: var(--spacing-sm);
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, var(--magenta), var(--magenta-soft));
+  height: 100%;
+  width: 0%;
+  border-radius: var(--radius-pill);
+  transition: width 0.3s ease;
+}
+
+.stats-row {
+  display: flex;
+  gap: var(--spacing-lg);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+}
+
+.stat-icon {
+  font-size: 1rem;
+}
+
+.stat-value {
+  font-weight: var(--font-weight-bold);
+  color: var(--magenta-soft);
+}
+
+.stat-label {
+  color: #bbceda;
+}
+
+/* Waveform */
+.waveform-container {
+  width: 100%;
+  height: 60px;
+  background: var(--ice);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-md);
+  overflow: hidden;
+}
+
+.waveform-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Skeleton loading */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton .reading-text {
+  background: linear-gradient(90deg, var(--line) 25%, var(--ice) 50%, var(--line) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  min-height: 100px;
+}
+
+body.dark .skeleton .reading-text {
+  background: linear-gradient(90deg, #2a2a4a 25%, #3a3a5c 50%, #2a2a4a 75%);
+  background-size: 200% 100%;
+}
+
+/* Focus rings */
+button:focus-visible,
+input:focus-visible,
+audio:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: 2px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
