@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="lv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A2 Eksāmena Simulācija - Latvian Listening</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="exam-app">
+      <aside class="exam-sidebar">
+        <div class="brand">
+          <span class="brand-mark">A2</span>
+          <div>
+            <h1>Eksāmena Simulācija</h1>
+            <p>Klausīšanās prakse</p>
+          </div>
+        </div>
+        <nav class="exam-nav">
+          <button type="button" class="nav-item active" data-view="intro">Sākums</button>
+          <button type="button" class="nav-item" data-view="simulation">Simulācija</button>
+          <button type="button" class="nav-item" data-view="results">Rezultāti</button>
+          <button type="button" class="nav-item" data-view="history">Vēsture</button>
+        </nav>
+        <div class="exam-stats">
+          <div class="stat-item">
+            <span class="stat-label">Mēģinājumi</span>
+            <span id="attempt-count" class="stat-value">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Labākais</span>
+            <span id="best-score" class="stat-value">-</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="exam-main">
+        <div id="intro-view" class="exam-view active">
+          <div class="intro-card">
+            <h2>A2 Klausīšanās Eksāmena Simulācija</h2>
+            <p class="intro-subtitle">Prepare for the official Latvian A2 listening exam</p>
+
+            <div class="exam-info">
+              <div class="info-row">
+                <span class="info-icon">⏱</span>
+                <div>
+                  <strong>Exam Duration</strong>
+                  <p>Pilna simulācija: 25 min / Mini: 8-10 min</p>
+                </div>
+              </div>
+              <div class="info-row">
+                <span class="info-icon">📝</span>
+                <div>
+                  <strong>Task Types</strong>
+                  <p>6 paziņojumi + 1 dialogs + 5 īsi dialogi</p>
+                </div>
+              </div>
+              <div class="info-row">
+                <span class="info-icon">🎯</span>
+                <div>
+                  <strong>Passing Score</strong>
+                  <p>9 no 15 punktiem (60%)</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mode-select">
+              <h3>Izvēlies režīmu</h3>
+              <div class="mode-buttons">
+                <button type="button" class="mode-btn" data-mode="full">
+                  <span class="mode-title">Pilna Simulācija</span>
+                  <span class="mode-desc">25 min • Visi 15 jautājumi</span>
+                </button>
+                <button type="button" class="mode-btn" data-mode="mini">
+                  <span class="mode-title">Mini Simulācija</span>
+                  <span class="mode-desc">8-10 min • 5 jautājumi</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="rules-section">
+              <h3>Noteikumi</h3>
+              <ul>
+                <li>Transkripcija nav redzama līdz pārskatīšanas režīmam</li>
+                <li>Laiks rit uz priekšu - dari to paša tempsā kā īstā eksāmena laikā</li>
+                <li>Atbildi uz visiem jautājumiem pirms laika beigām</li>
+                <li>Var atstāt tukšas atbildes, bet tas ietekmēs rezultātu</li>
+              </ul>
+            </div>
+
+            <button type="button" id="start-exam-btn" class="btn-primary" disabled>Sākt Eksāmenu</button>
+          </div>
+        </div>
+
+        <div id="simulation-view" class="exam-view">
+          <div class="exam-header">
+            <div class="progress-info">
+              <span id="task-progress">Task 1 of 3</span>
+              <span id="question-progress" class="question-num">Question 1 of 6</span>
+            </div>
+            <div class="timer-container">
+              <span id="exam-timer" class="timer">25:00</span>
+            </div>
+          </div>
+
+          <div id="task-container" class="task-container">
+            <div id="announcement-task" class="task-type" hidden>
+              <div class="task-instruction">
+                <h3>Paziņojums <span id="ann-num">1</span>/6</h3>
+                <p>Klausies un izvēlies pareizo atbildi</p>
+              </div>
+              <audio id="ann-audio" controls class="task-audio"></audio>
+              <div class="options-container" id="ann-options"></div>
+            </div>
+
+            <div id="dialogue-task" class="task-type" hidden>
+              <div class="task-instruction">
+                <h3>Dialogs</h3>
+                <p>Nosaki vai apgalvojums ir pareizs (Jā) vai nepareizs (Nē)</p>
+              </div>
+              <audio id="dialogue-audio" controls class="task-audio"></audio>
+              <div class="tf-statements" id="tf-statements"></div>
+            </div>
+
+            <div id="shortdialogue-task" class="task-type" hidden>
+              <div class="task-instruction">
+                <h3>Īss Dialogs <span id="short-num">1</span>/5</h3>
+                <p>Izvēlies pareizo vārdu vai skaitli</p>
+              </div>
+              <audio id="short-audio" controls class="task-audio"></div>
+              <div class="word-options" id="word-options"></div>
+            </div>
+          </div>
+
+          <div class="exam-footer">
+            <button type="button" id="exit-confirm-btn" class="btn-secondary">Iziet</button>
+            <button type="button" id="next-task-btn" class="btn-primary" disabled>Nākamais</button>
+          </div>
+        </div>
+
+        <div id="results-view" class="exam-view">
+          <div class="results-card">
+            <div class="results-header">
+              <h2>Rezultāts</h2>
+              <span id="result-date" class="result-date"></span>
+            </div>
+
+            <div class="score-display">
+              <div class="score-circle" id="score-circle">
+                <span id="score-value">0</span>
+                <span class="score-total">/15</span>
+              </div>
+              <div id="pass-fail-badge" class="pass-fail"></div>
+            </div>
+
+            <div class="readiness-estimate">
+              <p id="readiness-text"></p>
+            </div>
+
+            <div class="breakdown-section">
+              <h3>Rezultātu Sadale</h3>
+              <div class="breakdown-grid" id="breakdown-grid"></div>
+            </div>
+
+            <div class="skill-analysis">
+              <h3>Vājo Prasmju Analīze</h3>
+              <div class="skill-bars" id="skill-bars"></div>
+            </div>
+
+            <div class="review-section">
+              <button type="button" id="review-btn" class="btn-primary">Pārskatīt Atbildes</button>
+              <button type="button" id="retry-btn" class="btn-secondary">Mēģināt Vēlreiz</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="review-view" class="exam-view">
+          <div class="review-header">
+            <h2>Pārskatīšanas Režīms</h2>
+            <button type="button" id="back-to-results" class="btn-secondary">Atpakaļ</button>
+          </div>
+          <div id="review-container" class="review-container"></div>
+        </div>
+
+        <div id="history-view" class="exam-view">
+          <div class="history-card">
+            <h2>Mēģinājumu Vēsture</h2>
+            <div id="history-list" class="history-list">
+              <p class="empty-state">Nav veiktu mēģinājumu</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <div id="exit-modal" class="modal" hidden>
+      <div class="modal-content">
+        <h3>Apstiprināt Iziešanu?</h3>
+        <p>Tu esi pārliecināts, ka vēlies iziet no eksāmena? Progres tiks zaudēta.</p>
+        <div class="modal-actions">
+          <button type="button" id="cancel-exit" class="btn-secondary">Atcelt</button>
+          <button type="button" id="confirm-exit" class="btn-danger">Iziet</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
