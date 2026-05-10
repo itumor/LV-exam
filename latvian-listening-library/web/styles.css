@@ -723,6 +723,349 @@ audio::-webkit-media-controls-volume-slider {
   margin: 0;
 }
 
+.mode-switch-btn {
+  background: var(--magenta);
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  cursor: pointer;
+  font-weight: 700;
+  margin-top: 16px;
+  padding: 10px 16px;
+  width: 100%;
+}
+
+.mode-toggle {
+  align-items: center;
+  background: var(--magenta);
+  border: 0;
+  border-radius: 14px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  font-size: 1rem;
+  font-weight: 700;
+  justify-content: center;
+  padding: 14px 18px;
+  text-align: center;
+  width: 100%;
+}
+
+.filter-container {
+  margin-bottom: 16px;
+}
+
+.filter-container .form-select {
+  border: 0;
+  border-radius: 12px;
+  padding: 12px;
+  width: 100%;
+}
+
+.progress-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid white;
+  background: transparent;
+}
+
+.progress-dot.not_started {
+  background: var(--muted);
+}
+
+.progress-dot.practiced {
+  background: var(--warn);
+}
+
+.progress-dot.confident {
+  background: var(--success);
+}
+
+.living-hero {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--magenta) 100%);
+  color: white;
+  margin-bottom: 24px;
+  padding: 32px;
+}
+
+.living-hero .eyebrow {
+  color: rgba(255,255,255,0.8);
+}
+
+.living-hero h2 {
+  color: white;
+}
+
+.living-intro {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 24px;
+}
+
+.intro-card {
+  background: rgba(255, 253, 248, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 12px 30px rgba(8, 47, 73, 0.1);
+}
+
+.intro-card h3 {
+  color: var(--magenta);
+  margin: 0 0 12px;
+}
+
+.intro-card ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.intro-card li {
+  margin-bottom: 6px;
+}
+
+.progress-stats {
+  display: flex;
+  gap: 24px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-num {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: var(--navy);
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.scenario-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.scenario-card {
+  background: rgba(255, 253, 248, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 16px;
+  cursor: pointer;
+  padding: 20px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.scenario-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(8, 47, 73, 0.15);
+}
+
+.scenario-card.confident {
+  border-left: 4px solid var(--success);
+}
+
+.scenario-card.practiced {
+  border-left: 4px solid var(--warn);
+}
+
+.category-tag {
+  background: var(--navy);
+  border-radius: 999px;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+}
+
+.scenario-card h4 {
+  margin: 12px 0 8px;
+}
+
+.scenario-card p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.card-footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.progress-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.scenario-hero {
+  background: linear-gradient(135deg, var(--navy) 0%, #1a3a5c 100%);
+  border-radius: 20px;
+  color: white;
+  margin-bottom: 20px;
+  padding: 28px;
+}
+
+.scenario-header {
+  margin-bottom: 20px;
+}
+
+.category-badge {
+  background: var(--magenta);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 6px 12px;
+}
+
+.scenario-hero h2 {
+  color: white;
+  margin: 12px 0;
+}
+
+.scenario-subtitle {
+  color: rgba(255,255,255,0.85);
+  margin: 0;
+}
+
+.progress-selector {
+  display: flex;
+  gap: 10px;
+}
+
+.progress-btn {
+  background: rgba(255,255,255,0.15);
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 999px;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 10px 16px;
+}
+
+.progress-btn.active {
+  background: var(--magenta);
+  border-color: var(--magenta);
+}
+
+.scenario-section {
+  background: rgba(255, 253, 248, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 16px;
+  margin-bottom: 16px;
+  padding: 24px;
+}
+
+.scenario-section h3 {
+  color: var(--navy);
+  margin: 0 0 16px;
+}
+
+.vocabulary-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vocab-tag {
+  background: var(--ice);
+  border-radius: 999px;
+  color: var(--navy);
+  font-size: 0.9rem;
+  padding: 8px 14px;
+}
+
+.phrases-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+
+.phrase-card {
+  background: #f8f5f0;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.phrase-lv {
+  color: var(--navy);
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.phrase-en {
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.phrase-context {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.phrase-usage {
+  color: var(--success);
+  font-size: 0.85rem;
+}
+
+.practice-card {
+  background: #fff8e6;
+  border-left: 3px solid var(--warn);
+}
+
+.checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.checklist li {
+  margin-bottom: 10px;
+}
+
+.checklist-item {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+}
+
+.checklist-item input {
+  height: 20px;
+  width: 20px;
+  accent-color: var(--success);
+}
+
+.section-desc {
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.back-to-scenarios-btn {
+  background: var(--magenta);
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 14px 24px;
+  width: 100%;
+}
+
+.repeat-phrases .phrase-card {
+  background: #fff8e6;
+}
+
 @media (max-width: 900px) {
   .app-shell,
   .content-grid {
@@ -1365,5 +1708,21 @@ audio::-webkit-media-controls-volume-slider {
     width: 100%;
     border-left: none;
     box-shadow: 0 -8px 30px rgba(8, 47, 73, 0.2);
+  }
+
+  .living-intro {
+    grid-template-columns: 1fr;
+  }
+
+  .scenario-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .phrases-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-selector {
+    flex-wrap: wrap;
   }
 }

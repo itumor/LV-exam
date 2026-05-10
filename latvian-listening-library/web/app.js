@@ -225,6 +225,112 @@
     landlord: 'Landlord'
   };
 
+  var MODE_KEY = 'latvian_listening_library_mode';
+  var SCENARIO_PROGRESS_KEY = 'latvian_listening_library_progress';
+  var currentMode = localStorage.getItem(MODE_KEY) || 'library';
+  var scenarioProgress = {};
+
+  try {
+    scenarioProgress = JSON.parse(localStorage.getItem(SCENARIO_PROGRESS_KEY)) || {};
+  } catch (e) {
+    scenarioProgress = {};
+  }
+
+  var categoryFilters = {
+    family: 'Gimene',
+    work: 'Darbs',
+    health: 'Veseliba',
+    bureaucracy: 'Birokratija',
+    transport: 'Transports',
+    shopping: 'Iepirksanas'
+  };
+
+  var scenarios = [
+    {
+      id: 'school-call',
+      title: 'Zvana uz skolu',
+      description: "Communicating with teachers about your child's progress, attendance, or schedule.",
+      category: 'family',
+      vocabulary: ['skolotajs', 'stunda', 'majasdarbs', 'atzime', 'sapulce', 'kavejums'],
+      phrases: [
+        { lv: 'Labdien, es gribetu runat ar savas meitas skolotaju.', en: "Hello, I'd like to speak with my daughter's teacher.", context: 'Calling a teacher' },
+        { lv: 'Kad ir vecaku sapulce?', en: 'When is the parent meeting?', context: 'Asking about school events' }
+      ]
+    },
+    {
+      id: 'doctor',
+      title: 'Pie arsta',
+      description: 'Making appointments, describing symptoms, and understanding medical instructions.',
+      category: 'health',
+      vocabulary: ['arsts', 'slimiba', 'simptomi', 'recepte', 'analizes', 'aptieka'],
+      phrases: [
+        { lv: 'Man sap galva un ir temperatura.', en: 'I have a headache and a fever.', context: 'Describing symptoms' },
+        { lv: 'Kad man jaatnak uz kontroli?', en: 'When should I come for a follow-up?', context: 'Follow-up appointment' }
+      ]
+    },
+    {
+      id: 'government',
+      title: 'Valsts iestade',
+      description: 'Visiting municipal offices, population registry, and social services.',
+      category: 'bureaucracy',
+      vocabulary: ['dokumenti', 'veidlapa', 'rinda', 'apstiprinajums', 'dzivesvieta'],
+      phrases: [
+        { lv: 'Kur es varu registret dzivesvietu?', en: 'Where can I register my residence?', context: 'Residence registration' },
+        { lv: 'Kadi dokumenti man ir nepieciesami?', en: 'What documents do I need?', context: 'Required documents' }
+      ]
+    },
+    {
+      id: 'residency',
+      title: 'Uzturesanas atlauja',
+      description: 'Applying for residence permits, extensions, and understanding requirements.',
+      category: 'bureaucracy',
+      vocabulary: ['uzturesanas atlauja', 'pieteikums', 'termins', 'maksa', 'intervija'],
+      phrases: [
+        { lv: 'Es velos pieteikties uzturesanas atlaujai.', en: 'I want to apply for a residence permit.', context: 'Application' },
+        { lv: 'Cik ilgi jagaida lemums?', en: 'How long does it take to get a decision?', context: 'Processing time' }
+      ]
+    },
+    {
+      id: 'work-meeting',
+      title: 'Darba sanaksme',
+      description: 'Participating in workplace meetings and understanding tasks.',
+      category: 'work',
+      vocabulary: ['sanaksme', 'projekts', 'uzdevums', 'termins', 'komanda'],
+      phrases: [
+        { lv: 'Kads ir projekta grafiks?', en: 'What is the project schedule?', context: 'Project planning' },
+        { lv: 'Vai es varu sanemt so informaciju rakstiski?', en: 'Can I get this information in writing?', context: 'Written confirmation' }
+      ]
+    },
+    {
+      id: 'transport',
+      title: 'Sabiedriskais transports',
+      description: 'Buying tickets, asking about routes, schedules, and stops.',
+      category: 'transport',
+      vocabulary: ['autobuss', 'tramvajs', 'bilete', 'marsruts', 'pietura'],
+      phrases: [
+        { lv: 'Vai sis autobuss brauc uz centru?', en: 'Does this bus go to the center?', context: 'Route inquiry' },
+        { lv: 'Es gribetu izkapt nakamaja pietura.', en: 'I would like to get off at the next stop.', context: 'Requesting a stop' }
+      ]
+    },
+    {
+      id: 'grocery',
+      title: 'Veikals/Kase',
+      description: 'Shopping, asking for products, understanding prices, and payment methods.',
+      category: 'shopping',
+      vocabulary: ['prece', 'cena', 'atlaide', 'svars', 'kvits'],
+      phrases: [
+        { lv: 'Kur es varu atrast maizi?', en: 'Where can I find bread?', context: 'Finding products' },
+        { lv: 'Vai es varu maksat ar karti?', en: 'Can I pay by card?', context: 'Card payment' }
+      ]
+    }
+  ];
+
+  var askToRepeatPhrases = [
+    { lv: 'Ludzu, atkartojiet!', en: 'Please repeat!', context: 'When you need to hear it again' },
+    { lv: 'Es nesapratu.', en: "I didn't understand.", context: 'When the meaning is unclear' },
+    { lv: 'Vai jus varat runat lenak?', en: 'Can you speak more slowly?', context: 'When speech is too fast' }
+  ];
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
@@ -266,6 +372,164 @@
     var nextType = otherTypes[Math.floor(Math.random() * otherTypes.length)].voice_type;
     var label = voiceTypeLabels[nextType] || nextType;
     return 'Try a ' + label + ' voice next.';
+  }
+
+  function saveScenarioProgress() {
+    localStorage.setItem(SCENARIO_PROGRESS_KEY, JSON.stringify(scenarioProgress));
+  }
+
+  function getScenarioProgress(id) {
+    return scenarioProgress[id] || 'not_started';
+  }
+
+  function setScenarioProgress(id, status) {
+    scenarioProgress[id] = status;
+    saveScenarioProgress();
+  }
+
+  function renderPhraseCards(items) {
+    return items.map(function(item) {
+      return '<div class="phrase-card">' +
+        '<div class="phrase-lv">' + escapeHtml(item.lv) + '</div>' +
+        '<div class="phrase-en">' + escapeHtml(item.en) + '</div>' +
+        '<div class="phrase-context">' + escapeHtml(item.context || '') + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function renderLivingMenu(filter) {
+    if (!menu) return;
+    menu.textContent = '';
+
+    var backButton = document.createElement('button');
+    backButton.type = 'button';
+    backButton.className = 'mode-toggle';
+    backButton.textContent = 'Back to library';
+    backButton.addEventListener('click', function() {
+      currentMode = 'library';
+      localStorage.setItem(MODE_KEY, currentMode);
+      window.location.reload();
+    });
+    menu.appendChild(backButton);
+
+    var filterContainer = document.createElement('div');
+    filterContainer.className = 'filter-container';
+    var select = document.createElement('select');
+    select.className = 'form-select';
+    select.innerHTML = '<option value="">All real-life topics</option>' +
+      Object.keys(categoryFilters).map(function(key) {
+        return '<option value="' + key + '">' + categoryFilters[key] + '</option>';
+      }).join('');
+    select.value = filter || '';
+    select.addEventListener('change', function(event) {
+      renderLivingMenu(event.target.value);
+    });
+    filterContainer.appendChild(select);
+    menu.appendChild(filterContainer);
+
+    var list = document.createElement('div');
+    list.className = 'scenario-list item-list';
+    scenarios
+      .filter(function(scenario) { return !filter || scenario.category === filter; })
+      .forEach(function(scenario) {
+        var progress = getScenarioProgress(scenario.id);
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'scenario-item audio-item ' + progress;
+        button.innerHTML = '<span class="progress-dot ' + progress + '"></span>' +
+          '<span>' + escapeHtml(scenario.title) + '</span>' +
+          '<small>' + escapeHtml(categoryFilters[scenario.category] || scenario.category) + '</small>';
+        button.addEventListener('click', function() {
+          renderScenario(scenario);
+        });
+        list.appendChild(button);
+      });
+    menu.appendChild(list);
+  }
+
+  function renderLivingHome() {
+    var reader = document.querySelector('.reader');
+    if (!reader) return;
+    var practiced = Object.keys(scenarioProgress).filter(function(key) {
+      return scenarioProgress[key] !== 'not_started';
+    }).length;
+    var confident = Object.keys(scenarioProgress).filter(function(key) {
+      return scenarioProgress[key] === 'confident';
+    }).length;
+
+    reader.innerHTML =
+      '<section class="living-hero hero">' +
+        '<div><p class="eyebrow">Praktiskais modulis</p><h2>Dzivo Latvija</h2>' +
+        '<p>Practical listening scenarios for everyday life in Latvia.</p></div>' +
+        '<span class="badge badge-muted">A2 Level</span>' +
+      '</section>' +
+      '<section class="living-intro">' +
+        '<div class="intro-card"><h3>Scenarios</h3><p>Choose a topic from the sidebar to practice realistic phrases, vocabulary, and clarification requests.</p></div>' +
+        '<div class="intro-card"><h3>Your progress</h3><div class="progress-stats">' +
+          '<div class="stat"><span class="stat-num">' + practiced + '</span><span class="stat-label">Practiced</span></div>' +
+          '<div class="stat"><span class="stat-num">' + confident + '</span><span class="stat-label">Confident</span></div>' +
+        '</div></div>' +
+      '</section>' +
+      '<section class="scenario-grid">' +
+        scenarios.map(function(scenario) {
+          var progress = getScenarioProgress(scenario.id);
+          return '<button type="button" class="scenario-card ' + progress + '" data-scenario-id="' + scenario.id + '">' +
+            '<span class="category-tag">' + escapeHtml(categoryFilters[scenario.category] || scenario.category) + '</span>' +
+            '<h4>' + escapeHtml(scenario.title) + '</h4>' +
+            '<p>' + escapeHtml(scenario.description) + '</p>' +
+            '<div class="card-footer"><span class="progress-status">' + progress.replace('_', ' ') + '</span></div>' +
+          '</button>';
+        }).join('') +
+      '</section>';
+
+    reader.querySelectorAll('.scenario-card').forEach(function(card) {
+      card.addEventListener('click', function() {
+        var scenario = scenarios.find(function(item) { return item.id === card.getAttribute('data-scenario-id'); });
+        if (scenario) renderScenario(scenario);
+      });
+    });
+  }
+
+  function renderScenario(scenario) {
+    var reader = document.querySelector('.reader');
+    if (!reader) return;
+    var progress = getScenarioProgress(scenario.id);
+    reader.innerHTML =
+      '<section class="scenario-hero">' +
+        '<div class="scenario-header"><span class="category-badge">' + escapeHtml(categoryFilters[scenario.category] || scenario.category) + '</span>' +
+        '<h2>' + escapeHtml(scenario.title) + '</h2><p class="scenario-subtitle">' + escapeHtml(scenario.description) + '</p></div>' +
+        '<div class="progress-selector">' +
+          '<button class="progress-btn ' + (progress === 'not_started' ? 'active' : '') + '" data-progress="not_started" type="button">Not started</button>' +
+          '<button class="progress-btn ' + (progress === 'practiced' ? 'active' : '') + '" data-progress="practiced" type="button">Practiced</button>' +
+          '<button class="progress-btn ' + (progress === 'confident' ? 'active' : '') + '" data-progress="confident" type="button">Confident</button>' +
+        '</div>' +
+      '</section>' +
+      '<section class="scenario-section vocabulary-section"><h3>Vocabulary</h3><div class="vocabulary-list">' +
+        scenario.vocabulary.map(function(word) { return '<span class="vocab-tag">' + escapeHtml(word) + '</span>'; }).join('') +
+      '</div></section>' +
+      '<section class="scenario-section phrases-section"><h3>Phrases</h3><div class="phrases-grid">' + renderPhraseCards(scenario.phrases) + '</div></section>' +
+      '<section class="scenario-section repeat-section"><h3>Please repeat - mini practice</h3><div class="phrases-grid repeat-phrases">' + renderPhraseCards(askToRepeatPhrases) + '</div></section>' +
+      '<section class="scenario-section checklist-section"><h3>Confidence checklist</h3><ul class="checklist">' +
+        '<li>I can understand a greeting.</li><li>I can identify time, date, or place.</li><li>I can ask someone to repeat.</li><li>I can answer with a short sentence.</li>' +
+      '</ul></section>' +
+      '<button class="back-to-scenarios-btn" type="button">Back to scenarios</button>';
+
+    reader.querySelectorAll('.progress-btn').forEach(function(button) {
+      button.addEventListener('click', function() {
+        setScenarioProgress(scenario.id, button.getAttribute('data-progress'));
+        renderLivingMenu();
+        renderScenario(scenario);
+      });
+    });
+    var back = reader.querySelector('.back-to-scenarios-btn');
+    if (back) back.addEventListener('click', renderLivingHome);
+  }
+
+  function enterLivingMode() {
+    currentMode = 'living';
+    localStorage.setItem(MODE_KEY, currentMode);
+    renderLivingMenu();
+    renderLivingHome();
   }
 
   function renderComprehensionMeter(text) {
@@ -471,6 +735,10 @@
     renderMenu: function(filtered, selectedIndex, completed) {
       completed = completed || {};
       menu.textContent = '';
+      if (currentMode === 'living') {
+        renderLivingMenu();
+        return;
+      }
       var levels = ['A1', 'A2'];
       for (var li = 0; li < levels.length; li++) {
         var level = levels[li];
@@ -869,6 +1137,25 @@
     styleFilter.addEventListener('change', applyCombinedFilters);
   }
 
+  var brandSection = document.querySelector('.brand');
+  if (brandSection) {
+    var modeButton = document.createElement('button');
+    modeButton.type = 'button';
+    modeButton.className = 'mode-switch-btn';
+    modeButton.textContent = currentMode === 'living' ? 'Library' : 'Dzivo Latvija';
+    modeButton.addEventListener('click', function() {
+      if (currentMode === 'living') {
+        currentMode = 'library';
+        localStorage.setItem(MODE_KEY, currentMode);
+        window.location.reload();
+      } else {
+        modeButton.textContent = 'Library';
+        enterLivingMode();
+      }
+    });
+    brandSection.appendChild(modeButton);
+  }
+
   // Wire theme toggle
   var themeToggleBtn = document.getElementById('theme-toggle');
   if (themeToggleBtn) {
@@ -929,6 +1216,10 @@
       State.catalog = Array.isArray(items) ? items : [];
       State.filtered = filterByComprehension(State.catalog.slice());
       SkeletonHelper.hideSidebar();
+      if (currentMode === 'living') {
+        enterLivingMode();
+        return;
+      }
       Renderer.renderMenu(
         State.filtered,
         State.selectedIndex,
