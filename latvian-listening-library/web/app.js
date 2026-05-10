@@ -1,123 +1,26 @@
 (function () {
   // ---------------------------------------------------------------------------
-  // CommunityService — community features (questions, comments, translations)
+  // ThemeManager — apply theme before any paint
   // ---------------------------------------------------------------------------
-  var CommunityService = (function () {
-  var STORAGE_KEY = "lv_listening_community";
-  var REPORTED_KEY = "lv_listening_reported";
-
-  function getEntries() {
-    try {
-      var data = localStorage.getItem(STORAGE_KEY);
-      return data ? JSON.parse(data) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function saveEntries(entries) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-  }
-
-  function getReported() {
-    try {
-      var data = localStorage.getItem(REPORTED_KEY);
-      return data ? JSON.parse(data) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function saveReported(reported) {
-    localStorage.setItem(REPORTED_KEY, JSON.stringify(reported));
-  }
-
-  function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2);
-  }
-
-  return {
-    getEntries: function (lessonId, type, sort) {
-      var entries = getEntries().filter(
-        function(e) { return e.lessonId === lessonId && e.type === type; }
-      );
-      var reported = getReported();
-      var filtered = entries.filter(function(e) { return reported.indexOf(e.id) === -1; });
-      if (sort === "helpful") {
-        filtered.sort(function(a, b) { return (b.helpfulVotes || 0) - (a.helpfulVotes || 0); });
-      } else {
-        filtered.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
+  var ThemeManager = {
+    apply: function (theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      var btn = document.getElementById('theme-toggle');
+      if (btn) {
+        var result = toggleTheme(theme);
+        btn.setAttribute('aria-label', result.ariaLabel);
       }
-      return filtered;
     },
-
-    addEntry: function (data) {
-      const entries = getEntries();
-      const entry = {
-        id: generateId(),
-        lessonId: data.lessonId,
-        sentenceId: data.sentenceId || null,
-        type: data.type,
-        authorDisplayName: data.authorDisplayName,
-        body: data.body,
-        createdAt: new Date().toISOString(),
-        status: "approved",
-        helpfulVotes: 0,
-        helpfulBy: [],
-      };
-      entries.push(entry);
-      saveEntries(entries);
-      return entry;
+    toggle: function () {
+      var current = document.documentElement.getAttribute('data-theme') || 'light';
+      var result = toggleTheme(current);
+      ThemeManager.apply(result.theme);
+      try { localStorage.setItem('theme', result.theme); } catch (e) {}
     },
-
-    voteHelpful: function (entryId) {
-      const entries = getEntries();
-      const entry = entries.find((e) => e.id === entryId);
-      if (entry) {
-        entry.helpfulVotes = (entry.helpfulVotes || 0) + 1;
-        saveEntries(entries);
-        return entry;
-      }
-      return null;
-    },
-
-    report: function (entryId) {
-      const reported = getReported();
-      if (!reported.includes(entryId)) {
-        reported.push(entryId);
-        saveReported(reported);
-      }
-      return true;
-    },
-
-    getCount: function (lessonId) {
-      const entries = getEntries().filter((e) => e.lessonId === lessonId);
-      const reported = getReported();
-      return entries.filter((e) => !reported.includes(e.id)).length;
-    },
-
-    subscribe: function (callback) {
-      window.addEventListener("storage", (e) => {
-        if (e.key === STORAGE_KEY || e.key === REPORTED_KEY) {
-          callback();
-        }
-      });
-    },
-  };
-})();
-
-const menu = document.querySelector("#menu");
-const search = document.querySelector("#search");
-const title = document.querySelector("#title");
-const subtitle = document.querySelector("#subtitle");
-const audio = document.querySelector("#audio");
-const lvText = document.querySelector("#lvText");
-const enText = document.querySelector("#enText");
-const lvLink = document.querySelector("#lvLink");
-const enLink = document.querySelector("#enLink");
-const statusBadge = document.querySelector("#statusBadge");
-const previousButton = document.querySelector("#prev");
-const nextButton = document.querySelector("#next");
+    init: function () {
+      var stored;
+      try { stored = localStorage.getItem('theme'); } catch (e) {}
+      if (stored === 'dark' || stored === 'light') {
         ThemeManager.apply(stored);
       }
     }
@@ -127,575 +30,108 @@ const nextButton = document.querySelector("#next");
   ThemeManager.init();
 
   // ---------------------------------------------------------------------------
-  // Vocabulary Flashcard System
+  // State — in-memory application state
   // ---------------------------------------------------------------------------
-  var STORAGE_KEY = "latvian_flashcards";
-  var STOPWORDS = new Set(["un", "un", "bet", "vai", "ir", "bija", "būs", "ir", "nav", "būt", "ka", "lai", "kas", "kur", "kad", "kā", "jo", "līdz", "par", "pēc", "priekš", "aiz", "uz", "no", "pie", "pa", "pāri", "starp", "ar", "sā", "tā", "arī", "vēl", "jau", "gan", " gan", "tikai", "tomēr", "tad", "ja", "kā", "lai", "lai", "būtu", "var", "varētu", "vajag", "jā", "ne", "nē", "nekad", "nekā", "neko", "nevis", "neviņ", "neviens", "negaidīt", "nestrādā", "nestāv", "nesēž", "neliek", "nemarš", "nebrauc", "neiet", "nav", "nu", "jā", "protams", "žēl", "dieva", "dievs", "žēl", "noteikti", "noteikti", "acīm", "protams", "esot", "tiktu", "tiek", "tik", "tikai", "it"]);
+  var State = {
+    catalog: [],
+    filtered: [],
+    selectedIndex: -1,
+    isPlaying: false,
+    currentTime: 0,
+    duration: 0,
+    waveformData: null
+  };
+  var isDev = window.location.hostname === 'localhost' || window.location.hostname.indexOf('127.0.0.1') !== -1;
+  var audioSource = new AudioSource(AudioSourceType.MP3, window.AUDIO_BASE_URL || '');
+  var analyticsTracker = createAnalyticsTracker(isDev ? null : window.ANALYTICS_SINK_URL || null);
 
-  var VOCAB_DICTIONARY = {
-    "labs": { en: "good", grammar: "adj" },
-    "slikts": { en: "bad", grammar: "adj" },
-    "liels": { en: "big, large", grammar: "adj" },
-    "mazs": { en: "small", grammar: "adj" },
-    "jauns": { en: "new", grammar: "adj" },
-    "vecs": { en: "old", grammar: "adj" },
-    "skaists": { en: "beautiful", grammar: "adj" },
-    "garš": { en: "long", grammar: "adj" },
-    "īss": { en: "short", grammar: "adj" },
-    "augsts": { en: "tall, high", grammar: "adj" },
-    "zems": { en: "low", grammar: "adj" },
-    "balss": { en: "voice", grammar: "noun" },
-  "cils": { en: "dear", grammar: "adj" },
-  "mīļš": { en: "beloved, dear", grammar: "adj" },
-  "dārgs": { en: "expensive", grammar: "adj" },
-  "lēts": { en: "cheap", grammar: "adj" },
-  "vesels": { en: "healthy", grammar: "adj" },
-  "slims": { en: "sick", grammar: "adj" },
-  "gatavs": { en: "ready", grammar: "adj" },
-  "gatava": { en: "ready", grammar: "adj" },
-  "gatavi": { en: "ready", grammar: "adj" },
-  "pabeigts": { en: "finished", grammar: "adj" },
-  "skaidrs": { en: "clear", grammar: "adj" },
-  "jaunā": { en: "new", grammar: "adj" },
-  "jaunie": { en: "new", grammar: "adj" },
-  "jauns": { en: "new", grammar: "adj" },
-  "veca": { en: "old", grammar: "adj" },
-  "vecs": { en: "old", grammar: "adj" },
-  "name": { en: "name", grammar: "noun" },
-  "vārds": { en: "first name", grammar: "noun" },
-  "uzvārds": { en: "surname", grammar: "noun" },
-  "valsts": { en: "state, country", grammar: "noun" },
-  "pilsēta": { en: "city", grammar: "noun" },
-  "iela": { en: "street", grammar: "noun" },
-  "māja": { en: "house", grammar: "noun" },
-  "dzīvoklis": { en: "apartment", grammar: "noun" },
-  "logs": { en: "window", grammar: "noun" },
-  "durvis": { en: "door", grammar: "noun" },
-  "istaba": { en: "room", grammar: "noun" },
-  "virtuve": { en: "kitchen", grammar: "noun" },
-  "guļamistaba": { en: "bedroom", grammar: "noun" },
-  "vannasistaba": { en: "bathroom", grammar: "noun" },
-  "balto": { en: "white", grammar: "adj" },
-  "melns": { en: "black", grammar: "adj" },
-  "sarkans": { en: "red", grammar: "adj" },
-  "zils": { en: "blue", grammar: "adj" },
-  "zaļš": { en: "green", grammar: "adj" },
-  "dzeltens": { en: "yellow", grammar: "adj" },
-  "oranžs": { en: "orange", grammar: "adj" },
-  "violets": { en: "purple", grammar: "adj" },
-  "pelēks": { en: "gray", grammar: "adj" },
-  "brūns": { en: "brown", grammar: "adj" },
-  "cilvēks": { en: "person", grammar: "noun" },
-  "vīrietis": { en: "man", grammar: "noun" },
-  "sieviete": { en: "woman", grammar: "noun" },
-  "bērns": { en: "child", grammar: "noun" },
-  "bērni": { en: "children", grammar: "noun" },
-  "zēns": { en: "boy", grammar: "noun" },
-  "meitene": { en: "girl", grammar: "noun" },
-  "tēvs": { en: "father", grammar: "noun" },
-  "māte": { en: "mother", grammar: "noun" },
-  "vectēvs": { en: "grandfather", grammar: "noun" },
-  "vecmāte": { en: "grandmother", grammar: "noun" },
-  "mazdēls": { en: "grandson", grammar: "noun" },
-  "mazmeita": { en: "granddaughter", grammar: "noun" },
-  "brālis": { en: "brother", grammar: "noun" },
-  "māsa": { en: "sister", grammar: "noun" },
-  "dēls": { en: "son", grammar: "noun" },
-  "meita": { en: "daughter", grammar: "noun" },
-  "ģimene": { en: "family", grammar: "noun" },
-  "laulātais": { en: "spouse", grammar: "noun" },
-  "vīrs": { en: "husband", grammar: "noun" },
-  "sieva": { en: "wife", grammar: "noun" },
-  " draugs": { en: "friend", grammar: "noun" },
-  "kolega": { en: "colleague", grammar: "noun" },
-  "kaimiņš": { en: "neighbor", grammar: "noun" },
-  "skolotājs": { en: "teacher (male)", grammar: "noun" },
-  "skolotāja": { en: "teacher (female)", grammar: "noun" },
-  "ārsts": { en: "doctor", grammar: "noun" },
-  "medmāsa": { en: "nurse", grammar: "noun" },
-  "farmaceits": { en: "pharmacist", grammar: "noun" },
-  "pārdevējs": { en: "seller, shop assistant", grammar: "noun" },
-  "autovadītājs": { en: "driver", grammar: "noun" },
-  "esmu": { en: "I am", grammar: "verb" },
-  "esi": { en: "you are", grammar: "verb" },
-  "ir": { en: "is/are", grammar: "verb" },
-  "biju": { en: "I was", grammar: "verb" },
-  "biji": { en: "you were", grammar: "verb" },
-  "bija": { en: "was/were", grammar: "verb" },
-  "būšu": { en: "I will be", grammar: "verb" },
-  "būsi": { en: "you will be", grammar: "verb" },
-  "būs": { en: "will be", grammar: "verb" },
-  "būt": { en: "to be", grammar: "verb" },
-  "darīt": { en: "to do", grammar: "verb" },
-  "daru": { en: "I do", grammar: "verb" },
-  "dari": { en: "do!", grammar: "verb" },
-  "dzīvot": { en: "to live", grammar: "verb" },
-  "dzīvoju": { en: "I live", grammar: "verb" },
-  "dzīvo": { en: "live!", grammar: "verb" },
-  "strādāt": { en: "to work", grammar: "verb" },
-  "strādāju": { en: "I work", grammar: "verb" },
-  "strādā": { en: "work!", grammar: "verb" },
-  "mācīties": { en: "to study", grammar: "verb" },
-  "mācos": { en: "I study", grammar: "verb" },
-  "mācīties": { en: "study!", grammar: "verb" },
-  "gribēt": { en: "to want", grammar: "verb" },
-  "gribu": { en: "I want", grammar: "verb" },
-  "grib": { en: "want!", grammar: "verb" },
-  "varēt": { en: "can, to be able", grammar: "verb" },
-  "varu": { en: "I can", grammar: "verb" },
-  "var": { en: "can!", grammar: "verb" },
-  "prast": { en: "to know how", grammar: "verb" },
-  "protu": { en: "I know how", grammar: "verb" },
-  "prot": { en: "know how!", grammar: "verb" },
-  "zināt": { en: "to know", grammar: "verb" },
-  "zinu": { en: "I know", grammar: "verb" },
-  "zina": { en: "know!", grammar: "verb" },
-  "domāt": { en: "to think", grammar: "verb" },
-  "domāju": { en: "I think", grammar: "verb" },
-  "domā": { en: "think!", grammar: "verb" },
-  "redzēt": { en: "to see", grammar: "verb" },
-  "redzu": { en: "I see", grammar: "verb" },
-  "redz": { en: "see!", grammar: "verb" },
-  "dzirdēt": { en: "to hear", grammar: "verb" },
-  "dzirdu": { en: "I hear", grammar: "verb" },
-  "dzird": { en: "hear!", grammar: "verb" },
-  "teikt": { en: "to say", grammar: "verb" },
-  "saku": { en: "I say", grammar: "verb" },
-  "saki": { en: "say!", grammar: "verb" },
-  "jautāt": { en: "to ask", grammar: "verb" },
-  "jautāju": { en: "I ask", grammar: "verb" },
-  "jautā": { en: "ask!", grammar: "verb" },
-  "atbildēt": { en: "to answer", grammar: "verb" },
-  "atbildu": { en: "I answer", grammar: "verb" },
-  "atbild": { en: "answer!", grammar: "verb" },
-  "palīdzēt": { en: "to help", grammar: "verb" },
-  "palīdzu": { en: "I help", grammar: "verb" },
-  "palīdz": { en: "help!", grammar: "verb" },
-  "gaidīt": { en: "to wait", grammar: "verb" },
-  "gaidu": { en: "I wait", grammar: "verb" },
-  "gaidi": { en: "wait!", grammar: "verb" },
-  "iet": { en: "to go", grammar: "verb" },
-  "eju": { en: "I go", grammar: "verb" },
-  "ej": { en: "go!", grammar: "verb" },
-  "nākt": { en: "to come", grammar: "verb" },
-  "nāku": { en: "I come", grammar: "verb" },
-  "nāk": { en: "come!", grammar: "verb" },
-  "braukt": { en: "to drive, to travel", grammar: "verb" },
-  "braucu": { en: "I drive/travel", grammar: "verb" },
-  "brauc": { en: "drive!", grammar: "verb" },
-  "brauciens": { en: "trip, journey", grammar: "noun" },
-  "staigāt": { en: "to walk", grammar: "verb" },
-  "staigāju": { en: "I walk", grammar: "verb" },
-  "lidot": { en: "to fly", grammar: "verb" },
-  "lidmošu": { en: "I fly", grammar: "verb" },
-  "peldēt": { en: "to swim", grammar: "verb" },
-  "peldu": { en: "I swim", grammar: "verb" },
-  "skujust": { en: "to rush, hurry", grammar: "verb" },
-  "skubinu": { en: "I rush", grammar: "verb" },
-  "kontrolēt": { en: "to check", grammar: "verb" },
-  "kontrolē": { en: "check!", grammar: "verb" },
-  "nopirkt": { en: "to buy", grammar: "verb" },
-  "pērku": { en: "I buy", grammar: "verb" },
-  "pirkt": { en: "buy!", grammar: "verb" },
-  "pārdot": { en: "to sell", grammar: "verb" },
-  "pārdodu": { en: "I sell", grammar: "verb" },
-  "maksāt": { en: "to pay", grammar: "verb" },
-  "maksāju": { en: "I pay", grammar: "verb" },
-  "maksā": { en: "pay!", grammar: "verb" },
-  "iet uz": { en: "go to", grammar: "verb phrase" },
-  "atgriezties": { en: "to return", grammar: "verb" },
-  "atgriežos": { en: "I return", grammar: "verb" },
-  "palikt": { en: "to stay, remain", grammar: "verb" },
-  "palieku": { en: "I stay", grammar: "verb" },
-  "doties": { en: "to go (somewhere)", grammar: "verb" },
-  "dodos": { en: "I go", grammar: "verb" },
-  "celies": { en: "get up!", grammar: "verb" },
-  "gulties": { en: "to lie down", grammar: "verb" },
-  "gulēt": { en: "to sleep", grammar: "verb" },
-  "gulēju": { en: "I sleep", grammar: "verb" },
-  "gul": { en: "sleep!", grammar: "verb" },
-  "mosties": { en: "to wake up", grammar: "verb" },
-  "mostos": { en: "I wake up", grammar: "verb" },
-  "celt": { en: "to get up, lift", grammar: "verb" },
-  "celties": { en: "to get up", grammar: "verb" },
-  "sēdēt": { en: "to sit", grammar: "verb" },
-  "sēžu": { en: "I sit", grammar: "verb" },
-  "sēdi": { en: "sit!", grammar: "verb" },
-  "stāvēt": { en: "to stand", grammar: "verb" },
-  "stāvu": { en: "I stand", grammar: "verb" },
-  "stāv": { en: "stand!", grammar: "verb" },
-  "gait": { en: "walk, step", grammar: "noun" },
-  "kāja": { en: "leg, foot", grammar: "noun" },
-  "roka": { en: "arm, hand", grammar: "noun" },
-  "acs": { en: "eye", grammar: "noun" },
-  "acs": { en: "eye", grammar: "noun" },
-  "mute": { en: "mouth", grammar: "noun" },
-  "deguns": { en: "nose", grammar: "noun" },
-  "auss": { en: "ear", grammar: "noun" },
-  "zobi": { en: "teeth", grammar: "noun" },
-  "mati": { en: "hair", grammar: "noun" },
-  "seja": { en: "face", grammar: "noun" },
-  "galva": { en: "head", grammar: "noun" },
-  "kakls": { en: "neck", grammar: "noun" },
-  "plecs": { en: "shoulder", grammar: "noun" },
-  "vēders": { en: "stomach", grammar: "noun" },
-  "mugura": { en: "back", grammar: "noun" },
-  "kāja": { en: "leg, foot", grammar: "noun" },
-  "vieta": { en: "place", grammar: "noun" },
-  "laiks": { en: "time", grammar: "noun" },
-  "diena": { en: "day", grammar: "noun" },
-  "nakts": { en: "night", grammar: "noun" },
-  "rīts": { en: "morning", grammar: "noun" },
-  "vakars": { en: "evening", grammar: "noun" },
-  "pēcpusdiena": { en: "afternoon", grammar: "noun" },
-  "priekšdiena": { en: "yesterday", grammar: "noun" },
-  "šodiena": { en: "today", grammar: "noun" },
-  "rītdiena": { en: "tomorrow", grammar: "noun" },
-  "nedēļa": { en: "week", grammar: "noun" },
-  "mēnesis": { en: "month", grammar: "noun" },
-  "gads": { en: "year", grammar: "noun" },
-  "stunda": { en: "hour", grammar: "noun" },
-  "minūte": { en: "minute", grammar: "noun" },
-  "sekunde": { en: "second", grammar: "noun" },
-  "datums": { en: "date", grammar: "noun" },
-  "gadu": { en: "year (acc)", grammar: "noun" },
-  "reize": { en: "time (occasion)", grammar: "noun" },
-  "reizes": { en: "times", grammar: "noun" },
-  "nauda": { en: "money", grammar: "noun" },
-  "cents": { en: "cent", grammar: "noun" },
-  "eiro": { en: "euro", grammar: "noun" },
-  "cena": { en: "price", grammar: "noun" },
-  "atzīme": { en: "grade, mark", grammar: "noun" },
-  "vērtība": { en: "value", grammar: "noun" },
-  "skaits": { en: "number, count", grammar: "noun" },
-  "daudzums": { en: "quantity", grammar: "noun" },
-  "summa": { en: "sum, total", grammar: "noun" },
-  "atlikums": { en: "change (money)", grammar: "noun" },
-  "čeks": { en: "receipt", grammar: "noun" },
-  "rēķins": { en: "bill, invoice", grammar: "noun" },
-  "māja": { en: "home, house", grammar: "noun" },
-  "dzīvi": { en: "alive, living", grammar: "adv" },
-  "dzīvo": { en: "live", grammar: "verb" },
-  "ceļš": { en: "road, way", grammar: "noun" },
-  "iela": { en: "street", grammar: "noun" },
-  "novads": { en: "region, district", grammar: "noun" },
-  "valsts": { en: "country, state", grammar: "noun" },
-  "karte": { en: "map", grammar: "noun" },
-  "adrese": { en: "address", grammar: "noun" },
-  "numurs": { en: "number", grammar: "noun" },
-  "tālrunis": { en: "phone", grammar: "noun" },
-  "epasts": { en: "email", grammar: "noun" },
-  "internets": { en: "internet", grammar: "noun" },
-  "dators": { en: "computer", grammar: "noun" },
-  "planšete": { en: "tablet", grammar: "noun" },
-  "viedtālrunis": { en: "smartphone", grammar: "noun" },
-  "bibliotēka": { en: "library", grammar: "noun" },
-  "muzejs": { en: "museum", grammar: "noun" },
-  "teātris": { en: "theater", grammar: "noun" },
-  "kino": { en: "cinema", grammar: "noun" },
-  "parks": { en: "park", grammar: "noun" },
-  "baseins": { en: "pool", grammar: "noun" },
-  "pludmale": { en: "beach", grammar: "noun" },
-  "mežs": { en: "forest", grammar: "noun" },
-  "kalns": { name: "mountain", grammar: "noun" },
-  "ezers": { en: "lake", grammar: "noun" },
-  "upe": { en: "river", grammar: "noun" },
-  "jūra": { en: "sea", grammar: "noun" },
-  "ozeāns": { en: "ocean", grammar: "noun" },
-  "salds": { en: "sweet", grammar: "adj" },
-  "skābs": { en: "sour", grammar: "adj" },
-  "sāļš": { en: "salty", grammar: "adj" },
-  "rūgts": { en: "bitter", grammar: "adj" },
-  "as": { en: "sharp, spicy", grammar: "adj" },
-  "garšīgs": { en: "tasty", grammar: "adj" },
-  "negaršīgs": { en: "tasteless, bad-tasting", grammar: "adj" },
-  "produkts": { en: "product", grammar: "noun" },
-  "ēdiens": { en: "food", grammar: "noun" },
-  "ēdiens": { en: "food, meal", grammar: "noun" },
-  "brokastis": { en: "breakfast", grammar: "noun" },
-  "pusdienas": { en: "lunch", grammar: "noun" },
-  "vakariņas": { en: "dinner, supper", grammar: "noun" },
-  "maize": { en: "bread", grammar: "noun" },
-  "siers": { en: "cheese", grammar: "noun" },
-  "putns": { en: "bird", grammar: "noun" },
-  "gaļa": { en: "meat", grammar: "noun" },
-  "zivs": { en: "fish", grammar: "noun" },
-  "dārzenis": { en: "vegetable", grammar: "noun" },
-  "auglis": { en: "fruit", grammar: "noun" },
-  "ābols": { en: "apple", grammar: "noun" },
-  "banāns": { en: "banana", grammar: "noun" },
-  "apelsīns": { en: "orange (fruit)", grammar: "noun" },
-  "kafija": { en: "coffee", grammar: "noun" },
-  "tēja": { en: "tea", grammar: "noun" },
-  "sula": { en: "juice", grammar: "noun" },
-  "ūdens": { en: "water", grammar: "noun" },
-  "pieniens": { en: "milk", grammar: "noun" },
-  "alie": { en: "oil", grammar: "noun" },
-  "sāls": { en: "salt", grammar: "noun" },
-  "cukurs": { en: "sugar", grammar: "noun" },
-  "milti": { en: "flour", grammar: "noun" },
-  "olas": { en: "eggs", grammar: "noun" },
-  "kūka": { en: "cake", grammar: "noun" },
-  "cepums": { en: "cookie, biscuit", grammar: "noun" },
-  "konfekte": { en: "candy", grammar: "noun" },
-  "šokolāde": { en: "chocolate", grammar: "noun" },
-  "logs": { en: "window", grammar: "noun" },
-  "dvēsele": { en: "soul", grammar: "noun" },
-  "prāts": { en: "mind, intellect", grammar: "noun" },
-  "doma": { en: "thought", grammar: "noun" },
-  "jēga": { en: "meaning, sense", grammar: "noun" },
-  "viedoklis": { en: "opinion", grammar: "noun" },
-  "atzinība": { en: "recognition", grammar: "noun" },
-  "paldies": { en: "thank you", grammar: "phrase" },
-  "lūdzu": { en: "please / you're welcome", grammar: "phrase" },
-  "atvainojiet": { en: "excuse me, sorry", grammar: "phrase" },
-  "žēl": { en: "pity, sorry", grammar: "phrase" },
-  "dievs": { en: "God", grammar: "noun" },
-  "svētki": { en: "holiday, celebration", grammar: "noun" },
-  "Ziemassvētki": { en: "Christmas", grammar: "noun" },
-  "Jaunais gads": { en: "New Year", grammar: "noun" },
-  "Lieldienas": { en: "Easter", grammar: "noun" },
-  "dzimšanas diena": { en: "birthday", grammar: "noun" },
-  "vecums": { en: "age", grammar: "noun" },
-  "augums": { en: "height, stature", grammar: "noun" },
-  "svars": { en: "weight", grammar: "noun" },
-  "izmērs": { en: "size", grammar: "noun" },
-  "krāsa": { en: "color", grammar: "noun" },
-  "forma": { en: "form, shape", grammar: "noun" },
-  "tips": { en: "type", grammar: "noun" },
-  "veids": { en: "kind, way", grammar: "noun" },
-  "veids": { en: "kind, way", grammar: "noun" },
-  "stils": { en: "style", grammar: "noun" },
-  "modes": { en: "fashion", grammar: "noun" },
-  "apģērbs": { en: "clothing", grammar: "noun" },
-  "krekls": { en: "shirt", grammar: "noun" },
-  "jaka": { en: "jacket", grammar: "noun" },
-  "zābaks": { en: "boot", grammar: "noun" },
-  "kurpe": { en: "shoe", grammar: "noun" },
-  "cepure": { en: "cap, hat", grammar: "noun" },
-  "šalle": { en: "scarf", grammar: "noun" },
-  "cimds": { en: "glove", grammar: "noun" },
-  "spilvens": { en: "pillow", grammar: "noun" },
-  "sediens": { en: "blanket", grammar: "noun" },
-  "gulta": { en: "bed", grammar: "noun" },
-  "galds": { en: "table", grammar: "noun" },
-  "krēsls": { en: "chair", grammar: "noun" },
-  "sols": { en: "bench", grammar: "noun" },
-  "naktsgaldiņš": { en: "nightstand", grammar: "noun" },
-  "plaukts": { en: "wardrobe", grammar: "noun" },
-  "trauks": { en: "dish, vessel", grammar: "noun" },
-  "bļoda": { en: "bowl", grammar: "noun" },
-  "krūze": { en: "mug, cup", grammar: "noun" },
-  "karote": { en: "spoon", grammar: "noun" },
-  "nažs": { en: "knife", grammar: "noun" },
-  "dakšiņa": { en: "fork", grammar: "noun" },
-  "katls": { en: "pot", grammar: "noun" },
-  "panna": { en: "pan", grammar: "noun" },
-  "trauku mašīna": { en: "dishwasher", grammar: "noun" },
-  "veļas mašīna": { en: "washing machine", grammar: "noun" },
-  "ledusskapis": { en: "refrigerator", grammar: "noun" },
-  "plīts": { en: "stove", grammar: "noun" },
-  "cepinātājs": { en: "toaster", grammar: "noun" },
-  "kafijas aparāts": { en: "coffee machine", grammar: "noun" },
-  "tālrādis": { en: "TV, television", grammar: "noun" },
-  "radio": { en: "radio", grammar: "noun" },
-  "telefons": { en: "telephone", grammar: "noun" },
-  "dators": { en: "computer", grammar: "noun" },
-  "klēvdators": { en: "laptop", grammar: "noun" },
-  "planšete": { en: "tablet", grammar: "noun" },
-  "printeris": { en: "printer", grammar: "noun" },
-  "fakss": { en: "fax machine", grammar: "noun" },
-  "svars": { en: "scales", grammar: "noun" },
-  "termometrs": { en: "thermometer", grammar: "noun" },
-  "pulvers": { en: "fire extinguisher", grammar: "noun" },
-  "pirmā palīdzība": { en: "first aid", grammar: "noun" },
-  "ātrā palīdzība": { en: "ambulance", grammar: "noun" },
-  "ugunsdzēsējs": { en: "firefighter", grammar: "noun" },
-  "policija": { en: "police", grammar: "noun" },
-  "tiesa": { en: "court", grammar: "noun" },
-  "cietums": { en: "prison", grammar: "noun" },
-  "nakts": { en: "night", grammar: "noun" },
-  "diena": { en: "day", grammar: "noun" },
-  "rīts": { en: "morning", grammar: "noun" },
-  "pēcpusdiena": { en: "afternoon", grammar: "noun" },
-  "vakars": { en: "evening", grammar: "noun" },
-  "nakam": { en: "next", grammar: "adv" },
-  "pagājušais": { en: "last, previous", grammar: "adj" },
-  "šis": { en: "this", grammar: "pron" },
-  "tas": { en: "that", grammar: "pron" },
-  "viņš": { en: "he", grammar: "pron" },
-  "viņa": { en: "she", grammar: "pron" },
-  "viņi": { en: "they (masc)", grammar: "pron" },
-  "viņas": { en: "they (fem)", grammar: "pron" },
-  "es": { en: "I", grammar: "pron" },
-  "tu": { en: "you (sing)", grammar: "pron" },
-  "mēs": { en: "we", grammar: "pron" },
-  "jūs": { en: "you (pl)", grammar: "pron" },
-  "kas": { en: "what, who", grammar: "pron" },
-  "kas": { en: "what, who", grammar: "pron" },
-  "kurš": { en: "which (masc)", grammar: "pron" },
-  "kura": { en: "which (fem)", grammar: "pron" },
-  "kurš": { en: "which", grammar: "pron" },
-  "kur": { en: "where", grammar: "adv" },
-  "kad": { en: "when", grammar: "adv" },
-  "kā": { en: "how", grammar: "adv" },
-  "kāpēc": { en: "why", grammar: "adv" },
-  "cik": { en: "how many", grammar: "adv" },
-  "cits": { en: "other, another", grammar: "adj" },
-  "cita": { en: "other", grammar: "adj" },
-  "cits": { en: "other", grammar: "adj" },
-  "pašlaik": { en: "now, currently", grammar: "adv" },
-  "tagad": { en: "now", grammar: "adv" },
-  "tad": { en: "then", grammar: "adv" },
-  "vēl": { en: "still, yet", grammar: "adv" },
-  "jau": { en: "already", grammar: "adv" },
-  "tikai": { en: "only", grammar: "adv" },
-  "ļoti": { en: "very", grammar: "adv" },
-  "pārāk": { en: "too (excessively)", grammar: "adv" },
-  "nedaudz": { en: "a little", grammar: "adv" },
-  "daudz": { en: "a lot", grammar: "adv" },
-  "maz": { en: "little, few", grammar: "adv" },
-  "pilnīgi": { en: "completely", grammar: "adv" },
-  "galīgi": { en: "absolutely", grammar: "adv" },
-  "aptuveni": { en: "approximately", grammar: "adv" },
-  "precīzi": { en: "exactly", grammar: "adv" },
-  "droši": { en: "surely, safely", grammar: "adv" },
-  "noteikti": { en: "certainly", grammar: "adv" },
-  "varbūt": { en: "maybe", grammar: "adv" },
-  "protams": { en: "of course", grammar: "adv" },
-  "diemžēl": { en: "unfortunately", grammar: "adv" },
-  "laimīgi": { en: "fortunately", grammar: "adv" },
-  "patiešām": { en: "really, indeed", grammar: "adv" },
-  "vistic": { en: "really", grammar: "adv" },
-  "vienkārši": { en: "simply", grammar: "adv" },
-  "īstenībā": { en: "in fact", grammar: "adv" },
-  "patiesībā": { en: "in truth", grammar: "adv" },
-  "nopietni": { en: "seriously", grammar: "adv" },
-  "jokā": { en: "jokingly", grammar: "adv" },
-  "nopietni": { en: "seriously", grammar: "adv" },
-  "tā": { en: "so, thus", grammar: "adv" },
-  "citādi": { en: "otherwise", grammar: "adv" },
-  "šādā veidā": { en: "in this way", grammar: "phrase" },
-  "kaut kā": { en: "somehow", grammar: "phrase" },
-  "ko tad": { en: "what then", grammar: "phrase" },
-  "gan jau": { en: "I suppose", grammar: "phrase" },
-  "nu jau": { en: "now then", grammar: "phrase" },
-  "nez kāpēc": { en: "for some reason", grammar: "phrase" },
-  "kas zina": { en: "who knows", grammar: "phrase" },
-  "Dievs viņš zina": { en: "God knows", grammar: "phrase" },
-  "necik": { en: "not much", grammar: "phrase" },
-  "vairāk": { en: "more", grammar: "adv" },
-  "mazāk": { en: "less", grammar: "adv" },
-  "lielākais": { en: "biggest", grammar: "adj" },
-  "mazākais": { en: "smallest", grammar: "adj" },
-  "labākais": { en: "best", grammar: "adj" },
-  "sliktākais": { en: "worst", grammar: "adj" },
-  "augstākais": { en: "highest", grammar: "adj" },
-  "zemākais": { en: "lowest", grammar: "adj" },
-  "vairāk": { en: "more", grammar: "adv" },
-  "mazāk": { en: "less", grammar: "adv" },
-  "ļoti": { en: "very", grammar: "adv" },
-  "pavisam": { en: "completely", grammar: "adv" },
-  "pilnīgi": { en: "fully", grammar: "adv" },
-  "daļēji": { en: "partially", grammar: "adv" },
-  "daļējs": { en: "partial", grammar: "adj" },
-  "visa": { en: "all (fem)", grammar: "pron" },
-  "visi": { en: "all (masc)", grammar: "pron" },
-  " viss": { en: "all", grammar: "pron" },
-  "katrs": { en: "each (masc)", grammar: "pron" },
-  "katra": { en: "each (fem)", grammar: "pron" },
-  "katrs": { en: "every", grammar: "pron" },
-  "neviens": { en: "no one", grammar: "pron" },
-  "nekas": { en: "nothing", grammar: "pron" },
-  "nekur": { en: "nowhere", grammar: "adv" },
-  "nekad": { en: "never", grammar: "adv" },
-  "ne": { en: "not", grammar: "adv" },
-  "nē": { en: "no", grammar: "adv" },
-  "arī": { en: "also", grammar: "adv" },
-  "vēl": { en: "still, else", grammar: "adv" },
-  "jau": { en: "already", grammar: "adv" },
-  "tikai": { en: "only, just", grammar: "adv" },
-  "tomēr": { en: "however, still", grammar: "adv" },
-  "bet": { en: "but", grammar: "conj" },
-  "un": { en: "and", grammar: "conj" },
-  "vai": { en: "or", grammar: "conj" },
-  "jo": { en: "because", grammar: "conj" },
-  "lai": { en: "so that, let", grammar: "conj" },
-  "ja": { en: "if, when", grammar: "conj" },
-  "kaut": { en: "although", grammar: "conj" },
-  "kamēr": { en: "while", grammar: "conj" },
-  "līdz": { en: "until", grammar: "conj" },
-  "tāpēc": { en: "therefore", grammar: "phrase" },
-  "tādēļ": { en: "therefore", grammar: "phrase" },
-  "tālabad": { en: "that's why", grammar: "phrase" },
-  "savo": { en: "own", grammar: "pron" },
-  "sava": { en: "own", grammar: "pron" },
-  "savs": { en: "own", grammar: "pron" },
-  "pats": { en: "self", grammar: "pron" },
-  "paties": { en: "oneself", grammar: "pron" }
-};
+  // ---------------------------------------------------------------------------
+  // SkeletonHelper — show/hide skeleton loading states
+  // ---------------------------------------------------------------------------
+  var SkeletonHelper = {
+    showSidebar: function() {
+      document.querySelectorAll('#menu .skeleton-item').forEach(function(el) { el.hidden = false; });
+      document.querySelectorAll('#menu .audio-item').forEach(function(el) { el.hidden = true; });
+    },
+    hideSidebar: function() {
+      document.querySelectorAll('#menu .skeleton-item').forEach(function(el) { el.hidden = true; });
+    },
+    showPanels: function() {
+      document.querySelectorAll('.panel-body .skeleton-line').forEach(function(el) { el.hidden = false; });
+      document.querySelectorAll('.reading-text').forEach(function(el) { el.hidden = true; });
+    },
+    hidePanels: function() {
+      document.querySelectorAll('.panel-body .skeleton-line').forEach(function(el) { el.hidden = true; });
+      document.querySelectorAll('.reading-text').forEach(function(el) { el.hidden = false; });
+    }
+  };
 
-const levelLabels = {
-  A1: "A1 Klausīšanās",
-  A2: "A2 Klausīšanās",
-};
-
-const visualLessons = [
-  "Prieks iepazīties!",
-  "No visas pasaules",
-  "Pilsētā un laukos",
-  "Mana māja un ģimene",
-  "Kājām, ar trolejbusu, ar lidmašīnu",
-  "Ikdienas darbi",
-  "Iepirkšanās",
-  "Labu apetīti!",
-  "Brīvais laiks",
-  "Es ceļoju",
-  "Esi vesels!",
-  "Mācības un darbs",
-];
-
-let catalog = [];
-let filtered = [];
-let selectedIndex = -1;
-
-function badgeClass(status) {
-  if (status === "completed") return "badge badge-completed";
-  if (status === "transcribed only" || status === "translation failed") return "badge badge-transcribed";
-  if (status === "failed") return "badge badge-failed";
-  return "badge badge-muted";
-}
-
-function setText(node, value, fallback) {
-  node.textContent = value && value.trim() ? value : fallback;
-}
-
-function renderMenu() {
-  menu.textContent = "";
-  for (const level of ["A1", "A2"]) {
-    const items = filtered.filter((item) => item.level === level);
-    const section = document.createElement("section");
-    section.className = "level-section";
-
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "level-toggle";
-    toggle.setAttribute("aria-expanded", "true");
-    toggle.textContent = `${levelLabels[level]} (${items.length})`;
-    const plus = document.createElement("span");
-    plus.textContent = "−";
-    toggle.appendChild(plus);
-
-    const list = document.createElement("div");
-    list.className = "item-list";
-
-    for (const item of items) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "audio-item";
-      if (filtered[selectedIndex] && filtered[selectedIndex].id === item.id) {
-button.classList.add("active");
+  // ---------------------------------------------------------------------------
+  // ProgressTracker — localStorage-backed lesson completion tracking
+  // ---------------------------------------------------------------------------
+  var ProgressTracker = {
+    _completed: {},
+    load: function() {
+      try {
+        var raw = localStorage.getItem('lll_completed');
+        if (raw) ProgressTracker._completed = JSON.parse(raw);
+      } catch(e) {}
+    },
+    save: function(id) {
+      ProgressTracker._completed[id] = true;
+      try {
+        localStorage.setItem('lll_completed', JSON.stringify(ProgressTracker._completed));
+      } catch(e) {}
+      ProgressTracker.updateUI();
+    },
+    isCompleted: function(id) {
+      return ProgressTracker._completed[id] === true;
+    },
+    getCompleted: function() {
+      return ProgressTracker._completed;
+    },
+    updateUI: function() {
+      // Update completion dots on sidebar buttons
+      var buttons = document.querySelectorAll('.audio-item[data-lesson-id]');
+      buttons.forEach(function(btn) {
+        var id = btn.getAttribute('data-lesson-id');
+        var dot = btn.querySelector('.completion-dot');
+        if (dot) {
+          if (ProgressTracker.isCompleted(id)) {
+            btn.classList.add('completed');
+          } else {
+            btn.classList.remove('completed');
+          }
+        }
+      });
+      // Update progress bar for current level
+      var item = State.filtered[State.selectedIndex];
+      if (!item) return;
+      var levelItems = State.catalog.filter(function(l) { return l.level === item.level; });
+      var levelIds = levelItems.map(function(l) { return l.id; });
+      var progress = calcProgress(levelIds, ProgressTracker._completed);
+      var bar = document.getElementById('level-progress-bar');
+      var label = document.getElementById('level-progress-label');
+      if (bar) {
+        bar.setAttribute('aria-valuenow', progress.valuenow);
+        bar.style.width = progress.valuenow + '%';
       }
+      if (label) label.textContent = progress.label;
+      // Show/hide exam readiness
+      var examItems = levelItems.filter(function(l) { return l.exam; });
+      var examEl = document.getElementById('exam-readiness');
+      var examPct = document.getElementById('exam-pct');
+      if (examEl && examItems.length > 0) {
+        var examCompleted = examItems.filter(function(l) { return ProgressTracker.isCompleted(l.id); }).length;
+        var pct = Math.round(examCompleted / examItems.length * 100);
+        if (examPct) examPct.textContent = pct + '%';
+        examEl.hidden = false;
+      } else if (examEl) {
+        examEl.hidden = true;
+      }
+    }
+  };
+  ProgressTracker.load();
 
   // ---------------------------------------------------------------------------
   // DOM references
@@ -718,179 +154,9 @@ button.classList.add("active");
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // LearningEventTracker — track learning events for adaptive recommendations
-  // ---------------------------------------------------------------------------
-  var LearningEventTracker = {
-    events: [],
-    EVENT_TYPES: {
-      LESSON_OPENED: 'lesson_opened',
-      AUDIO_PLAY: 'audio_play',
-      AUDIO_PAUSE: 'audio_pause',
-      SENTENCE_REPLAY: 'sentence_replay',
-      PLAYBACK_SPEED_CHANGE: 'playback_speed_change',
-      TRANSCRIPT_HIDE: 'transcript_hide',
-      QUIZ_ANSWER: 'quiz_answer',
-      FLASHCARD_MISSED: 'flashcard_missed',
-      EXAM_COMPLETE: 'exam_complete'
-    },
-
-    load: function() {
-      try {
-        var raw = localStorage.getItem('lll_learning_events');
-        if (raw) this.events = JSON.parse(raw);
-      } catch(e) { this.events = []; }
-    },
-
-    save: function() {
-      try {
-        localStorage.setItem('lll_learning_events', JSON.stringify(this.events));
-      } catch(e) {}
-    },
-
-    track: function(eventType, data) {
-      this.events.push({
-        type: eventType,
-        timestamp: Date.now(),
-        data: data
-      });
-      this.save();
-      this.updateWeakSkills();
-    },
-
-    getEventsByType: function(eventType) {
-      return this.events.filter(function(e) { return e.type === eventType; });
-    },
-
-    getWeakSkills: function() {
-      var skills = {
-        numbersDates: { name: 'Numbers & Dates', count: 0, events: [] },
-        placesDirections: { name: 'Places & Directions', count: 0, events: [] },
-        everydayServices: { name: 'Everyday Services', count: 0, events: [] },
-        listeningComprehension: { name: 'Listening Comprehension', count: 0, events: [] },
-        vocabularyRetention: { name: 'Vocabulary Retention', count: 0, events: [] }
-      };
-
-      var replayEvents = this.getEventsByType(this.EVENT_TYPES.SENTENCE_REPLAY);
-      var pauseEvents = this.getEventsByType(this.EVENT_TYPES.AUDIO_PAUSE);
-      var missedCards = this.getEventsByType(this.EVENT_TYPES.FLASHCARD_MISSED);
-
-      replayEvents.forEach(function(e) {
-        if (e.data && e.data.sentence) {
-          var text = e.data.sentence.toLowerCase();
-          if (text.match(/laiks|minūt|stund|diena|mēnes|gada|numur|vienpadsmit|divdesmit/)) {
-            skills.numbersDates.count++;
-            skills.numbersDates.events.push(e);
-          }
-          if (text.match(/kur|kuriene|celš|uz|no|pie|blakus|pretī/)) {
-            skills.placesDirections.count++;
-            skills.placesDirections.events.push(e);
-          }
-          if (text.match(/veikals|banka|pasts|ārsts|aptieka|iedzīvotājs/)) {
-            skills.everydayServices.count++;
-            skills.everydayServices.events.push(e);
-          }
-        }
-      });
-
-      var lessonEvents = this.getEventsByType(this.EVENT_TYPES.LESSON_OPENED);
-      skills.listeningComprehension.count = Math.max(0, 20 - pauseEvents.length - replayEvents.length);
-
-      skills.vocabularyRetention.count = missedCards.length;
-
-      return skills;
-    },
-
-    updateWeakSkills: function() {
-      var weakSkillsEl = document.getElementById('weakSkillsList');
-      if (!weakSkillsEl) return;
-
-      var skills = this.getWeakSkills();
-      var html = '';
-
-      Object.keys(skills).forEach(function(key) {
-        var skill = skills[key];
-        var level = skill.count < 3 ? 'good' : (skill.count < 7 ? 'medium' : 'weak');
-        html += '<div class="skill-item skill-' + level + '">';
-        html += '<span class="skill-name">' + skill.name + '</span>';
-        html += '<span class="skill-bar"><span class="skill-fill" style="width:' + Math.min(100, skill.count * 10) + '%"></span></span>';
-        html += '<span class="skill-count">' + skill.count + ' struggles</span>';
-        html += '</div>';
-      });
-
-      weakSkillsEl.innerHTML = html;
-    },
-
-    reset: function() {
-      this.events = [];
-      this.save();
-      this.updateWeakSkills();
-    }
-  };
-
-  LearningEventTracker.load();
-
-  // Initialize weak skills display
-  LearningEventTracker.updateWeakSkills();
-
-  // Wire up reset learning progress button
-  var resetLearningBtn = document.getElementById('resetLearningBtn');
-  if (resetLearningBtn) {
-    resetLearningBtn.addEventListener('click', function() {
-      if (confirm('Are you sure you want to reset all learning progress? This cannot be undone.')) {
-        LearningEventTracker.reset();
-        ProgressTracker._completed = {};
-        ProgressTracker.save = function() {
-          try {
-            localStorage.setItem('lll_completed', JSON.stringify(ProgressTracker._completed));
-          } catch(e) {}
-          ProgressTracker.updateUI();
-        };
-        localStorage.removeItem('lll_completed');
-        ProgressTracker._completed = {};
-        ProgressTracker.updateUI();
-      }
-    });
-  }
-
-  // Wire up event tracking
-  function trackEvent(type, data) {
-    LearningEventTracker.track(type, data);
-  }
-
-  // Track audio plays
-  if (audio) {
-    audio.addEventListener('play', function() {
-      trackEvent(LearningEventTracker.EVENT_TYPES.AUDIO_PLAY, {
-        lessonId: State.filtered[State.selectedIndex] ? State.filtered[State.selectedIndex].id : null
-      });
-    });
-  }
-
-function selectItem(index) {
-  if (index < 0 || index >= State.filtered.length) return;
-  State.selectedIndex = index;
-  var item = State.filtered[index];
-  if (title) setText(title, item.title || item.original_filename, "Untitled audio");
-  if (subtitle) setText(subtitle, (levelLabels[item.level] || item.level) + ' · ' + (item.original_filename || ""), "");
-  if (audio) audio.src = item.audio_url || "";
-  if (lvText) setText(lvText, item.lv_text, "Latvian transcript is not available yet.");
-  if (enText) setText(enText, item.en_text, "English translation is not available yet.");
-  if (lvLink) lvLink.href = item.lv_markdown_url || "#";
-  if (enLink) enLink.href = item.en_markdown_url || "#";
-  if (statusBadge) { statusBadge.textContent = item.status || "unknown"; statusBadge.className = badgeClass(item.status); }
-  if (previousButton) previousButton.disabled = State.selectedIndex <= 0;
-  if (nextButton) nextButton.disabled = State.selectedIndex >= State.filtered.length - 1;
-  renderMenu();
-  var activeTab = document.querySelector('.tab.active');
-  if (activeTab && activeTab.id === 'vocabTabBtn') {
-    showVocabTab();
-  }
-}
-
-var lvText = document.querySelector('#lvText');
-var enText = document.querySelector('#enText');
-var lvLink = document.querySelector('#lvLink');
+  var lvText = document.querySelector('#lvText');
+  var enText = document.querySelector('#enText');
+  var lvLink = document.querySelector('#lvLink');
   var enLink = document.querySelector('#enLink');
   var statusBadge = document.querySelector('#statusBadge');
   var speakerBadge = document.querySelector('#speakerBadge');
@@ -917,16 +183,6 @@ var lvLink = document.querySelector('#lvLink');
   var closeAIPanelBtn = document.querySelector('#closeAIPanel');
   var aiModeToggle = document.querySelector('#aiModeToggle');
   var retryBtn = document.querySelector('#retryBtn');
-var vocabMenu = document.querySelector("#vocabMenu");
-  var vocabSearch = document.querySelector("#vocabSearch");
-  var vocabTabBtn = document.querySelector("#vocabTabBtn");
-  var flashcardModal = document.querySelector("#flashcardModal");
-  var flashcardWord = document.querySelector("#flashcardWord");
-  var flashcardTranslation = document.querySelector("#flashcardTranslation");
-  var flashcardExample = document.querySelector("#flashcardExample");
-  var flashcardGrammar = document.querySelector("#flashcardGrammar");
-  var flashcardFront = document.querySelector("#flashcardFront");
-  var flashcardBack = document.querySelector("#flashcardBack");
 
   if (audio) {
     audio.addEventListener('play', function() {
@@ -957,207 +213,6 @@ var vocabMenu = document.querySelector("#vocabMenu");
     A2: 'A2 Klausīšanās',
   };
 
-function extractVocabulary(transcript) {
-  if (!transcript) return [];
-  var words = transcript.toLowerCase().replace(/[.,!?;:"''()[\]{}]/g, ' ').split(/\s+/).filter(function(w) { return w.length > 2 && !STOPWORDS.has(w); });
-  var wordCounts = {};
-  words.forEach(function(w) { wordCounts[w] = (wordCounts[w] || 0) + 1; });
-  return Object.entries(wordCounts).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 20).map(function(_ref) {
-    var word = _ref[0];
-    var dictEntry = VOCAB_DICTIONARY[word];
-    return { word: word, en: dictEntry ? dictEntry.en : '—', grammar: dictEntry ? dictEntry.grammar : 'noun', lemma: word };
-  });
-}
-
-function loadDeck() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-  catch { return []; }
-}
-
-function saveDeck(deck) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(deck));
-}
-
-function getDueCards() {
-  var deck = loadDeck();
-  var now = Date.now();
-  return deck.filter(function(card) { return card.due <= now; });
-}
-
-function getMissedCards() {
-  var deck = loadDeck();
-  return deck.filter(function(card) { return card.incorrect > card.correct; }).sort(function(a, b) { return (b.incorrect - b.correct) - (a.incorrect - a.correct); });
-}
-
-function addCard(word, en, example, lemma, grammar) {
-  var deck = loadDeck();
-  if (deck.some(function(c) { return c.word === word; })) return false;
-  deck.push({ word: word, en: en, example: example, lemma: lemma, grammar: grammar, ease: 2.5, interval: 0, due: Date.now(), correct: 0, incorrect: 0 });
-  saveDeck(deck);
-  return true;
-}
-
-function reviewCard(word, rating) {
-  var deck = loadDeck();
-  var card = deck.find(function(c) { return c.word === word; });
-  if (!card) return;
-  if (rating === 'again') { card.incorrect++; card.interval = 0; card.due = Date.now() + 60000; }
-  else if (rating === 'good') { card.correct++; card.interval = Math.max(1, card.interval * card.ease); card.due = Date.now() + card.interval * 24 * 60 * 60 * 1000; }
-  else if (rating === 'easy') { card.correct++; card.ease = Math.min(3.0, card.ease + 0.15); card.interval = Math.max(1, card.interval * card.ease * 1.3); card.due = Date.now() + card.interval * 24 * 60 * 60 * 1000; }
-  saveDeck(deck);
-}
-
-function exportAnkiCSV() {
-  const deck = loadDeck();
-  const lessonTitle = filtered[selectedIndex]?.title || 'Unknown';
-  let csv = 'Latvian,English,Example,Lemma\n';
-  deck.forEach(card => { csv += `"${card.word}","${card.en}","${(card.example || '').replace(/"/g, '""')}","${card.lemma || ''}"\n`; });
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `latvian_flashcards_${lessonTitle.replace(/\s+/g, '_')}.csv`; link.click();
-}
-
-function exportDeckJSON() {
-  const deck = loadDeck();
-  const blob = new Blob([JSON.stringify(deck, null, 2)], { type: 'application/json' });
-  const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'latvian_flashcards_backup.json'; link.click();
-}
-
-function importDeckJSON(file) {
-  const reader = new FileReader();
-  reader.onload = (e) => { try { const deck = JSON.parse(e.target.result); if (Array.isArray(deck)) { saveDeck(deck); alert('Deck imported!'); } } catch { alert('Invalid file'); } };
-  reader.readAsText(file);
-}
-
-const vocabSection = document.getElementById('vocabSection');
-const reviewSection = document.getElementById('reviewSection');
-const deckSection = document.getElementById('deckSection');
-
-function showVocabTab() {
-  if (vocabSection) vocabSection.style.display = 'block';
-  if (reviewSection) reviewSection.style.display = 'none';
-  if (deckSection) deckSection.style.display = 'none';
-  const vocabList = document.getElementById('vocabList');
-  if (!vocabList) return;
-  const item = filtered[selectedIndex];
-  const vocab = extractVocabulary(item?.lv_text || '');
-  vocabList.innerHTML = '';
-  vocab.forEach(v => {
-    const row = document.createElement('div');
-    row.className = 'vocab-row';
-    const wordEl = document.createElement('span');
-    wordEl.className = 'vocab-word';
-    wordEl.textContent = v.word;
-    const enEl = document.createElement('span');
-    enEl.className = 'vocab-en';
-    enEl.textContent = v.en;
-    const grammarEl = document.createElement('small');
-    grammarEl.className = 'vocab-grammar';
-    grammarEl.textContent = v.grammar;
-    const saveBtn = document.createElement('button');
-    saveBtn.type = 'button';
-    saveBtn.className = 'btn-save';
-    saveBtn.textContent = '+ Flashcard';
-    const existing = loadDeck();
-    const alreadySaved = existing.some(c => c.word === v.word);
-    if (alreadySaved) { saveBtn.textContent = 'Saved'; saveBtn.disabled = true; }
-    else { saveBtn.onclick = () => { const ex = item?.lv_text?.split('\n').find(l => l.includes(v.word)) || ''; if (addCard(v.word, v.en, ex, v.lemma, v.grammar)) { saveBtn.textContent = 'Saved'; saveBtn.disabled = true; } }; }
-    row.append(wordEl, enEl, grammarEl, saveBtn);
-    vocabList.appendChild(row);
-  });
-  if (!vocab.length) { vocabList.innerHTML = '<p class="empty">No vocabulary found in transcript.</p>'; }
-}
-
-function showReviewTab() {
-  if (vocabSection) vocabSection.style.display = 'none';
-  if (reviewSection) reviewSection.style.display = 'block';
-  if (deckSection) deckSection.style.display = 'none';
-  const reviewContainer = document.getElementById('reviewContainer');
-  if (!reviewContainer) return;
-  const due = getDueCards();
-  if (!due.length) { reviewContainer.innerHTML = '<p class="empty">No cards due for review.</p>'; return; }
-  const card = due[0];
-  reviewContainer.innerHTML = '';
-  const cardEl = document.createElement('div');
-  cardEl.className = 'flashcard';
-  const front = document.createElement('div');
-  front.className = 'flashcard-front';
-  front.textContent = card.word;
-  const back = document.createElement('div');
-  back.className = 'flashcard-back';
-  back.textContent = `${card.en} (${card.grammar})`;
-  back.style.display = 'none';
-  const revealBtn = document.createElement('button');
-  revealBtn.type = 'button';
-  revealBtn.className = 'btn-reveal';
-  revealBtn.textContent = 'Reveal';
-  revealBtn.onclick = () => { back.style.display = 'block'; revealBtn.style.display = 'none'; showAnswerButtons(card.word); };
-  cardEl.append(front, back, revealBtn);
-  reviewContainer.appendChild(cardEl);
-}
-
-function showAnswerButtons(word) {
-  const reviewContainer = document.getElementById('reviewContainer');
-  const btns = document.createElement('div');
-  btns.className = 'review-buttons';
-  [['again', 'Again'], ['good', 'Good'], ['easy', 'Easy']].forEach(([rating, label]) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `btn-${rating}`;
-    btn.textContent = label;
-    btn.onclick = () => { reviewCard(word, rating); showReviewTab(); };
-    btns.appendChild(btn);
-  });
-  reviewContainer.appendChild(btns);
-}
-
-function showDeckTab() {
-  if (vocabSection) vocabSection.style.display = 'none';
-  if (reviewSection) reviewSection.style.display = 'none';
-  if (deckSection) deckSection.style.display = 'block';
-  const deckStats = document.getElementById('deckStats');
-  if (!deckStats) return;
-  const deck = loadDeck();
-  const due = getDueCards().length;
-  const missed = getMissedCards();
-  deckStats.innerHTML = `<p>Total cards: ${deck.length}</p><p>Due now: ${due}</p><p>Needs work: ${missed.length}</p>`;
-  const deckList = document.getElementById('deckList');
-  if (!deckList) return;
-  deckList.innerHTML = '';
-  deck.slice(0, 20).forEach(card => {
-    const row = document.createElement('div');
-    row.className = 'deck-row';
-    row.innerHTML = `<span>${card.word}</span><span>${card.correct}/${card.incorrect}</span><span>${card.interval ? Math.round(card.interval) + 'd' : 'new'}</span>`;
-    deckList.appendChild(row);
-  });
-}
-
-const vocabBtn = document.getElementById('vocabTabBtn');
-const reviewBtn = document.getElementById('reviewTabBtn');
-const deckBtn = document.getElementById('deckTabBtn');
-if (vocabBtn) vocabBtn.addEventListener('click', showVocabTab);
-if (reviewBtn) reviewBtn.addEventListener('click', showReviewTab);
-if (deckBtn) deckBtn.addEventListener('click', showDeckTab);
-if (vocabBtn) showVocabTab();
-
-const exportAnkiBtn = document.getElementById('exportAnkiBtn');
-const exportJsonBtn = document.getElementById('exportJsonBtn');
-const importJsonBtn = document.getElementById('importJsonBtn');
-if (exportAnkiBtn) exportAnkiBtn.addEventListener('click', exportAnkiCSV);
-if (exportJsonBtn) exportJsonBtn.addEventListener('click', exportDeckJSON);
-if (importJsonBtn) importJsonBtn.addEventListener('change', (e) => { if (e.target.files[0]) importDeckJSON(e.target.files[0]); });
-
-fetch("catalog.json", { cache: "no-store" })
-  .then((response) => {
-    if (!response.ok) throw new Error(`Catalog request failed: ${response.status}`);
-    return response.json();
-  })
-  .then((items) => {
-    catalog = Array.isArray(items) ? items : [];
-    filtered = catalog.slice();
-    renderMenu();
-    if (filtered.length) {
-      selectItem(0);
-  }
   var voiceTypeLabels = {
     cashier: 'Cashier',
     doctor: 'Doctor',
@@ -2465,131 +1520,6 @@ fetch("catalog.json", { cache: "no-store" })
     });
   });
 
-(function () {
-  // Community Panel initialization
-  var panel = document.getElementById("communityPanel");
-  var toggle = document.getElementById("communityToggle");
-  var closeBtn = document.getElementById("communityClose");
-  var tabs = document.querySelectorAll(".community-tabs .tab");
-  var entryType = document.getElementById("entryType");
-  var authorName = document.getElementById("authorName");
-  var entryBody = document.getElementById("entryBody");
-  var submitBtn = document.getElementById("submitEntry");
-  var sortOrder = document.getElementById("sortOrder");
-  var listEl = document.getElementById("communityList");
-
-  var currentTab = "questions";
-  var currentLessonId = null;
-
-  function getLessonId() {
-    if (State.filtered[State.selectedIndex]) {
-      return State.filtered[State.selectedIndex].id;
-    }
-    return "default";
-  }
-
-  function getEntryType() {
-    var typeMap = {
-      questions: "question",
-      comments: "comment",
-      translations: "translation_suggestion",
-    };
-    return typeMap[currentTab];
-  }
-
-  function renderEntry(entry) {
-    var div = document.createElement("div");
-    div.className = "community-entry";
-    div.dataset.id = entry.id;
-    div.innerHTML = `
-      <div class="entry-header">
-        <span class="entry-type">${entry.type}</span>
-        <span class="entry-author">${entry.authorDisplayName}</span>
-      </div>
-      <div class="entry-body">${entry.body}</div>
-      <div class="entry-footer">
-        <button type="button" class="helpful-btn">👍 Helpful (${entry.helpfulVotes || 0})</button>
-        <button type="button" class="report-btn">🚩 Report</button>
-      </div>
-    `;
-    const helpfulBtn = div.querySelector(".helpful-btn");
-    helpfulBtn.addEventListener("click", () => {
-      CommunityService.voteHelpful(entry.id);
-      renderList();
-    });
-    const reportBtn = div.querySelector(".report-btn");
-    reportBtn.addEventListener("click", () => {
-      CommunityService.report(entry.id);
-      renderList();
-    });
-    return div;
-  }
-
-  function renderList() {
-    listEl.textContent = "";
-    currentLessonId = getLessonId();
-    const entries = CommunityService.getEntries(
-      currentLessonId,
-      getEntryType(),
-      sortOrder.value
-    );
-    if (entries.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "empty-state";
-      const emptyMessages = {
-        questions: "No questions yet. Ask about this sentence.",
-        comments: "No comments yet. Be the first to comment.",
-        translations: "No translation suggestions yet. Help improve the translation.",
-      };
-      empty.textContent = emptyMessages[currentTab];
-      listEl.appendChild(empty);
-      return;
-    }
-    entries.forEach((entry) => {
-      listEl.appendChild(renderEntry(entry));
-    });
-  }
-
-  toggle.addEventListener("click", () => {
-    panel.classList.add("open");
-    renderList();
-  });
-
-  closeBtn.addEventListener("click", () => {
-    panel.classList.remove("open");
-  });
-
-  tabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      tabs.forEach((t) => t.classList.remove("active"));
-      tab.classList.add("active");
-      currentTab = tab.dataset.tab;
-      renderList();
-    });
-  });
-
-  sortOrder.addEventListener("change", renderList);
-
-  submitBtn.addEventListener("click", () => {
-    const author = authorName.value.trim();
-    const body = entryBody.value.trim();
-    if (!author || !body) {
-      alert("Please enter your name and a message.");
-      return;
-    }
-    const entry = CommunityService.addEntry({
-      lessonId: currentLessonId || getLessonId(),
-      type: getEntryType(),
-      authorDisplayName: author,
-      body: body,
-    });
-    entryBody.value = "";
-    renderList();
-  });
-
-  CommunityService.subscribe(renderList);
-
-  // AI Panel event listeners (from main)
   if (closeAIPanelBtn) closeAIPanelBtn.addEventListener('click', closeAIPanel);
   if (aiOverlay) aiOverlay.addEventListener('click', closeAIPanel);
   if (aiModeToggle && aiService) {
@@ -2736,344 +1666,4 @@ fetch("catalog.json", { cache: "no-store" })
     Analytics: analyticsTracker
   };
   window.analytics = analyticsTracker;
-
-  // ---------------------------------------------------------------------------
-  // InteractiveListeningMode — sentence highlighting, speed controls, cloze
-  // ---------------------------------------------------------------------------
-  var InteractiveListeningMode = {
-    sentences: [],
-    currentSentenceIndex: -1,
-    isTranscriptVisible: true,
-    clozeWords: [],
-    clozeUserAnswers: [],
-
-    init: function() {
-      this.setupSpeedControls();
-      this.setupHideTranscript();
-      this.setupSentenceClickEvents();
-      this.setupAudioTimeUpdate();
-      this.setupClozeExercises();
-    },
-
-    setupSpeedControls: function() {
-      var speedBtn = document.getElementById('speed-btn');
-      var speedMenu = document.getElementById('speed-menu');
-      var audio = document.querySelector('#audio');
-      if (!speedBtn || !speedMenu || !audio) return;
-
-      speedBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        speedMenu.classList.toggle('hidden');
-      });
-
-      speedMenu.querySelectorAll('.speed-option').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-          var speed = parseFloat(btn.getAttribute('data-speed'));
-          audio.playbackRate = speed;
-          speedBtn.textContent = speed + 'x';
-          speedMenu.classList.add('hidden');
-        });
-      });
-
-      document.addEventListener('click', function() {
-        if (!speedMenu.classList.contains('hidden')) {
-          speedMenu.classList.add('hidden');
-        }
-      });
-    },
-
-    setupHideTranscript: function() {
-      var hideBtn = document.getElementById('hide-transcript-btn');
-      var lvTextEl = document.getElementById('lvText');
-      var enTextEl = document.getElementById('enText');
-      if (!hideBtn || !lvTextEl) return;
-
-      hideBtn.addEventListener('click', function() {
-        this.isTranscriptVisible = !this.isTranscriptVisible;
-        lvTextEl.style.display = this.isTranscriptVisible ? '' : 'none';
-        if (enTextEl) enTextEl.style.display = this.isTranscriptVisible ? '' : 'none';
-        hideBtn.textContent = this.isTranscriptVisible ? '👁️' : '👁️‍🗨️';
-      }.bind(this));
-    },
-
-    setupSentenceClickEvents: function() {
-      var self = this;
-      document.addEventListener('click', function(e) {
-        var target = e.target;
-        if (target.classList.contains('sentence-block')) {
-          var index = parseInt(target.getAttribute('data-sentence'), 10);
-          self.highlightSentence(index);
-        }
-      });
-    },
-
-    setupAudioTimeUpdate: function() {
-      var audio = document.querySelector('#audio');
-      var self = this;
-      if (!audio) return;
-
-      audio.addEventListener('timeupdate', function() {
-        if (self.sentences.length === 0) return;
-        var currentTime = audio.currentTime;
-        for (var i = 0; i < self.sentences.length; i++) {
-          var sent = self.sentences[i];
-          if (currentTime >= sent.start && currentTime < sent.end) {
-            if (self.currentSentenceIndex !== i) {
-              self.highlightSentence(i);
-            }
-            return;
-          }
-        }
-      });
-    },
-
-    parseSentences: function(text) {
-      if (!text) return [];
-      var rawSentences = text.split(/(?<=[.!?])\s+/);
-      var sentences = [];
-      var totalDuration = 0;
-      var audio = document.querySelector('#audio');
-      var duration = audio ? audio.duration : 180;
-
-      rawSentences.forEach(function(sent, i) {
-        sent = sent.trim();
-        if (sent.length > 0) {
-          var avgWordDuration = duration / Math.max(1, sent.split(/\s+/).length);
-          sentences.push({
-            index: i,
-            text: sent,
-            start: totalDuration,
-            end: totalDuration + avgWordDuration * sent.split(/\s+/).length
-          });
-          totalDuration += avgWordDuration * sent.split(/\s+/).length;
-        }
-      });
-      return sentences;
-    },
-
-    highlightSentence: function(index) {
-      var blocks = document.querySelectorAll('.sentence-block');
-      blocks.forEach(function(block) { block.classList.remove('active-sentence'); });
-      var activeBlock = document.querySelector('.sentence-block[data-sentence="' + index + '"]');
-      if (activeBlock) {
-        activeBlock.classList.add('active-sentence');
-        activeBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      this.currentSentenceIndex = index;
-
-      // Track sentence replay for weak skills analysis
-      if (typeof trackEvent === 'function' && this.sentences[index]) {
-        trackEvent(LearningEventTracker.EVENT_TYPES.SENTENCE_REPLAY, {
-          sentence: this.sentences[index].text,
-          lessonId: State.filtered[State.selectedIndex] ? State.filtered[State.selectedIndex].id : null
-        });
-      }
-    },
-
-    setupClozeExercises: function() {
-      var checkBtn = document.getElementById('checkClozeBtn');
-      var resetBtn = document.getElementById('resetClozeBtn');
-      var self = this;
-
-      if (checkBtn) checkBtn.addEventListener('click', function() { self.checkClozeAnswers(); });
-      if (resetBtn) resetBtn.addEventListener('click', function() { self.generateCloze(); });
-    },
-
-    generateCloze: function() {
-      var item = State.filtered[State.selectedIndex];
-      if (!item || !item.lv_text) return;
-
-      var text = item.lv_text;
-      var words = text.split(/\s+/).filter(function(w) { return w.length > 3; });
-      var stopwords = ['un', 'un', 'bet', 'vai', 'ir', 'bija', 'būs', 'nav', 'būt', 'ka', 'lai', 'kas', 'kur', 'kad', 'kā', 'jo', 'līdz', 'par', 'pēc'];
-      var candidateWords = words.filter(function(w) {
-        var clean = w.replace(/[.,!?;:"''()[\]{}]/g, '').toLowerCase();
-        return stopwords.indexOf(clean) === -1 && clean.length > 3;
-      });
-
-      var numToHide = Math.min(5, Math.max(3, Math.floor(candidateWords.length * 0.15)));
-      var shuffled = candidateWords.slice().sort(function() { return Math.random() - 0.5; });
-      this.clozeWords = shuffled.slice(0, numToHide);
-      this.clozeUserAnswers = new Array(numToHide).fill('');
-
-      var clozeContainer = document.getElementById('clozeContainer');
-      var clozeSection = document.getElementById('clozeSection');
-      if (!clozeContainer || !clozeSection) return;
-
-      clozeSection.style.display = 'block';
-      clozeContainer.innerHTML = '';
-
-      var displayText = text;
-      this.clozeWords.forEach(function(word, i) {
-        var clean = word.replace(/[.,!?;:"''()[\]{}]/g, '');
-        var regex = new RegExp('\\b' + clean + '\\b', 'gi');
-        displayText = displayText.replace(regex, '<input type="text" class="cloze-input" data-index="' + i + '" placeholder="..." aria-label="Missing word ' + (i+1) + '">');
-      });
-
-      clozeContainer.innerHTML = '<div class="cloze-text">' + displayText + '</div>';
-
-      clozeContainer.querySelectorAll('.cloze-input').forEach(function(input) {
-        input.addEventListener('input', function() {
-          var idx = parseInt(this.getAttribute('data-index'), 10);
-          self.clozeUserAnswers[idx] = this.value.toLowerCase();
-        });
-      });
-
-      document.getElementById('clozeProgress').textContent = '0/' + this.clozeWords.length;
-    },
-
-    checkClozeAnswers: function() {
-      var correct = 0;
-      var inputs = document.querySelectorAll('.cloze-input');
-
-      this.clozeWords.forEach(function(word, i) {
-        var clean = word.replace(/[.,!?;:"''()[\]{}]/g, '').toLowerCase();
-        var input = inputs[i];
-        if (!input) return;
-
-        var userAnswer = this.clozeUserAnswers[i] || '';
-        var isCorrect = userAnswer.trim() === clean;
-
-        input.classList.remove('correct', 'incorrect');
-        input.classList.add(isCorrect ? 'correct' : 'incorrect');
-        if (isCorrect) correct++;
-      }.bind(this));
-
-      document.getElementById('clozeProgress').textContent = correct + '/' + this.clozeWords.length + ' correct';
-    },
-
-    onLessonSelect: function(item) {
-      this.sentences = this.parseSentences(item.lv_text || '');
-      this.generateCloze();
-    }
-  };
-
-  // Initialize interactive listening when lesson is selected
-  var originalSelectItem = window.__lll && window.__lll.selectItem;
-  if (originalSelectItem) {
-    var wrappedSelectItem = function(index) {
-      originalSelectItem(index);
-      var item = State.filtered[index];
-      if (item) InteractiveListeningMode.onLessonSelect(item);
-    };
-    window.__lll.selectItem = wrappedSelectItem;
-  }
-
-  // Also hook into existing selectItem function by patching Renderer.selectItem
-  if (Renderer && Renderer.selectItem) {
-    var originalRendererSelectItem = Renderer.selectItem;
-    Renderer.selectItem = function(index) {
-      originalRendererSelectItem.apply(this, arguments);
-      var item = State.filtered[index];
-      if (item) InteractiveListeningMode.onLessonSelect(item);
-    };
-  }
-
-  // Initialize on page load
-  document.addEventListener('DOMContentLoaded', function() {
-    InteractiveListeningMode.init();
-  });
-
-  // ---------------------------------------------------------------------------
-  // CulturalContextManager — display cultural context cards for lessons
-  // ---------------------------------------------------------------------------
-  var CulturalContextManager = {
-    contexts: null,
-    currentLessonId: null,
-
-    loadContexts: function() {
-      var self = this;
-      return fetch('contexts.json')
-        .then(function(response) { return response.json(); })
-        .then(function(data) {
-          self.contexts = data;
-          return data;
-        })
-        .catch(function() {
-          self.contexts = [];
-          return [];
-        });
-    },
-
-    getContextsForLesson: function(lessonId) {
-      if (!this.contexts) return [];
-      return this.contexts.filter(function(ctx) {
-        return ctx.lesson_ids && ctx.lesson_ids.indexOf(lessonId) !== -1;
-      });
-    },
-
-    renderContextCard: function(context) {
-      var html = '<div class="cultural-card">';
-      html += '<div class="cultural-card-header">';
-      html += '<h4>' + escapeHtml(context.title) + '</h4>';
-      html += '<span class="cultural-card-badge">' + escapeHtml(context.title_en || '') + '</span>';
-      html += '</div>';
-      html += '<p class="cultural-explanation">' + escapeHtml(context.explanation) + '</p>';
-
-      if (context.practical_note) {
-        html += '<div class="cultural-note">';
-        html += '<strong>Practical note:</strong> ' + escapeHtml(context.practical_note);
-        html += '</div>';
-      }
-
-      if (context.phrases && context.phrases.length > 0) {
-        html += '<div class="cultural-phrases">';
-        html += '<h5>Useful phrases</h5>';
-        context.phrases.forEach(function(phrase) {
-          html += '<div class="phrase-item">';
-          html += '<span class="phrase-lv">' + escapeHtml(phrase.lv) + '</span>';
-          html += '<span class="phrase-en">' + escapeHtml(phrase.en) + '</span>';
-          if (phrase.usage) {
-            html += '<span class="phrase-usage">' + escapeHtml(phrase.usage) + '</span>';
-          }
-          html += '</div>';
-        });
-        html += '</div>';
-      }
-
-      html += '</div>';
-      return html;
-    },
-
-    displayForLesson: function(lessonId) {
-      var section = document.getElementById('culturalContextSection');
-      var container = document.getElementById('culturalContextList');
-      if (!section || !container) return;
-
-      this.currentLessonId = lessonId;
-      var contexts = this.getContextsForLesson(lessonId);
-
-      if (contexts.length === 0) {
-        section.style.display = 'none';
-        return;
-      }
-
-      section.style.display = 'block';
-      container.innerHTML = contexts.map(function(ctx) {
-        return this.renderContextCard(ctx);
-      }.bind(this)).join('');
-    },
-
-    init: function() {
-      var self = this;
-      this.loadContexts().then(function() {
-        var item = State.filtered[State.selectedIndex];
-        if (item) self.displayForLesson(item.id);
-      });
-    }
-  };
-
-  // Hook into lesson selection
-  var originalRendererSelectItem2 = Renderer.selectItem;
-  Renderer.selectItem = function(index) {
-    originalRendererSelectItem2.apply(this, arguments);
-    var item = State.filtered[index];
-    if (item) CulturalContextManager.displayForLesson(item.id);
-  };
-
-  // Initialize on page load
-  document.addEventListener('DOMContentLoaded', function() {
-    CulturalContextManager.init();
-  });
-
 })();
