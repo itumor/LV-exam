@@ -172,6 +172,19 @@
                      aria-label="Seek" step="1" />
             </div>
             <span id="time-display" aria-live="off">0:00 / 0:00</span>
+            <div class="playback-controls">
+              <button id="speed-btn" type="button" class="speed-control" aria-label="Playback speed" title="Speed">
+                1x
+              </button>
+              <div id="speed-menu" class="speed-menu hidden" role="menu" aria-label="Playback speed options">
+                <button type="button" class="speed-option" data-speed="1" role="menuitem">1x</button>
+                <button type="button" class="speed-option" data-speed="0.75" role="menuitem">0.75x</button>
+                <button type="button" class="speed-option" data-speed="0.5" role="menuitem">0.5x</button>
+              </div>
+              <button id="hide-transcript-btn" type="button" class="hide-transcript-control" aria-label="Hide transcript" title="Toggle transcript">
+                👁️
+              </button>
+            </div>
           </div>
           <div id="audio-error" class="audio-error" hidden>
             Unable to load audio. Check your connection and try again.
@@ -219,6 +232,26 @@
 </article>
           </article>
         </section>
+
+        <section id="clozeSection" class="cloze-section" style="display:none">
+          <div class="panel-heading">
+            <h3>Fill in the missing words</h3>
+            <span id="clozeProgress">0/0</span>
+          </div>
+          <div id="clozeContainer" class="cloze-container"></div>
+          <div class="cloze-actions">
+            <button id="checkClozeBtn" type="button" class="btn-primary">Check Answers</button>
+            <button id="resetClozeBtn" type="button" class="btn-secondary">Reset</button>
+          </div>
+        </section>
+
+        <section id="culturalContextSection" class="cultural-context-section" style="display:none">
+          <div class="panel-heading">
+            <h3>Cultural Context</h3>
+          </div>
+          <div id="culturalContextList" class="cultural-context-list"></div>
+        </section>
+
 <section class="tabs">
           <button id="transcriptTabBtn" type="button" class="tab active">Transcript</button>
           <button id="vocabTabBtn" type="button" class="tab">Vocabulary</button>
