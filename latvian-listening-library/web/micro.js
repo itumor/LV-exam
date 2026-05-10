@@ -140,7 +140,7 @@ function getDifficultyClass(difficulty) {
 
 function renderCard(clip) {
   hasAnswered = false;
-  
+
   const card = document.createElement("article");
   card.className = "micro-card";
   card.dataset.id = clip.id;
@@ -150,7 +150,7 @@ function renderCard(clip) {
       <span class="micro-tag ${getDifficultyClass(clip.difficulty)}">${clip.difficulty}</span>
       <span class="micro-tag tag-category">${clip.category}</span>
     </div>
-    
+
     <h2 class="micro-prompt">${clip.prompt_lv}</h2>
     <p style="color: var(--muted); margin-bottom: 16px; font-size: 0.9rem;">${clip.prompt}</p>
 
@@ -235,9 +235,9 @@ function handleAnswer(selectedIndex, clip, options) {
   const isCorrect = selectedIndex === correctIndex;
   feedback.classList.add("visible");
   feedback.classList.add(isCorrect ? "feedback-correct" : "feedback-incorrect");
-  
+
   feedback.querySelector(".feedback-title").textContent = isCorrect ? "Pareizi! ✓" : "Nepareizi!";
-  feedback.querySelector(".feedback-explanation").textContent = isCorrect 
+  feedback.querySelector(".feedback-explanation").textContent = isCorrect
     ? `Pareizā atbilde: ${clip.answer_text}`
     : `Pareizā atbilde bija: ${clip.answer_text}. ${clip.translation}`;
 
@@ -294,7 +294,7 @@ async function init() {
 
   const params = new URLSearchParams(window.location.search);
   const clipId = params.get("id");
-  
+
   if (clipId) {
     const foundIndex = microClips.findIndex(c => c.id === clipId);
     if (foundIndex !== -1) {

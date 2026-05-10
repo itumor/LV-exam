@@ -41,6 +41,9 @@
     duration: 0,
     waveformData: null
   };
+  var isDev = window.location.hostname === 'localhost' || window.location.hostname.indexOf('127.0.0.1') !== -1;
+  var audioSource = new AudioSource(AudioSourceType.MP3, window.AUDIO_BASE_URL || '');
+  var analyticsTracker = createAnalyticsTracker(isDev ? null : window.ANALYTICS_SINK_URL || null);
 
   // ---------------------------------------------------------------------------
   // SkeletonHelper — show/hide skeleton loading states
@@ -156,6 +159,27 @@
   var statusBadge = document.querySelector('#statusBadge');
   var previousButton = document.querySelector('#prev');
   var nextButton = document.querySelector('#next');
+
+  if (audio) {
+    audio.addEventListener('play', function() {
+      var item = State.filtered[State.selectedIndex];
+      if (item) {
+        analyticsTracker.track(Analytics.EventTypes.AUDIO_PLAY, {
+          lesson_id: item.id,
+          filename: item.original_filename
+        });
+      }
+    });
+    audio.addEventListener('pause', function() {
+      var item = State.filtered[State.selectedIndex];
+      if (item && !audio.ended) {
+        analyticsTracker.track(Analytics.EventTypes.AUDIO_PAUSE, {
+          lesson_id: item.id,
+          filename: item.original_filename
+        });
+      }
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Constants
@@ -315,7 +339,12 @@
       }
 
       // Set audio src
-      if (audio) audio.src = item.audio_url || '';
+      if (audio) {
+        audio.preload = 'metadata';
+        audio.src = audioSource.getAudioUrl(item.audio_url || '');
+      }
+
+      AudioController.loadWaveform(item.waveform_url || audioSource.getWaveformUrl(item.audio_url || ''));
 
       // Update prev/next button disabled state
       if (previousButton) previousButton.disabled = State.selectedIndex <= 0;
@@ -396,6 +425,13 @@
         });
         audio.addEventListener('ended', function() {
           State.isPlaying = false;
+          var item = State.filtered[State.selectedIndex];
+          if (item) {
+            analyticsTracker.track(Analytics.EventTypes.LESSON_COMPLETE, {
+              lesson_id: item.id,
+              filename: item.original_filename
+            });
+          }
           AudioController.updateUI();
           if (playbackStatus) playbackStatus.textContent = 'Track ended';
         });
@@ -474,9 +510,10 @@
       var canvas = document.getElementById('waveform-canvas');
       if (!canvas) return;
       fetch(url)
-        .then(function(r) { return r.json(); })
+        .then(function(r) { return r.ok ? r.json() : null; })
         .then(function(data) {
           if (!Array.isArray(data) || data.length === 0) return;
+          State.waveformData = data;
           var ctx = canvas.getContext('2d');
           var w = canvas.offsetWidth || canvas.width;
           var h = canvas.offsetHeight || canvas.height;
@@ -588,6 +625,10 @@
       return response.json();
     })
     .then(function (items) {
+      var validation = LessonValidation.validateCatalog(items, isDev);
+      if (!validation.valid) {
+        console.warn('[Catalog] Lesson data validation failed:', validation.errors);
+      }
       State.catalog = Array.isArray(items) ? items : [];
       State.filtered = State.catalog.slice();
       SkeletonHelper.hideSidebar();
@@ -613,6 +654,8 @@
     selectItem: function(index) { Renderer.selectItem(index); },
     State: State,
     ProgressTracker: ProgressTracker,
-    ThemeManager: ThemeManager
+    ThemeManager: ThemeManager,
+    Analytics: analyticsTracker
   };
+  window.analytics = analyticsTracker;
 })();
