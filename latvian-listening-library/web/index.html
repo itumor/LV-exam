@@ -16,8 +16,44 @@
             <p>A1 / A2 audio library</p>
           </div>
         </div>
-        <label class="search-label" for="search">Meklēt</label>
-        <input id="search" type="search" placeholder="Search by file or text..." autocomplete="off" />
+
+        <div class="filter-section">
+          <label class="filter-label" for="search">Meklēt</label>
+          <input id="search" type="search" placeholder="Search by file or text..." autocomplete="off" />
+
+          <div class="filter-group">
+            <label class="filter-label">
+              Grūtības līmenis
+              <span class="tooltip-icon" title="A1+: vieglāks par A2 līmeni. Easy A2: lēnāka, skaidra ikdienas valoda. Standard A2: paredzamā A2 eksāmena prakse. Fast Native A2: reāls ātrums bet A2 vārdu krājums/tēma.">?</span>
+            </label>
+            <div id="difficultyFilters" class="filter-chips">
+              <button type="button" class="chip active" data-difficulty="all">Visi</button>
+              <button type="button" class="chip" data-difficulty="A1+">A1+</button>
+              <button type="button" class="chip" data-difficulty="Easy A2">Easy A2</button>
+              <button type="button" class="chip" data-difficulty="Standard A2">Standard A2</button>
+              <button type="button" class="chip" data-difficulty="Fast Native A2">Fast Native A2</button>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label" for="audioStyleFilter">Audio stils</label>
+            <select id="audioStyleFilter" class="filter-select">
+              <option value="all">Visi stili</option>
+              <option value="Slow native">Lēnā runa</option>
+              <option value="Clear pronunciation">Skaidra izruna</option>
+              <option value="Normal speed">Normāls ātrums</option>
+              <option value="Street Latvian">Ielas latviešu</option>
+              <option value="Dialogue">Dialogs</option>
+              <option value="Announcement">Paziņojums</option>
+            </select>
+          </div>
+
+          <button id="recommendedBtn" type="button" class="recommend-btn">
+            <span class="recommend-icon">→</span>
+            Ieteikt nākamo
+          </button>
+        </div>
+
         <nav id="menu" class="menu" aria-label="Audio lessons"></nav>
       </aside>
 

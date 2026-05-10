@@ -10,10 +10,21 @@ const enLink = document.querySelector("#enLink");
 const statusBadge = document.querySelector("#statusBadge");
 const previousButton = document.querySelector("#prev");
 const nextButton = document.querySelector("#next");
+const difficultyFilters = document.querySelector("#difficultyFilters");
+const audioStyleFilter = document.querySelector("#audioStyleFilter");
+const recommendedBtn = document.querySelector("#recommendedBtn");
 
 const levelLabels = {
   A1: "A1 Klausīšanās",
   A2: "A2 Klausīšanās",
+};
+
+const difficultyOrder = ["A1+", "Easy A2", "Standard A2", "Fast Native A2"];
+const difficultyInfo = {
+  "A1+": "Vieglāks par A2 līmeni — ideāls pamats.",
+  "Easy A2": "Lēnāka, skaidra ikdienas valoda.",
+  "Standard A2": "Paredzamā A2 eksāmena prakse.",
+  "Fast Native A2": "Reāls ātrums bet A2 vārdu krājums.",
 };
 
 const visualLessons = [
@@ -22,7 +33,7 @@ const visualLessons = [
   "Pilsētā un laukos",
   "Mana māja un ģimene",
   "Kājām, ar trolejbusu, ar lidmašīnu",
-  "Ikdienas darbi",
+  "Ikdienas darki",
   "Iepirkšanās",
   "Labu apetīti!",
   "Brīvais laiks",
@@ -34,6 +45,8 @@ const visualLessons = [
 let catalog = [];
 let filtered = [];
 let selectedIndex = -1;
+let currentDifficulty = "all";
+let currentAudioStyle = "all";
 
 function badgeClass(status) {
   if (status === "completed") return "badge badge-completed";
@@ -78,9 +91,28 @@ function renderMenu() {
       dot.className = "play-dot";
       const label = document.createElement("span");
       label.textContent = item.title || item.original_filename || "Audio";
+      
+      const badges = document.createElement("div");
+      badges.className = "item-badges";
+      
+      if (item.difficulty) {
+        const diffBadge = document.createElement("span");
+        diffBadge.className = "difficulty-badge";
+        diffBadge.textContent = item.difficulty;
+        diffBadge.title = difficultyInfo[item.difficulty] || "";
+        badges.appendChild(diffBadge);
+      }
+      
+      if (item.audio_style) {
+        const styleBadge = document.createElement("span");
+        styleBadge.className = "style-badge";
+        styleBadge.textContent = item.audio_style;
+        badges.appendChild(styleBadge);
+      }
+      
       const status = document.createElement("small");
       status.textContent = item.status || "unknown";
-      button.append(dot, label, status);
+      button.append(dot, label, badges, status);
       list.appendChild(button);
     }
 
@@ -130,7 +162,10 @@ function applyFilter() {
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
-    return haystack.includes(query);
+    if (!haystack.includes(query)) return false;
+    if (currentDifficulty !== "all" && item.difficulty !== currentDifficulty) return false;
+    if (currentAudioStyle !== "all" && item.audio_style !== currentAudioStyle) return false;
+    return true;
   });
   selectedIndex = filtered.length ? 0 : -1;
   renderMenu();
@@ -138,7 +173,7 @@ function applyFilter() {
     selectItem(0);
   } else {
     setText(title, "No matching audio", "No matching audio");
-    setText(subtitle, "Try another search or build the catalog after processing files.", "");
+    setText(subtitle, "Try another search or adjust filters.", "");
     audio.removeAttribute("src");
     setText(lvText, "", "No transcript selected.");
     setText(enText, "", "No translation selected.");
@@ -150,6 +185,57 @@ function applyFilter() {
 previousButton.addEventListener("click", () => selectItem(selectedIndex - 1));
 nextButton.addEventListener("click", () => selectItem(selectedIndex + 1));
 search.addEventListener("input", applyFilter);
+
+if (difficultyFilters) {
+  difficultyFilters.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    difficultyFilters.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    currentDifficulty = chip.dataset.difficulty || "all";
+    applyFilter();
+  });
+}
+
+if (audioStyleFilter) {
+  audioStyleFilter.addEventListener("change", (e) => {
+    currentAudioStyle = e.target.value;
+    applyFilter();
+  });
+}
+
+function getRecommendedNext() {
+  if (filtered.length === 0) return -1;
+  if (selectedIndex < 0) {
+    const easyItems = filtered.filter((item) => item.difficulty === "A1+" || item.difficulty === "Easy A2");
+    if (easyItems.length > 0) {
+      return filtered.findIndex((item) => item.id === easyItems[0].id);
+    }
+    return 0;
+  }
+  const currentItem = filtered[selectedIndex];
+  const currentDiffIdx = difficultyOrder.indexOf(currentItem.difficulty);
+  if (currentDiffIdx === -1) return selectedIndex + 1 < filtered.length ? selectedIndex + 1 : -1;
+  const harderItems = filtered.filter((item) => {
+    const idx = difficultyOrder.indexOf(item.difficulty);
+    return idx > currentDiffIdx;
+  });
+  if (harderItems.length > 0) {
+    return filtered.findIndex((item) => item.id === harderItems[0].id);
+  }
+  return selectedIndex + 1 < filtered.length ? selectedIndex + 1 : -1;
+}
+
+if (recommendedBtn) {
+  recommendedBtn.addEventListener("click", () => {
+    const recommendedIndex = getRecommendedNext();
+    if (recommendedIndex >= 0) {
+      selectItem(recommendedIndex);
+      recommendedBtn.classList.add("pulse");
+      setTimeout(() => recommendedBtn.classList.remove("pulse"), 500);
+    }
+  });
+}
 
 fetch("catalog.json", { cache: "no-store" })
   .then((response) => {

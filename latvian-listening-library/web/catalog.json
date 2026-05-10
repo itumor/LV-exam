@@ -13,7 +13,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 1
+    "order": 1,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 5
   },
   {
     "id": "A1-bb3b91782ae2e7bd",
@@ -29,7 +34,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 2
+    "order": 2,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 42
   },
   {
     "id": "A1-c8bb435d7549d189",
@@ -45,7 +55,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 3
+    "order": 3,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 36
   },
   {
     "id": "A1-c411c203d18f447d",
@@ -61,7 +76,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 4
+    "order": 4,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 7
   },
   {
     "id": "A1-dec02fe5c3f69d2c",
@@ -77,7 +97,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 5
+    "order": 5,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 7
   },
   {
     "id": "A1-7ca1a1ab7a5b7307",
@@ -93,7 +118,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 6
+    "order": 6,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 14
   },
   {
     "id": "A1-9786a741af8cf963",
@@ -109,7 +139,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 7
+    "order": 7,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 54
   },
   {
     "id": "A1-fd6e5bdd44c7f571",
@@ -125,7 +160,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 8
+    "order": 8,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 25
   },
   {
     "id": "A1-a64db30a25032b8b",
@@ -141,7 +181,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 9
+    "order": 9,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 8
   },
   {
     "id": "A1-77998f674b6a0d52",
@@ -157,7 +202,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 10
+    "order": 10,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 8
   },
   {
     "id": "A1-ef67d7552e78f99d",
@@ -173,7 +223,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 11
+    "order": 11,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 25
   },
   {
     "id": "A1-ef4ee751258dcc92",
@@ -189,7 +244,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 12
+    "order": 12,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 45
   },
   {
     "id": "A1-0317071dca99892e",
@@ -205,7 +265,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 13
+    "order": 13,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 45
   },
   {
     "id": "A1-a126a2d6f33e6434",
@@ -221,7 +286,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 14
+    "order": 14,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 16
   },
   {
     "id": "A1-da94820b88b373db",
@@ -237,7 +307,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 15
+    "order": 15,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 14
   },
   {
     "id": "A1-b4a6e97de6f3f5cf",
@@ -253,7 +328,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 16
+    "order": 16,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 19
   },
   {
     "id": "A1-81d9e9ca594da08a",
@@ -269,7 +349,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 17
+    "order": 17,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 43
   },
   {
     "id": "A1-21604ceeab38a130",
@@ -285,7 +370,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 18
+    "order": 18,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 36
   },
   {
     "id": "A1-b1c188e7e3490914",
@@ -301,7 +391,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 19
+    "order": 19,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 6
   },
   {
     "id": "A1-16ae273a0c934868",
@@ -317,7 +412,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 20
+    "order": 20,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 58
   },
   {
     "id": "A1-ca1a219e1ee727bf",
@@ -333,7 +433,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 21
+    "order": 21,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 14
   },
   {
     "id": "A1-0f19171d3f3cc5db",
@@ -349,7 +454,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 22
+    "order": 22,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 37
   },
   {
     "id": "A1-3c4a54bd6efc4be5",
@@ -365,7 +475,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 23
+    "order": 23,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 5
   },
   {
     "id": "A1-d3b354ae65a8d96f",
@@ -381,7 +496,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 24
+    "order": 24,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 64
   },
   {
     "id": "A1-a290c550ec6c33bb-92cae248",
@@ -397,7 +517,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 25
+    "order": 25,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 17
   },
   {
     "id": "A1-4ac93c6e3a86b52a",
@@ -413,7 +538,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 26
+    "order": 26,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 55
   },
   {
     "id": "A1-540689e8670c26c4",
@@ -429,7 +559,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 27
+    "order": 27,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 6
   },
   {
     "id": "A1-e3e6b5907f498791",
@@ -445,7 +580,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 28
+    "order": 28,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 24
   },
   {
     "id": "A1-c499fe04b591cafd",
@@ -461,7 +601,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 29
+    "order": 29,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 81
   },
   {
     "id": "A1-3322a595c2a49ea3",
@@ -477,7 +622,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 30
+    "order": 30,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 65
   },
   {
     "id": "A1-3c8dd6e592db6cc9",
@@ -493,7 +643,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 31
+    "order": 31,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 59
   },
   {
     "id": "A1-5fb47c4ae219b33f",
@@ -509,7 +664,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 32
+    "order": 32,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 63
   },
   {
     "id": "A1-e5657d7b2e70c0fb",
@@ -525,7 +685,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 33
+    "order": 33,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 49
   },
   {
     "id": "A1-62941c0857e818b3",
@@ -541,7 +706,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 34
+    "order": 34,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 71
   },
   {
     "id": "A1-410c705795665c8f",
@@ -557,7 +727,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 35
+    "order": 35,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 42
   },
   {
     "id": "A1-568ba758ca9f08e9-714849af",
@@ -573,7 +748,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 36
+    "order": 36,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 25
   },
   {
     "id": "A1-194a1379884da22b",
@@ -589,7 +769,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 37
+    "order": 37,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 7
   },
   {
     "id": "A1-74e43340f1969cd6",
@@ -605,7 +790,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 38
+    "order": 38,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 102
   },
   {
     "id": "A1-da0241fc97612e2b",
@@ -621,7 +811,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 39
+    "order": 39,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 19
   },
   {
     "id": "A1-e65a6e3124fade33",
@@ -637,7 +832,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 40
+    "order": 40,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 16
   },
   {
     "id": "A1-568ba758ca9f08e9",
@@ -653,7 +853,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 41
+    "order": 41,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 25
   },
   {
     "id": "A1-7d439fcb01b0e76a",
@@ -669,7 +874,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 42
+    "order": 42,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 18
   },
   {
     "id": "A1-f2642de4f561d0e3",
@@ -685,7 +895,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 43
+    "order": 43,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 26
   },
   {
     "id": "A1-482ed99d9a54454d",
@@ -701,7 +916,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 44
+    "order": 44,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 8
   },
   {
     "id": "A1-564a789502882b4b",
@@ -717,7 +937,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 45
+    "order": 45,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 140
   },
   {
     "id": "A1-dbd16b3ee347aedd",
@@ -733,7 +958,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 46
+    "order": 46,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 27
   },
   {
     "id": "A1-77ea3d549d5696ef",
@@ -749,7 +979,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 47
+    "order": 47,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 106
   },
   {
     "id": "A1-1e8d585000a36007",
@@ -765,7 +1000,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 48
+    "order": 48,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 40
   },
   {
     "id": "A1-7241bc30859477f1",
@@ -781,7 +1021,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 49
+    "order": 49,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 90
   },
   {
     "id": "A1-654c0e528d61bf0d",
@@ -797,7 +1042,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 50
+    "order": 50,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 146
   },
   {
     "id": "A1-b0c72118e5ff73e3",
@@ -813,7 +1063,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 51
+    "order": 51,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 5
   },
   {
     "id": "A1-459fcc51ecf16f8c",
@@ -829,7 +1084,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 52
+    "order": 52,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 14
   },
   {
     "id": "A1-9334695ed913a0d5",
@@ -845,7 +1105,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 53
+    "order": 53,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 15
   },
   {
     "id": "A1-311ac849c1463557",
@@ -861,7 +1126,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 54
+    "order": 54,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 75
   },
   {
     "id": "A1-31471a8136e3f831",
@@ -877,7 +1147,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 55
+    "order": 55,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 52
   },
   {
     "id": "A1-d422050b084b955d",
@@ -893,7 +1168,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 56
+    "order": 56,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 39
   },
   {
     "id": "A1-0fd1f69b5c2db7f7",
@@ -909,7 +1189,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 57
+    "order": 57,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 38
   },
   {
     "id": "A1-64babda9c0362662",
@@ -925,7 +1210,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 58
+    "order": 58,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 44
   },
   {
     "id": "A1-51d89b58184c0c1b",
@@ -941,7 +1231,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 59
+    "order": 59,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 61
   },
   {
     "id": "A1-2ca99a106f54b3ee",
@@ -957,7 +1252,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 60
+    "order": 60,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 36
   },
   {
     "id": "A1-4f31e2077a3fc467",
@@ -973,7 +1273,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 61
+    "order": 61,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 68
   },
   {
     "id": "A1-6303dacb4e1bf25c",
@@ -989,7 +1294,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 62
+    "order": 62,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 58
   },
   {
     "id": "A1-a4452fdb1bad8b06",
@@ -1005,7 +1315,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "7. nodaļa",
-    "order": 63
+    "order": 63,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 4
   },
   {
     "id": "A1-0ff146f18fbb1fb2",
@@ -1021,7 +1336,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "7. nodaļa",
-    "order": 64
+    "order": 64,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 42
   },
   {
     "id": "A1-7216ff918720eb8c",
@@ -1037,7 +1357,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "7. nodaļa",
-    "order": 65
+    "order": 65,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 24
   },
   {
     "id": "A1-fa77bd3fdd08b347",
@@ -1053,7 +1378,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "7. nodaļa",
-    "order": 66
+    "order": 66,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 54
   },
   {
     "id": "A1-72beecc20dda1c25",
@@ -1069,7 +1399,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "7. nodaļa",
-    "order": 67
+    "order": 67,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 41
   },
   {
     "id": "A1-17c03431ba6f99b1",
@@ -1085,7 +1420,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "7. nodaļa",
-    "order": 68
+    "order": 68,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 78
   },
   {
     "id": "A1-68ac300e70505db8",
@@ -1101,7 +1441,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "7. nodaļa",
-    "order": 69
+    "order": 69,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 71
   },
   {
     "id": "A1-757e5ca8f2186dc1",
@@ -1117,7 +1462,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "7. nodaļa",
-    "order": 70
+    "order": 70,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 65
   },
   {
     "id": "A1-e98485f1fe5b8458",
@@ -1133,7 +1483,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 71
+    "order": 71,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 4
   },
   {
     "id": "A1-33200e1cb0252d9e",
@@ -1149,7 +1504,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 72
+    "order": 72,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 128
   },
   {
     "id": "A1-a71611bd73c0aa91",
@@ -1165,7 +1525,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 73
+    "order": 73,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 28
   },
   {
     "id": "A1-163b8ca7bfadb0ed",
@@ -1181,7 +1546,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 74
+    "order": 74,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 140
   },
   {
     "id": "A1-b999e7b9cbc142da",
@@ -1197,7 +1567,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 75
+    "order": 75,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 17
   },
   {
     "id": "A1-5109b9608ec61dfe",
@@ -1213,7 +1588,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 76
+    "order": 76,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 149
   },
   {
     "id": "A1-c4a3501f0ad26703",
@@ -1229,7 +1609,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 77
+    "order": 77,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 118
   },
   {
     "id": "A1-137c1f6eec26ffa6",
@@ -1245,7 +1630,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 78
+    "order": 78,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 82
   },
   {
     "id": "A1-ab7bcd10aab92596",
@@ -1261,7 +1651,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 79
+    "order": 79,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 53
   },
   {
     "id": "A1-7ee8b177ba550f5b",
@@ -1277,7 +1672,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 80
+    "order": 80,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 65
   },
   {
     "id": "A1-c5a69b125f2312ba",
@@ -1293,7 +1693,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 81
+    "order": 81,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 73
   },
   {
     "id": "A1-dd9a5908929bfe4c",
@@ -1309,7 +1714,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 82
+    "order": 82,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 5
   },
   {
     "id": "A1-73bef588d4e86a97",
@@ -1325,7 +1735,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 83
+    "order": 83,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 42
   },
   {
     "id": "A1-5752d9d7be2e2bf8",
@@ -1341,7 +1756,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 84
+    "order": 84,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 82
   },
   {
     "id": "A1-9c45162931dfac4a",
@@ -1357,7 +1777,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 85
+    "order": 85,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 61
   },
   {
     "id": "A1-d7777819051a4937",
@@ -1373,7 +1798,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 86
+    "order": 86,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 17
   },
   {
     "id": "A1-84fbb419a9cddfcd",
@@ -1389,7 +1819,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 87
+    "order": 87,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 110
   },
   {
     "id": "A1-eff9f3aa8221c4ad",
@@ -1405,7 +1840,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 88
+    "order": 88,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 16
   },
   {
     "id": "A1-07178fd9cf340dca",
@@ -1421,7 +1861,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 89
+    "order": 89,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 74
   },
   {
     "id": "A1-102f65d64a682c53",
@@ -1437,7 +1882,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 90
+    "order": 90,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 38
   },
   {
     "id": "A1-b23316c220aa65af",
@@ -1453,7 +1903,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 91
+    "order": 91,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 4
   },
   {
     "id": "A1-613d6ca8176e0d17",
@@ -1469,7 +1924,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 92
+    "order": 92,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 88
   },
   {
     "id": "A1-49ad6596315bc7be",
@@ -1485,7 +1945,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 93
+    "order": 93,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 16
   },
   {
     "id": "A1-5b8e83cde2061f9c",
@@ -1501,7 +1966,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 94
+    "order": 94,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 87
   },
   {
     "id": "A1-c5924a388608160d",
@@ -1517,7 +1987,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 95
+    "order": 95,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 87
   },
   {
     "id": "A1-e158f157475ee273",
@@ -1533,7 +2008,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 96
+    "order": 96,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 40
   },
   {
     "id": "A1-7d2c0a7302b7944f",
@@ -1549,7 +2029,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 97
+    "order": 97,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 93
   },
   {
     "id": "A1-cc3de9bbe304dc12",
@@ -1565,7 +2050,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 98
+    "order": 98,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 39
   },
   {
     "id": "A1-fbf358af908b7aa9",
@@ -1581,7 +2071,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 99
+    "order": 99,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 4
   },
   {
     "id": "A1-07cbe515f8d28fc2",
@@ -1597,7 +2092,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 100
+    "order": 100,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 91
   },
   {
     "id": "A1-1d01daa0aaff9c17",
@@ -1613,7 +2113,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 101
+    "order": 101,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 57
   },
   {
     "id": "A1-4be599cad84df759",
@@ -1629,7 +2134,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 102
+    "order": 102,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 5
   },
   {
     "id": "A1-f1a2cfe6cddb8da3",
@@ -1645,7 +2155,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 103
+    "order": 103,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 5
   },
   {
     "id": "A1-a6a9940c5765f4ff",
@@ -1661,7 +2176,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 104
+    "order": 104,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 22
   },
   {
     "id": "A1-0bb2d9e119fdf4bc",
@@ -1677,7 +2197,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 105
+    "order": 105,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 111
   },
   {
     "id": "A1-628f419298e3f80c",
@@ -1693,7 +2218,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 106
+    "order": 106,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 57
   },
   {
     "id": "A1-c5055a9a86cce085",
@@ -1709,7 +2239,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 107
+    "order": 107,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 89
   },
   {
     "id": "A1-a73c3062f6b3e122",
@@ -1725,7 +2260,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 108
+    "order": 108,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 23
   },
   {
     "id": "A1-0f8aa9dac6fde8e5",
@@ -1741,7 +2281,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 109
+    "order": 109,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 23
   },
   {
     "id": "A1-c13629a10e2a3175",
@@ -1757,7 +2302,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 110
+    "order": 110,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 29
   },
   {
     "id": "A1-7fdbd52289dee842",
@@ -1773,7 +2323,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 111
+    "order": 111,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 113
   },
   {
     "id": "A1-3f440d4ede7574c0",
@@ -1789,7 +2344,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 112
+    "order": 112,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 122
   },
   {
     "id": "A1-671f22f755db4059",
@@ -1805,7 +2365,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 113
+    "order": 113,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 123
   },
   {
     "id": "A1-89aa089d23d08fc4",
@@ -1821,7 +2386,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "12. nodaļa",
-    "order": 114
+    "order": 114,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 6
   },
   {
     "id": "A1-60976aaaa71663a4",
@@ -1837,7 +2407,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "12. nodaļa",
-    "order": 115
+    "order": 115,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 53
   },
   {
     "id": "A1-e7386301e3f476a5",
@@ -1853,7 +2428,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "12. nodaļa",
-    "order": 116
+    "order": 116,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 35
   },
   {
     "id": "A1-75061e3629d27b14",
@@ -1869,7 +2449,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "12. nodaļa",
-    "order": 117
+    "order": 117,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 72
   },
   {
     "id": "A1-044323e4129a81e8",
@@ -1885,7 +2470,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "12. nodaļa",
-    "order": 118
+    "order": 118,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 117
   },
   {
     "id": "A1-9de4e08b83eb4070",
@@ -1901,7 +2491,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "12. nodaļa",
-    "order": 119
+    "order": 119,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 60
   },
   {
     "id": "A1-6404c7ab7aeba35d",
@@ -1917,7 +2512,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "12. nodaļa",
-    "order": 120
+    "order": 120,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 25
   },
   {
     "id": "A1-18596013c40daccb",
@@ -1933,7 +2533,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "12. nodaļa",
-    "order": 121
+    "order": 121,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 50
   },
   {
     "id": "A1-942d733083afae02-b5d7f3e0",
@@ -1949,7 +2554,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "32. nodaļa",
-    "order": 122
+    "order": 122,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 18
   },
   {
     "id": "A1-b2c3ab6388f53bc0-e0de7d9a",
@@ -1965,7 +2575,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "37. nodaļa",
-    "order": 123
+    "order": 123,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 10
   },
   {
     "id": "A1-0ec9cc73910b55a8-b4122311",
@@ -1981,7 +2596,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "45. nodaļa",
-    "order": 124
+    "order": 124,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 12
   },
   {
     "id": "A1-d17f98edda3aa713-b9efb042",
@@ -1997,7 +2617,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "55. nodaļa",
-    "order": 125
+    "order": 125,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 8
   },
   {
     "id": "A1-dabc7a0b7e67ffe0-e3823f57",
@@ -2013,7 +2638,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "98. nodaļa",
-    "order": 126
+    "order": 126,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 31
   },
   {
     "id": "A1-949e2059695c21b5",
@@ -2029,7 +2659,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": null,
-    "order": 127
+    "order": 127,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 3
   },
   {
     "id": "A1-eaf9faf6c5f16a92",
@@ -2045,7 +2680,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": null,
-    "order": 128
+    "order": 128,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 17
   },
   {
     "id": "A1-8b3608b3adf0c8e4",
@@ -2061,7 +2701,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": null,
-    "order": 129
+    "order": 129,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 14
   },
   {
     "id": "A1-a290c550ec6c33bb",
@@ -2077,7 +2722,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": null,
-    "order": 130
+    "order": 130,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 17
   },
   {
     "id": "A1-942d733083afae02",
@@ -2093,7 +2743,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": null,
-    "order": 131
+    "order": 131,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 18
   },
   {
     "id": "A1-f2ccdfdade2e97ca",
@@ -2109,7 +2764,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": null,
-    "order": 132
+    "order": 132,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 9
   },
   {
     "id": "A1-b2c3ab6388f53bc0",
@@ -2125,7 +2785,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": null,
-    "order": 133
+    "order": 133,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 10
   },
   {
     "id": "A1-0ec9cc73910b55a8",
@@ -2141,7 +2806,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": null,
-    "order": 134
+    "order": 134,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 12
   },
   {
     "id": "A1-d17f98edda3aa713",
@@ -2157,7 +2827,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": null,
-    "order": 135
+    "order": 135,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 8
   },
   {
     "id": "A1-dabc7a0b7e67ffe0",
@@ -2173,7 +2848,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": null,
-    "order": 136
+    "order": 136,
+    "difficulty": "A1+",
+    "audio_style": "Clear pronunciation",
+    "words_per_minute": 80,
+    "estimated_known_word_ratio": 0.95,
+    "transcript_length": 31
   },
   {
     "id": "A2-da2e75bd0b2ee9f6",
@@ -2189,7 +2869,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 137
+    "order": 137,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 7
   },
   {
     "id": "A2-9709ceb4079487e7",
@@ -2205,7 +2890,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 138
+    "order": 138,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 117
   },
   {
     "id": "A2-8d6cfeee80e3a596",
@@ -2221,7 +2911,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 139
+    "order": 139,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 14
   },
   {
     "id": "A2-5c6815fd60567db4",
@@ -2237,7 +2932,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 140
+    "order": 140,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 42
   },
   {
     "id": "A2-94b99f46b8381797",
@@ -2253,7 +2953,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 141
+    "order": 141,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 161
   },
   {
     "id": "A2-ff32da43efebce03",
@@ -2269,7 +2974,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 142
+    "order": 142,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 15
   },
   {
     "id": "A2-f0ed86c9ad3cbe43",
@@ -2285,7 +2995,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 143
+    "order": 143,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 102
   },
   {
     "id": "A2-80c8e2a27f60cacf",
@@ -2301,7 +3016,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 144
+    "order": 144,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 66
   },
   {
     "id": "A2-9328ae7326fc164d",
@@ -2317,7 +3037,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 145
+    "order": 145,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 125
   },
   {
     "id": "A2-dac49593502020fe",
@@ -2333,7 +3058,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "1. nodaļa",
-    "order": 146
+    "order": 146,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 106
   },
   {
     "id": "A2-70d363e1e6a66b9d",
@@ -2349,7 +3079,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 147
+    "order": 147,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 5
   },
   {
     "id": "A2-d29153caabc11f43",
@@ -2365,7 +3100,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 148
+    "order": 148,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 30
   },
   {
     "id": "A2-882b691d6cc13504",
@@ -2381,7 +3121,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 149
+    "order": 149,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 48
   },
   {
     "id": "A2-c81ae6668ae732ad",
@@ -2397,7 +3142,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 150
+    "order": 150,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 101
   },
   {
     "id": "A2-63c59c6319374c84",
@@ -2413,7 +3163,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 151
+    "order": 151,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 106
   },
   {
     "id": "A2-6e4be18065e549ba",
@@ -2429,7 +3184,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "2. nodaļa",
-    "order": 152
+    "order": 152,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 39
   },
   {
     "id": "A2-1eaf757577e82c35",
@@ -2445,7 +3205,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 153
+    "order": 153,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 5
   },
   {
     "id": "A2-dd8be9b61991340b",
@@ -2461,7 +3226,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 154
+    "order": 154,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 23
   },
   {
     "id": "A2-cba10f494a7428fc",
@@ -2477,7 +3247,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 155
+    "order": 155,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 23
   },
   {
     "id": "A2-673a4f8771fe3fc0",
@@ -2493,7 +3268,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 156
+    "order": 156,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 76
   },
   {
     "id": "A2-208a8d1ec871d748",
@@ -2509,7 +3289,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 157
+    "order": 157,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 136
   },
   {
     "id": "A2-a0f7e5337db23d74",
@@ -2525,7 +3310,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 158
+    "order": 158,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 133
   },
   {
     "id": "A2-11ff8ddbc7ccccc5",
@@ -2541,7 +3331,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "3. nodaļa",
-    "order": 159
+    "order": 159,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 80
   },
   {
     "id": "A2-9db271a1e26dffad",
@@ -2557,7 +3352,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 160
+    "order": 160,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 5
   },
   {
     "id": "A2-d9f7487dd4197429",
@@ -2573,7 +3373,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 161
+    "order": 161,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 120
   },
   {
     "id": "A2-444c3f3ac095ae85",
@@ -2589,7 +3394,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 162
+    "order": 162,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 25
   },
   {
     "id": "A2-e55d4ad8b4281915",
@@ -2605,7 +3415,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 163
+    "order": 163,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 16
   },
   {
     "id": "A2-6519ab20ddda7a46",
@@ -2621,7 +3436,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 164
+    "order": 164,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 68
   },
   {
     "id": "A2-881c114d4faa6930",
@@ -2637,7 +3457,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 165
+    "order": 165,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 75
   },
   {
     "id": "A2-9a49892b0828f49b",
@@ -2653,7 +3478,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 166
+    "order": 166,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 36
   },
   {
     "id": "A2-c70f64592b48dbf0",
@@ -2669,7 +3499,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "4. nodaļa",
-    "order": 167
+    "order": 167,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 68
   },
   {
     "id": "A2-c50a84b068267dcf",
@@ -2685,7 +3520,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 168
+    "order": 168,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 5
   },
   {
     "id": "A2-00eddfdc2bdc1a82",
@@ -2701,7 +3541,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 169
+    "order": 169,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 20
   },
   {
     "id": "A2-c9d92513d3c30c47",
@@ -2717,7 +3562,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 170
+    "order": 170,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 25
   },
   {
     "id": "A2-b872b5100d677615",
@@ -2733,7 +3583,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 171
+    "order": 171,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 63
   },
   {
     "id": "A2-861f0e2269523d38",
@@ -2749,7 +3604,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 172
+    "order": 172,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 64
   },
   {
     "id": "A2-6de66e499e9be76f",
@@ -2765,7 +3625,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 173
+    "order": 173,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 65
   },
   {
     "id": "A2-6dd571e8c9f8e6b2",
@@ -2781,7 +3646,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 174
+    "order": 174,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 67
   },
   {
     "id": "A2-e2a4eb2facc0d1fc",
@@ -2797,7 +3667,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 175
+    "order": 175,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 57
   },
   {
     "id": "A2-8ff8f071aff0dd71",
@@ -2813,7 +3688,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 176
+    "order": 176,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 16
   },
   {
     "id": "A2-1d097d031a5b8ddb",
@@ -2829,7 +3709,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 177
+    "order": 177,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 31
   },
   {
     "id": "A2-3fe44dc005699daa",
@@ -2845,7 +3730,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "5. nodaļa",
-    "order": 178
+    "order": 178,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 22
   },
   {
     "id": "A2-91232a84677a9707",
@@ -2861,7 +3751,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 179
+    "order": 179,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 6
   },
   {
     "id": "A2-eed84cd3751337e1",
@@ -2877,7 +3772,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 180
+    "order": 180,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 14
   },
   {
     "id": "A2-5599689b78647348",
@@ -2893,7 +3793,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 181
+    "order": 181,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 53
   },
   {
     "id": "A2-bcbba72d0c41e28e",
@@ -2909,7 +3814,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 182
+    "order": 182,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 17
   },
   {
     "id": "A2-d2114b01ec8dfa26",
@@ -2925,7 +3835,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 183
+    "order": 183,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 17
   },
   {
     "id": "A2-9a1248ea38e64aeb",
@@ -2941,7 +3856,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 184
+    "order": 184,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 56
   },
   {
     "id": "A2-2aafb88a8adccc61",
@@ -2957,7 +3877,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 185
+    "order": 185,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 121
   },
   {
     "id": "A2-393ab4bac2a77d94",
@@ -2973,7 +3898,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 186
+    "order": 186,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 49
   },
   {
     "id": "A2-ac83cc10b88eb55d",
@@ -2989,7 +3919,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "6. nodaļa",
-    "order": 187
+    "order": 187,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 58
   },
   {
     "id": "A2-46bd16b6ca525fad",
@@ -3005,7 +3940,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "7. nodaļa",
-    "order": 188
+    "order": 188,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 6
   },
   {
     "id": "A2-4d6822e1cdc92fef",
@@ -3021,7 +3961,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "7. nodaļa",
-    "order": 189
+    "order": 189,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 20
   },
   {
     "id": "A2-adb839bf4cc2f8e1",
@@ -3037,7 +3982,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "7. nodaļa",
-    "order": 190
+    "order": 190,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 28
   },
   {
     "id": "A2-40b261dda5cb6263",
@@ -3053,7 +4003,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "7. nodaļa",
-    "order": 191
+    "order": 191,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 167
   },
   {
     "id": "A2-380f5d537460f554",
@@ -3069,7 +4024,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "7. nodaļa",
-    "order": 192
+    "order": 192,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 120
   },
   {
     "id": "A2-0b3a387c601b746c",
@@ -3085,7 +4045,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 193
+    "order": 193,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 5
   },
   {
     "id": "A2-b3fc60cc997e7e62",
@@ -3101,7 +4066,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 194
+    "order": 194,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 41
   },
   {
     "id": "A2-3589e6b8c65292b6",
@@ -3117,7 +4087,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 195
+    "order": 195,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 73
   },
   {
     "id": "A2-c5cb455b19ce7c43",
@@ -3133,7 +4108,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 196
+    "order": 196,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 101
   },
   {
     "id": "A2-739489f37db963c0",
@@ -3149,7 +4129,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 197
+    "order": 197,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 109
   },
   {
     "id": "A2-018f4278d43e858d",
@@ -3165,7 +4150,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "8. nodaļa",
-    "order": 198
+    "order": 198,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 51
   },
   {
     "id": "A2-1a34d4f3ff02cfcb",
@@ -3181,7 +4171,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 199
+    "order": 199,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 5
   },
   {
     "id": "A2-2cfba590a8b76643",
@@ -3197,7 +4192,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 200
+    "order": 200,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 15
   },
   {
     "id": "A2-8a31c04f995d0d38",
@@ -3213,7 +4213,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 201
+    "order": 201,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 35
   },
   {
     "id": "A2-7d2dd35c5e3e488d",
@@ -3229,7 +4234,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 202
+    "order": 202,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 63
   },
   {
     "id": "A2-f4b90ca6f5741f32",
@@ -3245,7 +4255,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 203
+    "order": 203,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 29
   },
   {
     "id": "A2-10103b4dd96a12ee",
@@ -3261,7 +4276,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 204
+    "order": 204,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 72
   },
   {
     "id": "A2-bdda9c4406e0abb9",
@@ -3277,7 +4297,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 205
+    "order": 205,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 76
   },
   {
     "id": "A2-68cc7d7cbcf1de01",
@@ -3293,7 +4318,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 206
+    "order": 206,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 187
   },
   {
     "id": "A2-a6a33f3871cd47e5",
@@ -3309,7 +4339,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "9. nodaļa",
-    "order": 207
+    "order": 207,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 118
   },
   {
     "id": "A2-39af919769507d8a",
@@ -3325,7 +4360,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 208
+    "order": 208,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 6
   },
   {
     "id": "A2-5448e19871580552",
@@ -3341,7 +4381,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 209
+    "order": 209,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 39
   },
   {
     "id": "A2-b6475d4f44e05dae",
@@ -3357,7 +4402,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 210
+    "order": 210,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 129
   },
   {
     "id": "A2-5eae4102b8e54546",
@@ -3373,7 +4423,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 211
+    "order": 211,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 142
   },
   {
     "id": "A2-d3a1fd35473cf7e1",
@@ -3389,7 +4444,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "10. nodaļa",
-    "order": 212
+    "order": 212,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 88
   },
   {
     "id": "A2-0ad51a086a03db93",
@@ -3405,7 +4465,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 213
+    "order": 213,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 6
   },
   {
     "id": "A2-97349dff9944c3ec",
@@ -3421,7 +4486,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 214
+    "order": 214,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 16
   },
   {
     "id": "A2-7c5889d8f86609f6",
@@ -3437,7 +4507,12 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 215
+    "order": 215,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 67
   },
   {
     "id": "A2-2fc3260786c7586a",
@@ -3453,6 +4528,11 @@
     "transcription_status": "transcribed",
     "translation_status": "translated",
     "lesson_group": "11. nodaļa",
-    "order": 216
+    "order": 216,
+    "difficulty": "Standard A2",
+    "audio_style": "Normal speed",
+    "words_per_minute": 120,
+    "estimated_known_word_ratio": 0.85,
+    "transcript_length": 91
   }
 ]
