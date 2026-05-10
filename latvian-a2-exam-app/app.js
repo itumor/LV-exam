@@ -5,7 +5,8 @@ let EXAMS = Array.from({ length: 10 }, (_, index) => {
   return {
     id: number,
     title: `A2 Mock Exam ${number}`,
-    markdownPath: `/codex/A2_Mock_Exam_${number}.md`,
+    contentVersion: 1,
+    markdownPath: `/api/exams/${number}/content`,
     sourcePath: `codex/A2_Mock_Exam_${number}.md`,
     attachmentRoot: `/codex/Attachments/A2_Mock_Exam_${number}/`
   };
@@ -19,6 +20,7 @@ if (!flowCore) {
 const state = {
   exam: EXAMS[0],
   markdown: "",
+  answerKey: null,
   assets: {
     audio: [],
     images: []
@@ -70,6 +72,14 @@ const state = {
     learnerId: "",
     email: "",
     lastCheckout: null
+  },
+  attempt: {
+    id: "",
+    status: "",
+    saveState: "idle",
+    lastSavedAt: "",
+    error: "",
+    pendingTimers: {}
   },
   answers: {},
   submission: null,
@@ -158,7 +168,7 @@ const els = {
 
 async function init() {
   const params = new URLSearchParams(window.location.search);
-  state.flow.debugMode = params.get("debug") === "1" || params.get("debug") === "true";
+  const requestedDebugMode = params.get("debug") === "1" || params.get("debug") === "true";
   renderExamSelectOptions();
   els.examSelect.addEventListener("change", () => loadExam(els.examSelect.value));
 
@@ -216,7 +226,7 @@ async function init() {
     setView("runner");
     renderRunner();
   });
-  document.getElementById("quick-resume")?.addEventListener("click", () => resumeExam());
+  document.getElementById("quick-resume")?.addEventListener("click", () => resumeExam().catch(error => showToast(error.message || "Resume failed")));
   document.getElementById("quick-status")?.addEventListener("click", () => { setView("billing"); handleSubView("billing", "status"); });
   document.getElementById("quick-buy")?.addEventListener("click", () => { setView("billing"); handleSubView("billing", "purchase"); });
   document.getElementById("quick-help")?.addEventListener("click", () => setView("help"));
@@ -224,6 +234,11 @@ async function init() {
   initializeMegaDropdown();
   document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
     document.querySelector(".sidebar")?.classList.toggle("open");
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      persistLocalDraft();
+    }
   });
 
   document.querySelectorAll(".breadcrumb-item a").forEach(link => {
@@ -245,12 +260,15 @@ async function init() {
   const requestedScreen = normalizeIncomingFlowScreen(requestedScreenRaw);
   const requestedView = urlParams.get("view");
   const requestedPart = urlParams.get("part");
+  const requestedAttempt = urlParams.get("attempt");
   state.flow.screen = requestedScreen || (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
   if (requestedView === "billing") {
     setView("billing");
   }
   const requestedExam = urlParams.get("exam");
   await bootstrapAuth();
+  ensureLearnerIdentity();
+  state.flow.debugMode = requestedDebugMode && isAdminAccount();
   await loadExamCatalog();
   updateExamListInSidebar();
   if (state.auth.status === "authenticated") {
@@ -261,6 +279,9 @@ async function init() {
       });
     }
     await loadExam(String(requestedExam || "01").padStart(2, "0"), { silent: true });
+    if (requestedAttempt) {
+      await loadServerAttempt(requestedAttempt).catch(() => false);
+    }
     state.flow.screen = requestedScreen || (PART_CONFIG.some(part => part.key === requestedPart) ? "exam" : "home");
     const requestedOuterView = requestedView === "admin" && isAdminAccount()
       ? "admin"
@@ -295,7 +316,8 @@ async function loadExamCatalog() {
       title: exam.title || `Exam ${exam.id}`,
       description: exam.description || "",
       status: exam.status || "published",
-      markdownPath: exam.markdownPath || `/codex/A2_Mock_Exam_${String(exam.id).padStart(2, "0")}.md`,
+      contentVersion: exam.content_version || exam.contentVersion || 1,
+      markdownPath: exam.markdownPath || `/api/exams/${encodeURIComponent(String(exam.id))}/content`,
       sourcePath: exam.sourcePath || `codex/A2_Mock_Exam_${String(exam.id).padStart(2, "0")}.md`,
       attachmentRoot: exam.attachmentRoot || `/codex/Attachments/A2_Mock_Exam_${String(exam.id).padStart(2, "0")}/`
     }));
@@ -313,6 +335,18 @@ async function loadExamCatalog() {
   }
 }
 
+async function fetchAnswerKey(examId) {
+  try {
+    const response = await fetch(`/api/exams/${examId}/answer-key`);
+    if (response.ok) {
+      const data = await response.json();
+      state.answerKey = data.answer_key || {};
+    }
+  } catch {
+    state.answerKey = null;
+  }
+}
+
 async function loadExam(examId, options = {}) {
   const exam = EXAMS.find(item => item.id === examId) || EXAMS[0];
   if (!exam) {
@@ -321,9 +355,11 @@ async function loadExam(examId, options = {}) {
   }
   state.exam = exam;
   els.examSelect.value = exam.id;
-  els.sourcePath.value = exam.sourcePath;
   els.workspaceTitle.textContent = exam.title;
   els.examOutput.innerHTML = `<div class="loading">Loading ${escapeHtml(exam.sourcePath)}...</div>`;
+  if (state.flow.mode === "practice") {
+    fetchAnswerKey(exam.id);
+  }
 
   try {
     const response = await fetch(`${exam.markdownPath}?v=${Date.now()}`, { cache: "no-store" });
@@ -334,6 +370,7 @@ async function loadExam(examId, options = {}) {
     state.assets = extractAssets(state.markdown, exam);
     resetAnswers();
     resetTimers();
+    resetAttemptState();
     state.submission = null;
     state.evaluation = null;
     state.evaluating = false;
@@ -341,6 +378,7 @@ async function loadExam(examId, options = {}) {
     if (PART_CONFIG.some(part => part.key === requestedPart)) {
       state.runner.activePart = requestedPart;
     }
+    restoreLocalDraft();
     updateExamUrl();
     renderAll();
     if (!options.silent) {
@@ -586,6 +624,11 @@ async function exportAccount() {
 
 function ensureLearnerIdentity() {
   const storageKey = "latvian_a2_learner_identity";
+  if (state.auth.status === "authenticated" && state.auth.account?.id) {
+    state.billing.learnerId = state.auth.account.id;
+    state.billing.email = state.auth.account.email || state.billing.email || "";
+    return { learnerId: state.billing.learnerId, email: state.billing.email };
+  }
   let identity = {};
   try {
     identity = JSON.parse(localStorage.getItem(storageKey) || "{}");
@@ -1195,11 +1238,260 @@ function resetTimers() {
   state.runner.activePart = "listening";
 }
 
+function resetAttemptState() {
+  for (const timerId of Object.values(state.attempt.pendingTimers || {})) {
+    clearTimeout(timerId);
+  }
+  state.attempt = {
+    id: "",
+    status: "",
+    saveState: "idle",
+    lastSavedAt: "",
+    error: "",
+    pendingTimers: {}
+  };
+}
+
+function localDraftKey() {
+  const learner = state.billing.learnerId || "guest";
+  return `latvian_a2_exam_draft_${learner}_${state.exam.id}`;
+}
+
+function persistLocalDraft() {
+  try {
+    const draft = {
+      examId: state.exam.id,
+      attemptId: state.attempt.id,
+      attemptStatus: state.attempt.status,
+      flow: {
+        screen: state.flow.screen,
+        mode: state.flow.mode,
+        candidate: state.flow.candidate
+      },
+      activePart: state.runner.activePart,
+      timers: snapshotTimers(),
+      answers: cloneJson(state.answers),
+      updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem(localDraftKey(), JSON.stringify(draft));
+  } catch {
+    // Private browsing or storage quotas should not block exam entry.
+  }
+}
+
+function restoreLocalDraft() {
+  try {
+    const raw = localStorage.getItem(localDraftKey());
+    if (!raw) return false;
+    const draft = JSON.parse(raw);
+    if (!draft || draft.examId !== state.exam.id || draft.attemptStatus === "submitted" || draft.attemptStatus === "scored") {
+      return false;
+    }
+    if (draft.answers && typeof draft.answers === "object") {
+      state.answers = draft.answers;
+    }
+    if (draft.flow && typeof draft.flow === "object") {
+      state.flow.mode = draft.flow.mode === "practice" ? "practice" : "exam";
+      state.flow.candidate = draft.flow.candidate || state.flow.candidate;
+    }
+    if (draft.activePart && PART_CONFIG.some(part => part.key === draft.activePart)) {
+      state.runner.activePart = draft.activePart;
+    }
+    if (draft.timers && typeof draft.timers === "object") {
+      for (const [part, timer] of Object.entries(draft.timers)) {
+        if (!state.runner.timers[part]) continue;
+        const savedTotal = Number(timer.total_seconds) || state.runner.timers[part].total;
+        const savedRemaining = Number(timer.remaining_seconds) || savedTotal;
+        if (timer.started_at && savedRemaining > 0) {
+          const elapsedWhileAway = Math.floor((Date.now() - timer.started_at) / 1000);
+          state.runner.timers[part].remaining = Math.max(0, savedRemaining - elapsedWhileAway);
+          state.runner.timers[part].running = state.runner.timers[part].remaining > 0;
+          state.runner.timers[part].startedAt = state.runner.timers[part].running ? timer.started_at : null;
+        } else {
+          state.runner.timers[part].remaining = savedRemaining;
+          state.runner.timers[part].running = false;
+          state.runner.timers[part].startedAt = null;
+        }
+        state.runner.timers[part].total = savedTotal;
+      }
+    }
+    if (draft.attemptId) {
+      state.attempt.id = draft.attemptId;
+      state.attempt.status = draft.attemptStatus || "in_progress";
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearLocalDraft() {
+  try {
+    localStorage.removeItem(localDraftKey());
+  } catch {
+    // Ignore restricted storage.
+  }
+}
+
+function applyServerAttempt(attempt) {
+  if (!attempt || typeof attempt !== "object") return;
+  state.attempt.id = attempt.id || state.attempt.id;
+  state.attempt.status = attempt.status || state.attempt.status;
+  if (attempt.answers && typeof attempt.answers === "object") {
+    state.answers = mergeAnswers(state.answers, attempt.answers);
+  }
+  if (attempt.exam_id && String(attempt.exam_id).endsWith(state.exam.id)) {
+    state.exam.title = attempt.exam_title || state.exam.title;
+  }
+  if (attempt.status === "scored" || attempt.status === "submitted") {
+    state.submission = buildSubmission("submitted");
+    const scoring = attempt.score_payload?.scoring || attempt.score_payload?.evaluation?.scoring;
+    if (scoring) {
+      state.submission.scoring = scoring;
+    }
+  }
+}
+
+function mergeAnswers(base, incoming) {
+  const merged = cloneJson(base);
+  for (const [skill, tasks] of Object.entries(incoming || {})) {
+    if (!tasks || typeof tasks !== "object") continue;
+    merged[skill] ||= {};
+    for (const [task, values] of Object.entries(tasks)) {
+      if (Array.isArray(values)) {
+        merged[skill][task] = values.slice();
+      }
+    }
+  }
+  return merged;
+}
+
+async function ensureServerAttempt() {
+  if (state.auth.status !== "authenticated") {
+    if (state.attempt.id) return true;
+    state.attempt.id = `local_${state.exam.id}_${crypto.randomUUID()}`;
+    const response = await fetch("/api/billing/consume-exam", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        learner_id: state.billing.learnerId,
+        exam_id: state.exam.id,
+        source_reference: state.attempt.id,
+        source_event_id: state.attempt.id
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.allowed) {
+      state.attempt.id = "";
+      state.billing.state = payload.state || state.billing.state;
+      state.billing.error = payload.reason === "account_frozen"
+        ? "This account is frozen. Open Billing to resolve the entitlement."
+        : "No exam attempts are available. Open Billing to buy more access.";
+      renderBilling();
+      setView("billing");
+      showToast("Upgrade required");
+      return false;
+    }
+    state.billing.state = payload.state || state.billing.state;
+    state.attempt.status = "started";
+    persistLocalDraft();
+    return true;
+  }
+  if (state.attempt.id) return true;
+  const attemptId = `attempt_${state.exam.id}_${crypto.randomUUID()}`;
+  try {
+    const response = await fetch("/api/attempts/start", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        attempt_id: attemptId,
+        exam_id: state.exam.id,
+        exam_title: state.exam.title,
+        content_version: state.exam.contentVersion || 1
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      state.billing.state = payload.state || state.billing.state;
+      state.billing.error = payload.reason === "account_frozen"
+        ? "This account is frozen. Open Billing to resolve the entitlement."
+        : "No exam attempts are available. Open Billing to buy more access.";
+      renderBilling();
+      setView("billing");
+      showToast("Upgrade required");
+      return false;
+    }
+    applyServerAttempt(payload.attempt);
+    persistLocalDraft();
+    return true;
+  } catch (error) {
+    state.attempt.error = error.message;
+    showToast("Could not start a saved attempt. Check your connection.");
+    return false;
+  }
+}
+
+async function loadServerAttempt(attemptId) {
+  if (!attemptId || state.auth.status !== "authenticated") return false;
+  const response = await fetch(`/api/attempts/${encodeURIComponent(attemptId)}`, { credentials: "same-origin", cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.attempt) return false;
+  applyServerAttempt(payload.attempt);
+  persistLocalDraft();
+  return true;
+}
+
+function queueAttemptAnswerSave(section, task, index, answer, delay = 450) {
+  persistLocalDraft();
+  if (state.auth.status !== "authenticated" || !state.attempt.id) return;
+  const key = `${section}.${task}.${index}`;
+  clearTimeout(state.attempt.pendingTimers[key]);
+  state.attempt.pendingTimers[key] = window.setTimeout(() => {
+    saveAttemptAnswer(section, task, index, answer).catch(() => {});
+  }, delay);
+}
+
+async function saveAttemptAnswer(section, task, index, answer) {
+  if (state.auth.status !== "authenticated" || !state.attempt.id) return;
+  state.attempt.saveState = "saving";
+  try {
+    const response = await fetch(`/api/attempts/${encodeURIComponent(state.attempt.id)}/answers`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        skill: section,
+        task_key: task,
+        item_index: Number(index) + 1,
+        answer
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error?.message || payload.error || `Save failed with HTTP ${response.status}`);
+    }
+    state.attempt.status = payload.attempt?.status || "in_progress";
+    state.attempt.saveState = "saved";
+    state.attempt.lastSavedAt = new Date().toISOString();
+    state.attempt.error = "";
+  } catch (error) {
+    state.attempt.saveState = "error";
+    state.attempt.error = error.message;
+    showToast("Answer saved locally; server retry needed.");
+  } finally {
+    persistLocalDraft();
+  }
+}
+
 function updateExamUrl() {
   const params = new URLSearchParams(window.location.search);
   params.set("exam", state.exam.id);
   params.set("part", state.runner.activePart);
   params.set("screen", state.flow.screen);
+  if (state.attempt.id) {
+    params.set("attempt", state.attempt.id);
+  }
   window.history.replaceState(null, "", `?${params.toString()}`);
 }
 
@@ -1216,6 +1508,7 @@ function tickTimers() {
     if (timer.remaining === 0) timer.running = false;
   }
   if (!changed) return;
+  persistLocalDraft();
   if (state.flow.screen === "exam" && state.flow.mode === "exam" && !isAnyTimerRunning()) {
     const outcome = flowCore.advanceExamOnTimer(state.flow, state.runner, PART_CONFIG.map(part => part.key));
     state.flow = outcome.flow;
@@ -1265,6 +1558,8 @@ function renderRunner() {
         <button type="button" class="btn btn-primary" data-action="submit-exam">Submit answers</button>
         <button type="button" class="btn btn-outline-primary" data-action="evaluate-exam">AI score</button>
         <button type="button" class="btn btn-outline-primary" data-action="open-submission">Review submission</button>
+        <button type="button" class="btn btn-outline-primary" data-action="end-exam">End exam</button>
+        <button type="button" class="btn btn-outline-primary" data-action="start-new-exam">Start new exam</button>
       </div>
     </section>
     ${renderUpgradePrompt("runner")}
@@ -1574,6 +1869,7 @@ function renderSkillFlow(part, sectionLines) {
               <div class="question-stack">
                 ${renderTaskQuestions(part.key, task, view.questions, view)}
               </div>
+              ${renderTaskHint(part.key, task)}
             </article>
           `;
         }).join("")}
@@ -1587,9 +1883,6 @@ function shouldRenderTaskIntro(task) {
 
 function renderTaskIntro(task, view) {
   const intro = stripTaskMediaLines(view.intro).join("\n");
-  if (task.kind === "ad-match" && parseAdvertisements(view.reference).length > 4) {
-    return renderMarkdown(intro.replace(/\(A\s*[–-]\s*L\)/gi, "(A-D)"), state.exam);
-  }
   return renderMarkdown(intro, state.exam);
 }
 
@@ -1641,6 +1934,22 @@ function renderTaskReferencePanel(section, task, referenceLines) {
     return "";
   }
   return `<aside class="task-reference-panel document compact">${renderMarkdown(referenceLines.join("\n"), state.exam)}</aside>`;
+}
+
+function renderTaskHint(section, task) {
+  if (state.flow.mode !== "practice" || !state.answerKey) return "";
+  const taskAnswers = (state.answerKey[section] || {})[task.taskKey];
+  if (!taskAnswers) return "";
+  return `
+    <div class="task-hint">
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-action="toggle-hint" data-section="${section}" data-task="${task.taskKey}">
+        Show Correct Answer
+      </button>
+      <div class="hint-answer" id="hint-${section}-${task.taskKey}" style="display:none;">
+        <strong>Correct Answer:</strong> ${Array.isArray(taskAnswers) ? taskAnswers.join(", ") : taskAnswers}
+      </div>
+    </div>
+  `;
 }
 
 function renderTaskQuestions(section, task, questions, view) {
@@ -1849,6 +2158,7 @@ function switchPart(partKey) {
   }
   state.flow.screen = "exam";
   updateExamUrl();
+  persistLocalDraft();
   renderRunner();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1863,6 +2173,7 @@ function setFlowScreen(screen, options = {}) {
     }
   }
   updateExamUrl();
+  persistLocalDraft();
   renderRunner();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1979,7 +2290,12 @@ function renderProgressOnly() {
 
 function bindFlowEvents() {
   document.querySelectorAll("[data-flow-action]").forEach(button => {
-    button.addEventListener("click", () => handleFlowAction(button.dataset));
+    button.addEventListener("click", () => {
+      handleFlowAction(button.dataset).catch(error => {
+        console.error(error);
+        showToast(error.message || "Action failed");
+      });
+    });
   });
   document.querySelectorAll("[data-billing-action]").forEach(button => {
     button.addEventListener("click", () => handleBillingAction(button.dataset.billingAction, button.dataset.product));
@@ -2004,10 +2320,16 @@ function bindFlowEvents() {
   }
 }
 
-function handleFlowAction(dataset) {
+async function handleFlowAction(dataset) {
   const { flowAction } = dataset;
   if (flowAction === "set-mode") {
-    state.flow = flowCore.switchFlowMode(state.flow, dataset.mode || "exam");
+    const newMode = dataset.mode || "exam";
+    state.flow = flowCore.switchFlowMode(state.flow, newMode);
+    if (newMode === "practice") {
+      fetchAnswerKey(state.exam.id);
+    } else {
+      state.answerKey = null;
+    }
     renderRunner();
     return;
   }
@@ -2025,6 +2347,8 @@ function handleFlowAction(dataset) {
     return;
   }
   if (flowAction === "begin-exam") {
+    const ready = await ensureServerAttempt();
+    if (!ready) return;
     setFlowScreen("exam", { startTimer: state.flow.mode === "exam" });
     return;
   }
@@ -2406,30 +2730,12 @@ function renderAdReferencePanel(section, taskKey, referenceLines) {
   if (!ads.length) {
     return `<aside class="task-reference-panel document compact">${renderMarkdown(referenceLines.join("\n"), state.exam)}</aside>`;
   }
-  const groups = chunkArray(ads, 4);
-  const groupStateKey = `${state.exam.id}.${section}.${taskKey}`;
-  const activeGroup = Math.min(Number(state.runner.activeAdGroups[groupStateKey] || 0), groups.length - 1);
-  const group = groups[activeGroup] || groups[0];
   return `
     <aside class="ad-reference-panel" aria-label="Sludinājumi">
-      ${groups.length > 1 ? `
-        <div class="ad-group-tabs" aria-label="Sludinājumu grupas">
-          ${groups.map((item, index) => `
-            <button type="button"
-              data-action="show-ad-group"
-              data-part="${section}"
-              data-task="${taskKey}"
-              data-group-index="${index}"
-              class="${index === activeGroup ? "active" : ""}">
-              ${item[0].letter}–${item[item.length - 1].letter}
-            </button>
-          `).join("")}
-        </div>
-      ` : ""}
       <section class="ad-choice-group">
-        <h5>${group[0].letter}–${group[group.length - 1].letter}</h5>
+        <h5>A–L</h5>
         <div class="ad-card-grid">
-          ${group.map(ad => `
+          ${ads.map(ad => `
             <article class="ad-card">
               <strong>${ad.letter}</strong>
               <p>${escapeHtml(ad.text)}</p>
@@ -2450,7 +2756,13 @@ function renderAdMatchQuestions(section, task, questions, referenceLines) {
     const questionGroups = chunkArray(safeQuestions, questionsPerGroup);
     return `
       <div class="ad-match-official">
-        ${adGroups.map((group, groupIndex) => renderAdMatchGroup(section, task, group, questionGroups[groupIndex] || [], groupIndex * questionsPerGroup)).join("")}
+        ${adGroups.map((group, groupIndex) => renderAdMatchGroup(
+          section,
+          task,
+          group,
+          questionGroups[groupIndex] || [],
+          groupIndex * questionsPerGroup
+        )).join("")}
       </div>
     `;
   }
@@ -2479,10 +2791,9 @@ function renderAdMatchQuestions(section, task, questions, referenceLines) {
 }
 
 function renderAdMatchGroup(section, task, ads, questions, baseIndex) {
-  const localLetters = optionLetters.slice(0, ads.length).map(letter => letter.toUpperCase());
   return `
     <section class="ad-match-group">
-      ${renderAdChoiceGroup(ads, localLetters)}
+      ${renderAdChoiceGroup(ads)}
       <div class="ad-match-list">
         ${questions.map((question, questionOffset) => {
           const index = baseIndex + questionOffset;
@@ -2496,7 +2807,7 @@ function renderAdMatchGroup(section, task, ads, questions, baseIndex) {
                 <span>${index + 1}</span>
                 <select class="form-select" data-answer="${name}">
                   <option value=""></option>
-                  ${ads.map((ad, adIndex) => `<option value="${ad.letter}" ${value.toUpperCase() === ad.letter ? "selected" : ""}>${localLetters[adIndex]}</option>`).join("")}
+                  ${ads.map(ad => `<option value="${ad.letter}" ${value.toUpperCase() === ad.letter ? "selected" : ""}>${ad.letter}</option>`).join("")}
                 </select>
               </label>
             </article>
@@ -2867,7 +3178,12 @@ function radioChoice(name, value, checked) {
 
 function bindRunnerEvents() {
   document.querySelectorAll("[data-action]").forEach(button => {
-    button.addEventListener("click", () => handleRunnerAction(button.dataset));
+    button.addEventListener("click", () => {
+      Promise.resolve(handleRunnerAction(button.dataset)).catch(error => {
+        console.error(error);
+        showToast(error.message || "Action failed");
+      });
+    });
   });
   document.querySelectorAll("[data-billing-action]").forEach(button => {
     button.addEventListener("click", () => handleBillingAction(button.dataset.billingAction, button.dataset.product));
@@ -2901,7 +3217,18 @@ function bindRunnerEvents() {
 }
 
 function handleRunnerAction(dataset) {
-  const { action, part } = dataset;
+  const { action, part, section, task } = dataset;
+  if (action === "toggle-hint") {
+    const hintDiv = document.getElementById(`hint-${section}-${task}`);
+    if (hintDiv) {
+      hintDiv.style.display = hintDiv.style.display === "none" ? "block" : "none";
+      const button = document.querySelector(`[data-action="toggle-hint"][data-section="${section}"][data-task="${task}"]`);
+      if (button) {
+        button.textContent = hintDiv.style.display === "none" ? "Show Correct Answer" : "Hide Correct Answer";
+      }
+    }
+    return;
+  }
   if (action === "switch-part") {
     switchPart(part);
     return;
@@ -2937,6 +3264,12 @@ function handleRunnerAction(dataset) {
     setView("submission");
     return;
   }
+  if (action === "end-exam") {
+    return endCurrentExam();
+  }
+  if (action === "start-new-exam") {
+    return startNewExam();
+  }
   if (action === "start-recording") {
     startMicRecording(dataset.key);
     return;
@@ -2970,9 +3303,75 @@ function handleTimerAction(action, part) {
   renderRunner();
 }
 
+async function expireCurrentAttempt() {
+  if (state.auth.status !== "authenticated" || !state.attempt.id || state.attempt.id.startsWith("local_")) {
+    return;
+  }
+  const response = await fetch(`/api/attempts/${encodeURIComponent(state.attempt.id)}/expire`, {
+    method: "POST",
+    credentials: "same-origin"
+  });
+  if (!response.ok && response.status !== 409) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error?.message || payload.error || `End exam failed with HTTP ${response.status}`);
+  }
+}
+
+function resetExamSession() {
+  resetAnswers();
+  resetTimers();
+  resetAttemptState();
+  clearLocalDraft();
+  state.submission = null;
+  state.evaluation = null;
+  state.evaluating = false;
+  state.runner.activePart = PART_CONFIG[0].key;
+}
+
+async function endCurrentExam() {
+  if (!window.confirm("End this exam attempt? Your current answers will be cleared and this attempt will not be scored.")) return;
+  try {
+    await expireCurrentAttempt();
+  } catch (error) {
+    showToast(error.message || "Could not end the saved attempt");
+    return;
+  }
+  resetExamSession();
+  state.flow.screen = "home";
+  setView("runner");
+  updateExamUrl();
+  renderRunner();
+  showToast("Exam ended");
+}
+
+async function startNewExam() {
+  if (state.attempt.id || getExamProgress().answered > 0) {
+    if (!window.confirm("Start a new exam? Your current answers will be cleared and this attempt will not be scored.")) return;
+    try {
+      await expireCurrentAttempt();
+    } catch (error) {
+      showToast(error.message || "Could not end the saved attempt");
+      return;
+    }
+  }
+  resetExamSession();
+  state.flow = flowCore.switchFlowMode(state.flow, "exam");
+  state.flow.screen = "register";
+  setView("runner");
+  updateExamUrl();
+  renderRunner();
+  showToast("New exam ready");
+}
+
 function startOnlyTimer(part) {
+  const now = Date.now();
   for (const key of Object.keys(state.runner.timers)) {
-    state.runner.timers[key].running = key === part && state.runner.timers[key].remaining > 0;
+    if (key === part && state.runner.timers[key].remaining > 0) {
+      state.runner.timers[key].running = true;
+      state.runner.timers[key].startedAt = state.runner.timers[key].startedAt || now;
+    } else {
+      state.runner.timers[key].running = false;
+    }
   }
 }
 
@@ -3040,6 +3439,7 @@ function syncSpeakingTranscriptAnswer(key) {
   const field = document.querySelector(`[data-answer="${CSS.escape(key)}"]`);
   if (field && field.value !== text) field.value = text;
   renderProgressOnly();
+  queueAttemptAnswerSave(section, task, index, text);
 }
 
 function startSpeechRecognition(key) {
@@ -3188,6 +3588,7 @@ function handleAnswerInput(event) {
     state.submission = null;
     state.evaluation = null;
     renderProgressOnly();
+    queueAttemptAnswerSave(section, task, Number(index), target.value, 0);
     return;
   }
   const [section, task, index] = key.split(".");
@@ -3196,6 +3597,7 @@ function handleAnswerInput(event) {
   state.submission = null;
   state.evaluation = null;
   renderProgressOnly();
+  queueAttemptAnswerSave(section, task, Number(index), target.value);
 }
 
 function handleDragChipClick(event) {
@@ -3263,6 +3665,7 @@ function setDragFillAnswer(key, value) {
   state.evaluation = null;
   refreshDragFillUi(section, task);
   renderProgressOnly();
+  queueAttemptAnswerSave(section, task, targetIndex, value, 0);
 }
 
 function refreshDragFillUi(section, task) {
@@ -3593,32 +3996,30 @@ async function submitAnswers(options = {}) {
     showToast("Answers submitted locally");
     return;
   }
-  const examId = state.exam.id;
-  const response = await fetch("/api/billing/consume-exam", {
+  const ready = await ensureServerAttempt();
+  if (!ready) return;
+  await Promise.all(Object.entries(state.attempt.pendingTimers || {}).map(async ([key, timerId]) => {
+    clearTimeout(timerId);
+    const [section, task, index] = key.split(".");
+    const value = state.answers[section]?.[task]?.[Number(index)] || "";
+    await saveAttemptAnswer(section, task, Number(index), value);
+  }));
+  state.attempt.pendingTimers = {};
+  const response = await fetch(`/api/attempts/${encodeURIComponent(state.attempt.id)}/submit`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      learner_id: state.billing.learnerId,
-      exam_id: examId,
-      source_reference: `local-${examId}-${Date.now()}`
-    })
+    credentials: "same-origin"
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload.allowed) {
-    state.billing.state = payload.state || state.billing.state;
-    state.billing.error = payload.reason === "account_frozen"
-      ? "This account is frozen. Open Billing to resolve the entitlement."
-      : "You have used the free exam. Open Billing to buy more access.";
-    renderBilling();
-    renderRunner();
-    setView("billing");
-    showToast("Upgrade required");
-    return;
+  if (!response.ok) {
+    throw new Error(payload.error?.message || payload.error || `Submit failed with HTTP ${response.status}`);
   }
-  state.billing.state = payload.state || state.billing.state;
+  applyServerAttempt(payload.attempt);
   state.submission = buildSubmission("submitted");
+  if (payload.score) {
+    state.submission.scoring = payload.score;
+  }
   persistSubmission(state.submission);
-  syncAttemptToServer();
+  clearLocalDraft();
   state.evaluation = null;
   renderRunner();
   renderSubmission();
@@ -3677,7 +4078,6 @@ async function evaluateSubmissionWithAi() {
     state.evaluation = payload;
     state.submission.ai_evaluation = payload;
     persistSubmission(state.submission);
-    syncAttemptToServer();
     showToast("AI score complete");
   } catch (error) {
     state.evaluation = {
@@ -3728,9 +4128,7 @@ function buildSubmission(status = "draft") {
     progress: getExamProgress(),
     timers: snapshotTimers(),
     answers: cloneJson(state.answers),
-    answer_key: answerKey,
     scoring,
-    validation_queue: buildValidationQueue(answerKey),
     ai_evaluation: state.evaluation
   };
 }
@@ -3747,15 +4145,13 @@ function buildEvaluationSubmission(submission) {
     pass_rule: submission.pass_rule,
     progress: submission.progress,
     answers: submission.answers,
-    answer_key: submission.answer_key,
     scoring: {
       objective_correct: submission.scoring.objective_correct,
       objective_possible: submission.scoring.objective_possible,
       manual_review_possible: submission.scoring.manual_review_possible,
       by_skill: submission.scoring.by_skill,
       items: submission.scoring.items
-    },
-    validation_queue: submission.validation_queue
+    }
   };
 }
 
@@ -3781,7 +4177,7 @@ function extractAnswerKey(markdown) {
       if (currentSkill) key[currentSkill] ||= {};
       continue;
     }
-    const taskLine = /^\*\*(\d+)\.\s*uzdevums:\*\*\s*(.+)$/i.exec(line.trim());
+    const taskLine = /^(\d+)\.?\s*uzdevums:?\s*(.+)$/i.exec(line.trim().replaceAll("**", ""));
     if (!taskLine || !currentSkill) continue;
     key[currentSkill][`task${taskLine[1]}`] = parseAnswerValues(taskLine[2]);
   }
@@ -3883,7 +4279,8 @@ function snapshotTimers() {
       total_seconds: timer.total,
       remaining_seconds: timer.remaining,
       elapsed_seconds: timer.total - timer.remaining,
-      remaining_display: formatTime(timer.remaining)
+      remaining_display: formatTime(timer.remaining),
+      started_at: timer.startedAt
     }
   ]));
 }
@@ -3897,19 +4294,6 @@ function persistSubmission(submission) {
   } catch {
     // Local storage can be unavailable in private or restricted browser contexts.
   }
-}
-
-function syncAttemptToServer() {
-  if (state.auth.status !== "authenticated" || !state.submission) return;
-  const submission = cloneJson(state.submission);
-  const evaluation = state.evaluation && !state.evaluation.error ? cloneJson(state.evaluation) : null;
-  fetch("/api/attempts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "same-origin",
-    keepalive: true,
-    body: JSON.stringify({ submission, evaluation })
-  }).catch(() => {});
 }
 
 function renderSubmission() {
@@ -4300,7 +4684,6 @@ function cloneJson(value) {
 }
 
 function buildExportJson() {
-  const answerKey = extractAnswerKey(state.markdown);
   return {
     exam_id: `a2_mock_exam_${state.exam.id}`,
     title: state.exam.title,
@@ -4316,7 +4699,6 @@ function buildExportJson() {
     },
     assets: state.assets,
     answers: state.answers,
-    answer_key: answerKey,
     latest_submission: state.submission,
     latest_ai_evaluation: state.evaluation,
     billing: {
@@ -4553,28 +4935,50 @@ function handleSubView(view, sub) {
 
 function startExamFromMenu() {
   const dashboard = state.auth.dashboard;
-  const attemptsRemaining = dashboard?.summary?.attempts_remaining ?? (state.billing.state?.attempts_remaining ?? 0);
+  const billingAttempts = (state.billing.state?.paid_attempts_remaining ?? 0) + (state.billing.state?.free_exam_available ? 1 : 0);
+  const attemptsRemaining = dashboard?.summary?.attempts_remaining ?? (state.billing.state?.attempts_remaining ?? billingAttempts);
   if (attemptsRemaining <= 0) {
     setView("billing");
     handleSubView("billing", "purchase");
     showToast("Nav atlikušu mēģinājumu. Iegādājieties jaunu eksāmenu.");
     return;
   }
+  if (state.auth.status !== "authenticated") {
+    showToast("Piezīme: atbildes tiks saglabātas lokāli. Nepārlādējiet lapu pirms iesniegšanas.");
+  }
   state.flow.screen = "register";
   setView("runner");
   renderRunner();
 }
 
-function resumeExam() {
+async function resumeExam() {
   const dashboard = state.auth.dashboard;
   const lastAttempt = dashboard?.attempts?.[0];
   if (lastAttempt && lastAttempt.status === "in_progress") {
+    if (lastAttempt.id) {
+      await loadServerAttempt(lastAttempt.id).catch(() => false);
+    }
     state.flow.screen = "exam";
     setView("runner");
     renderRunner();
-  } else {
-    showToast("Nav atjaunojamu eksāmenu");
+    return;
   }
+  const localKey = `latvian_a2_exam_draft_${state.billing.learnerId || "guest"}_${state.exam.id}`;
+  const localDraft = (() => {
+    try {
+      return JSON.parse(localStorage.getItem(localKey) || "null");
+    } catch { return null; }
+  })();
+  if (localDraft && localDraft.attemptStatus !== "submitted" && localDraft.attemptStatus !== "scored") {
+    if (restoreLocalDraft()) {
+      state.flow.screen = "exam";
+      setView("runner");
+      renderRunner();
+      showToast("Eksāmens atjaunots no vietējās saglabāšanas");
+      return;
+    }
+  }
+  showToast("Nav atjaunojamu eksāmenu");
 }
 
 function updateSidebarMenu(activeView) {
@@ -4602,7 +5006,8 @@ function updateStatusBadge() {
 
   const dashboard = state.auth.dashboard;
   const billingState = state.billing.state;
-  const attempts = dashboard?.summary?.attempts_remaining ?? billingState?.attempts_remaining ?? 0;
+  const billingAttempts = (billingState?.paid_attempts_remaining ?? 0) + (billingState?.free_exam_available ? 1 : 0);
+  const attempts = dashboard?.summary?.attempts_remaining ?? billingState?.attempts_remaining ?? billingAttempts;
   const credits = dashboard?.summary?.ai_credits_remaining ?? billingState?.ai_credits_remaining ?? 0;
 
   if (attempts > 0) {
@@ -4680,8 +5085,17 @@ function updateQuickActions() {
 
   const dashboard = state.auth.dashboard;
   const billingState = state.billing.state;
-  const attempts = dashboard?.summary?.attempts_remaining ?? billingState?.attempts_remaining ?? 0;
-  const hasInProgress = dashboard?.attempts?.some(a => a.status === "in_progress");
+  const billingAttempts = (billingState?.paid_attempts_remaining ?? 0) + (billingState?.free_exam_available ? 1 : 0);
+  const attempts = dashboard?.summary?.attempts_remaining ?? billingState?.attempts_remaining ?? billingAttempts;
+  const hasServerInProgress = dashboard?.attempts?.some(a => a.status === "in_progress");
+  const hasLocalDraft = (() => {
+    try {
+      const key = `latvian_a2_exam_draft_${state.billing.learnerId || "guest"}_${state.exam.id}`;
+      const draft = JSON.parse(localStorage.getItem(key) || "null");
+      return draft && draft.attemptStatus !== "submitted" && draft.attemptStatus !== "scored";
+    } catch { return false; }
+  })();
+  const hasInProgress = hasServerInProgress || hasLocalDraft;
 
   if (quickStart) {
     quickStart.disabled = false;
@@ -4689,6 +5103,7 @@ function updateQuickActions() {
   }
   if (quickResume) {
     quickResume.classList.toggle("d-none", !hasInProgress);
+    quickResume.title = hasLocalDraft ? "Resume interrupted exam from this browser" : "Resume exam from server";
   }
   if (quickBuy) {
     quickBuy.classList.toggle("d-none", attempts > 0 && (billingState?.ai_credits_remaining ?? 0) > 0);
@@ -4842,6 +5257,7 @@ function escapeHtml(value) {
 }
 
 function setupTestHooks() {
+  if (!window.__A2_TEST_HOOKS__) return;
   window.__a2TestHooks = {
     loadExam,
     renderAll,
@@ -4876,6 +5292,7 @@ function setupTestHooks() {
     setAnswer: (partKey, taskKey, index, value) => {
       ensureAnswerSlot(partKey, taskKey, index);
       state.answers[partKey][taskKey][index] = value;
+      queueAttemptAnswerSave(partKey, taskKey, index, value, 0);
       renderProgressOnly();
     },
     getState: () => cloneJson({

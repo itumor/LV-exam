@@ -237,6 +237,19 @@ test("timer expiry zeros listening timer and advances the exam to reading", asyn
   await expect(page.locator('button[data-action="start"][data-part="reading"]')).toBeDisabled();
 });
 
+test("reading task 2 keeps the A-L prompt and advertisement bank visible", async ({ page }) => {
+  await page.goto("/latvian-a2-exam-app/?exam=01&part=reading&screen=exam");
+
+  await expect(page.getByRole("heading", { name: "Reading / Reading" })).toBeVisible();
+  await expect(page.getByText("Uzdevums 2 no 3: Atrodiet, kurš sludinājums (A–L) atbilst katrai situācijai")).toBeVisible();
+  await expect(page.locator(".ad-reference-panel")).toHaveCount(0);
+  await expect(page.locator(".ad-match-group")).toHaveCount(3);
+  await expect(page.locator(".ad-match-group").first()).toContainText("Izīrē 3 istabu dzīvokli ģimenei pie 5. pamatskolas.");
+  await expect(page.locator(".ad-match-group").nth(1)).toContainText("Veļas mazgātava “Tīrība” atvērta no 8.00 līdz 20.00.");
+  await expect(page.locator(".ad-match-group").last()).toContainText("Bērnu drēbju maiņas tirdziņš svētdien sporta hallē.");
+  await expect(page.locator('select[data-answer="reading.task2.0"] option')).toHaveCount(5);
+});
+
 test("AI scoring shows quota errors, then succeeds on retry", async ({ page }) => {
   const successPayload = readJson("ai-evaluation-success.json");
   const quotaPayload = readJson("ai-evaluation-quota.json");
@@ -410,11 +423,79 @@ test("admin has unlimited access and AI scoring without credits", async ({ page 
     })
   );
 
-  await page.route("**/codex/A2_Mock_Exam_01.md", route =>
+  await page.route("**/api/exams/01/content", route =>
     route.fulfill({
       status: 200,
       contentType: "text/markdown",
       body: "# Mock Exam\n\n## Listening\n\nTask 1: ..."
+    })
+  );
+  await page.route("**/api/attempts/start", async route => {
+    const requestBody = route.request().postDataJSON();
+    route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        attempt: {
+          id: requestBody.attempt_id || "attempt_admin_1",
+          status: "started",
+          exam_id: "01",
+          exam_title: "A2 Mock Exam 01",
+          content_version: 1,
+          answers: {},
+          score_payload: {},
+          submission_payload: {}
+        }
+      })
+    });
+  });
+  await page.route("**/api/attempts/*/answers", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        attempt: {
+          id: "attempt_admin_1",
+          status: "in_progress",
+          exam_id: "01",
+          exam_title: "A2 Mock Exam 01",
+          content_version: 1,
+          answers: {},
+          score_payload: {},
+          submission_payload: {}
+        }
+      })
+    })
+  );
+  await page.route("**/api/attempts/*/submit", route =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        attempt: {
+          id: "attempt_admin_1",
+          status: "scored",
+          exam_id: "01",
+          exam_title: "A2 Mock Exam 01",
+          content_version: 1,
+          answers: {},
+          score_payload: {},
+          submission_payload: {}
+        },
+        score: {
+          mode: "mixed",
+          objective_correct: 0,
+          objective_possible: 0,
+          manual_review_possible: 60,
+          by_skill: {
+            listening: { objective_correct: 0, objective_possible: 0, manual_review_possible: 15 },
+            reading: { objective_correct: 0, objective_possible: 0, manual_review_possible: 15 },
+            writing: { objective_correct: 0, objective_possible: 0, manual_review_possible: 15 },
+            speaking: { objective_correct: 0, objective_possible: 0, manual_review_possible: 15 }
+          },
+          items: []
+        }
+      })
     })
   );
 

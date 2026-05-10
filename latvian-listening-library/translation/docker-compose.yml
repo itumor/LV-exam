@@ -1,0 +1,23 @@
+services:
+  libretranslate:
+    # Official LibreTranslate image. Change the left side of "5000:5000"
+    # to expose a different host port, for example "5001:5000".
+    image: libretranslate/libretranslate:latest
+    # Run as root for the local persisted model volume. The upstream image
+    # otherwise may be unable to create Argos package cache directories on
+    # a freshly-created Docker named volume on macOS Docker Desktop.
+    user: "0:0"
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      LT_LOAD_ONLY: "lv,en"
+      LT_UPDATE_MODELS: "true"
+      LT_WORKERS: "1"
+      LT_DISABLE_WEB_UI: "false"
+      LT_API_KEYS: "false"
+    volumes:
+      - libretranslate_models:/home/libretranslate/.local/share/argos-translate
+
+volumes:
+  libretranslate_models:
