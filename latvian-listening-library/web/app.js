@@ -169,6 +169,16 @@
   var statUnknown = document.querySelector('#statUnknown');
   var unknownWordList = document.querySelector('#unknownWordList');
   var activeCompFilter = 'all';
+  var aiService = window.AIExplanationService ? new window.AIExplanationService() : null;
+  var currentExplanationSentence = null;
+  var aiPanel = document.querySelector('#aiPanel');
+  var aiPanelContent = document.querySelector('#aiPanelContent');
+  var aiLoading = document.querySelector('#aiLoading');
+  var aiError = document.querySelector('#aiError');
+  var aiOverlay = document.querySelector('#aiOverlay');
+  var closeAIPanelBtn = document.querySelector('#closeAIPanel');
+  var aiModeToggle = document.querySelector('#aiModeToggle');
+  var retryBtn = document.querySelector('#retryBtn');
 
   if (audio) {
     audio.addEventListener('play', function() {
@@ -294,6 +304,105 @@
     } else if (compMeterCard) {
       compMeterCard.hidden = true;
     }
+  }
+
+  function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+  }
+
+  function parseTranscriptToSentences(text) {
+    if (!text) return [];
+    return String(text)
+      .split(/(?<=[.!?])\s+/)
+      .map(function(sentence) { return sentence.trim(); })
+      .filter(function(sentence) { return sentence.length > 0; });
+  }
+
+  function renderTranscriptWithClickableSentences(text) {
+    var sentences = parseTranscriptToSentences(text);
+    if (sentences.length === 0) return escapeHtml(text || '');
+    return sentences.map(function(sentence, index) {
+      return '<span class="sentence-block" data-sentence="' + index + '" title="Click for AI explanation">' +
+        escapeHtml(sentence) +
+        '</span>';
+    }).join(' ');
+  }
+
+  function openAIPanel() {
+    if (!aiPanel || !aiOverlay) return;
+    aiPanel.classList.add('open');
+    aiPanel.setAttribute('aria-hidden', 'false');
+    aiOverlay.hidden = false;
+  }
+
+  function closeAIPanel() {
+    if (!aiPanel || !aiOverlay) return;
+    aiPanel.classList.remove('open');
+    aiPanel.setAttribute('aria-hidden', 'true');
+    aiOverlay.hidden = true;
+  }
+
+  function setAILoading(isLoading) {
+    if (aiLoading) aiLoading.hidden = !isLoading;
+    if (aiError) aiError.hidden = true;
+    if (isLoading && aiPanelContent) aiPanelContent.textContent = '';
+  }
+
+  function displayExplanation(explanation) {
+    if (!aiPanelContent) return;
+    setAILoading(false);
+
+    var html = '<div class="explanation-section"><h4>Natural Translation</h4><p>' +
+      escapeHtml(explanation.naturalTranslation || '') +
+      '</p></div>';
+
+    if (explanation.literalTranslation && explanation.literalTranslation !== explanation.naturalTranslation) {
+      html += '<div class="explanation-section"><h4>Word-by-Word</h4><p>' +
+        escapeHtml(explanation.literalTranslation) +
+        '</p></div>';
+    }
+
+    if (explanation.vocabulary && explanation.vocabulary.length > 0) {
+      html += '<div class="explanation-section"><h4>Key Vocabulary</h4>';
+      explanation.vocabulary.forEach(function(item) {
+        html += '<div class="vocab-item"><span class="vocab-word">' + escapeHtml(item.word) + '</span>' +
+          '<span class="vocab-pos">' + escapeHtml(item.pos || '') + '</span>' +
+          '<div class="vocab-meaning">' + escapeHtml(item.meaning || '') + '</div>' +
+          (item.example ? '<div class="vocab-example">' + escapeHtml(item.example) + '</div>' : '') +
+          '</div>';
+      });
+      html += '</div>';
+    }
+
+    if (explanation.grammarNotes && explanation.grammarNotes.length > 0) {
+      html += '<div class="explanation-section"><h4>Grammar Notes</h4>';
+      explanation.grammarNotes.forEach(function(note) {
+        html += '<div class="grammar-note"><p>' + escapeHtml(note) + '</p></div>';
+      });
+      html += '</div>';
+    }
+
+    aiPanelContent.innerHTML = html;
+  }
+
+  function fetchExplanation(sentence) {
+    if (!aiService) return;
+    currentExplanationSentence = sentence;
+    setAILoading(true);
+
+    var item = State.filtered[State.selectedIndex];
+    var lessonId = item ? item.id : 'default';
+    aiService.setLessonId(lessonId);
+
+    aiService.explainSentence(sentence, { lessonId: lessonId })
+      .then(displayExplanation)
+      .catch(function(error) {
+        console.error('AI explanation error:', error);
+        if (aiLoading) aiLoading.hidden = true;
+        if (aiError) aiError.hidden = false;
+      });
   }
 
   // ---------------------------------------------------------------------------
@@ -454,6 +563,7 @@
         ProgressTracker ? ProgressTracker.getCompleted() : {}
       );
       renderComprehensionMeter(item.lv_text || '');
+      if (lvText) lvText.innerHTML = renderTranscriptWithClickableSentences(item.lv_text || '');
     },
 
     renderEmptyState: function(type) {
@@ -711,6 +821,28 @@
       applyCombinedFilters();
     });
   });
+
+  if (closeAIPanelBtn) closeAIPanelBtn.addEventListener('click', closeAIPanel);
+  if (aiOverlay) aiOverlay.addEventListener('click', closeAIPanel);
+  if (aiModeToggle && aiService) {
+    aiModeToggle.addEventListener('change', function(event) {
+      aiService.setExplanationMode(event.target.checked ? 'detailed' : 'simple');
+      if (currentExplanationSentence) fetchExplanation(currentExplanationSentence);
+    });
+  }
+  if (retryBtn) {
+    retryBtn.addEventListener('click', function() {
+      if (currentExplanationSentence) fetchExplanation(currentExplanationSentence);
+    });
+  }
+  if (lvText) {
+    lvText.addEventListener('click', function(event) {
+      var target = event.target;
+      if (!target || !target.classList || !target.classList.contains('sentence-block')) return;
+      openAIPanel();
+      fetchExplanation(target.textContent || '');
+    });
+  }
 
   AudioController.init();
 

@@ -136,7 +136,7 @@
               <div class="skeleton-line" hidden></div>
               <div class="skeleton-line" hidden></div>
               <div class="skeleton-line" hidden></div>
-              <pre id="lvText" class="reading-text">No transcript selected.</pre>
+              <pre id="lvText" class="reading-text clickable">No transcript selected.</pre>
             </div>
           </article>
           <article class="text-panel">
@@ -153,6 +153,33 @@
           </article>
         </section>
       </main>
+
+      <aside id="aiPanel" class="ai-panel" aria-hidden="true">
+        <div class="ai-panel-header">
+          <h3>AI Assistant</h3>
+          <button id="closeAIPanel" class="ai-close-btn" aria-label="Close panel">&times;</button>
+        </div>
+        <div class="ai-panel-controls">
+          <label class="ai-mode-toggle">
+            <input type="checkbox" id="aiModeToggle" />
+            <span class="toggle-label">Detailed mode</span>
+          </label>
+        </div>
+        <div id="aiPanelContent" class="ai-panel-content">
+          <p class="ai-hint">Click a sentence in the Latvian transcript to get an AI explanation.</p>
+        </div>
+        <div id="aiLoading" class="ai-loading" hidden>
+          <div class="spinner"></div>
+          <span>Getting explanation...</span>
+        </div>
+        <div id="aiError" class="ai-error" hidden>
+          <p>Unable to get explanation. <button id="retryBtn" class="ai-retry-btn">Try again</button></p>
+        </div>
+        <div class="ai-panel-footer">
+          <p class="ai-disclaimer">AI explanations are automated and may not be perfect. They are designed to help A2-level learners.</p>
+        </div>
+      </aside>
+      <div id="aiOverlay" class="ai-overlay" hidden></div>
     </div>
     <div id="sticky-player" class="sticky-player" hidden aria-label="Sticky audio player">
       <button id="sticky-play-pause" type="button" aria-label="Play">
@@ -161,6 +188,7 @@
       <input id="sticky-seek" type="range" min="0" max="100" value="0" aria-label="Seek" />
       <span id="sticky-time" class="sticky-time">0:00</span>
     </div>
+    <script src="ai-transcript-service.js"></script>
     <script src="comprehension-meter.js"></script>
     <script src="lib.js"></script>
     <script src="app.js"></script>
