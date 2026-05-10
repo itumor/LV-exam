@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Cache-Control" content="public, max-age=3600, s-maxage=3600" />
     <title>Latvian Listening Library</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -16,19 +17,114 @@
             <p>A1 / A2 audio library</p>
           </div>
         </div>
+        <button id="theme-toggle" type="button" aria-label="Switch to dark mode">
+          <span class="icon-sun" aria-hidden="true">☀</span>
+          <span class="icon-moon" aria-hidden="true">☽</span>
+        </button>
+        <nav class="sidebar-links" aria-label="Links">
+          <a href="../exam-simulation/" class="sidebar-link">
+            <span class="link-icon">📝</span>
+            <span class="link-text">A2 Eksāmena Simulācija</span>
+          </a>
+        </nav>
         <label class="search-label" for="search">Meklēt</label>
         <input id="search" type="search" placeholder="Search by file or text..." autocomplete="off" />
-        <nav id="menu" class="menu" aria-label="Audio lessons"></nav>
+        <label class="search-label" for="styleFilter">Speaking Style</label>
+        <select id="styleFilter">
+          <option value="">All styles</option>
+          <option value="clear">Clear</option>
+          <option value="slow">Slow</option>
+          <option value="normal">Normal</option>
+          <option value="casual">Casual</option>
+          <option value="announcement">Announcement</option>
+          <option value="dialogue">Dialogue</option>
+        </select>
+        <label class="search-label" for="categoryFilter">Real-Life Situation</label>
+        <select id="categoryFilter">
+          <option value="">All categories</option>
+        </select>
+        <div class="comp-filters">
+          <span class="comp-filter-label">Rādīt pēc grūtības:</span>
+          <div class="comp-filter-buttons">
+            <button class="comp-filter-btn active" data-filter="all" type="button">Visi</button>
+            <button class="comp-filter-btn" data-filter="easy" type="button">Viegli</button>
+            <button class="comp-filter-btn" data-filter="manageable" type="button">Ietiekams</button>
+            <button class="comp-filter-btn" data-filter="challenging" type="button">Grūti</button>
+          </div>
+        </div>
+        <nav id="menu" class="menu" aria-label="Audio lessons">
+          <section class="level-section">
+            <div class="item-list">
+              <div class="skeleton-item"></div>
+              <div class="skeleton-item"></div>
+              <div class="skeleton-item"></div>
+            </div>
+          </section>
+          <section class="level-section">
+            <div class="item-list">
+              <div class="skeleton-item"></div>
+              <div class="skeleton-item"></div>
+              <div class="skeleton-item"></div>
+            </div>
+          </section>
+        </nav>
       </aside>
 
       <main class="reader">
         <section class="hero">
-          <div>
-            <p class="eyebrow">Latvian listening course</p>
-            <h2 id="title">Select an audio item</h2>
-            <p id="subtitle">Browse transcripts and translations generated from the MP3 source files.</p>
+          <div id="hero-empty" class="hero-empty">
+            <h2>Select an audio item to start listening.</h2>
+            <p>Choose a lesson from the sidebar or browse by real-life situation.</p>
+            <div id="category-landing" class="category-landing" hidden>
+              <h3>Practical Situations</h3>
+              <div id="category-cards" class="category-cards"></div>
+            </div>
+            <div class="hero-ctas" id="hero-ctas">
+              <button type="button" class="cta-btn" id="btn-daily-challenge">Try today's 5-minute challenge.</button>
+              <button type="button" class="cta-btn" id="btn-browse-category">Browse by real-life situation.</button>
+            </div>
           </div>
-          <span id="statusBadge" class="badge badge-muted">waiting</span>
+          <div id="hero-content" hidden>
+            <p class="eyebrow">Latvian listening course</p>
+            <h2 id="title"></h2>
+            <p id="subtitle"></p>
+            <span id="statusBadge" class="badge badge-muted"></span>
+            <div class="level-progress">
+              <div class="progress-track">
+                <div id="level-progress-bar" class="progress-fill" role="progressbar"
+                     aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
+                     style="width: 0%"></div>
+              </div>
+              <span id="level-progress-label">0 of 0 completed</span>
+            </div>
+            <div id="exam-readiness" class="exam-readiness" hidden>
+              Exam readiness: <span id="exam-pct">0%</span> (estimated)
+            </div>
+            <a href="micro.html" class="micro-link" style="display: inline-block; margin-top: 16px; background: var(--magenta); color: white; padding: 12px 20px; border-radius: 999px; font-weight: 900; text-decoration: none;">Try Micro Practice →</a>
+          </div>
+        </section>
+
+        <section class="comp-meter-card" id="compMeterCard" hidden>
+          <div class="comp-meter-header">
+            <h3>Comprehension Meter</h3>
+            <span class="comp-estimate-note" id="compEstimateNote">Estimate based on common words</span>
+          </div>
+          <div class="comp-meter-display" id="compMeterDisplay">
+            <div class="comp-bar-track">
+              <div class="comp-bar-fill" id="compBarFill" style="width: 0%"></div>
+            </div>
+            <div class="comp-pct" id="compPct">-</div>
+            <div class="comp-label" id="compLabel">-</div>
+          </div>
+          <div class="comp-stats" id="compStats">
+            <div class="comp-stat"><span class="comp-stat-n" id="statTotal">-</span><span class="comp-stat-l">total words</span></div>
+            <div class="comp-stat"><span class="comp-stat-n" id="statUnique">-</span><span class="comp-stat-l">unique words</span></div>
+            <div class="comp-stat"><span class="comp-stat-n" id="statUnknown">-</span><span class="comp-stat-l">new words</span></div>
+          </div>
+          <div class="comp-unknown-words" id="compUnknownWords">
+            <h4>Top Unknown Words</h4>
+            <div class="unknown-word-list" id="unknownWordList"></div>
+          </div>
         </section>
 
         <section class="recommendations-section" id="recommendations" hidden>
@@ -41,31 +137,136 @@
         </section>
 
         <section class="player-card">
-          <audio id="audio" controls preload="metadata"></audio>
+          <span id="speakerBadge" class="speaker-badge" style="display:none"></span>
+          <div class="audio-player" role="group" aria-label="Audio player">
+            <button id="play-pause" type="button" aria-label="Play">
+              <span class="icon-play" aria-hidden="true">▶</span>
+            </button>
+            <div class="progress-container">
+              <canvas id="waveform-canvas" aria-hidden="true"></canvas>
+              <input id="seek-bar" type="range" min="0" max="100" value="0"
+                     aria-label="Seek" step="1" />
+            </div>
+            <span id="time-display" aria-live="off">0:00 / 0:00</span>
+          </div>
+          <div id="audio-error" class="audio-error" hidden>
+            Unable to load audio. Check your connection and try again.
+          </div>
+          <div id="playback-status" aria-live="polite" class="sr-only"></div>
+          <audio id="audio" preload="metadata"></audio>
           <div class="nav-buttons">
             <button id="prev" type="button">Previous</button>
             <button id="next" type="button">Next</button>
           </div>
         </section>
 
+        <div class="mode-tabs">
+          <button id="tab-transcript" class="tab-button active" type="button">Transcript</button>
+          <button id="tab-shadowing" class="tab-button" type="button">Shadowing</button>
+        </div>
+
+        <p id="voiceRecommendation" class="voice-recommendation"></p>
+
+        <div id="transcript-view">
         <section class="content-grid">
           <article class="text-panel">
             <div class="panel-heading">
               <h3>Latvian Transcript</h3>
-              <a id="lvLink" href="#" target="_blank" rel="noreferrer">Markdown</a>
+              <a id="lvLink" href="#" target="_blank" rel="noreferrer" hidden>Markdown</a>
             </div>
-            <pre id="lvText" class="reading-text">No transcript selected.</pre>
+            <div class="panel-body">
+              <div class="skeleton-line" hidden></div>
+              <div class="skeleton-line" hidden></div>
+              <div class="skeleton-line" hidden></div>
+              <pre id="lvText" class="reading-text clickable">No transcript selected.</pre>
+            </div>
           </article>
           <article class="text-panel">
             <div class="panel-heading">
               <h3>English Translation</h3>
-              <a id="enLink" href="#" target="_blank" rel="noreferrer">Markdown</a>
+              <a id="enLink" href="#" target="_blank" rel="noreferrer" hidden>Markdown</a>
             </div>
-            <pre id="enText" class="reading-text">No translation selected.</pre>
+            <div class="panel-body">
+              <div class="skeleton-line" hidden></div>
+              <div class="skeleton-line" hidden></div>
+              <div class="skeleton-line" hidden></div>
+              <pre id="enText" class="reading-text">No translation selected.</pre>
+            </div>
+</article>
           </article>
         </section>
+        </div>
+
+        <section id="shadowing-view" class="shadowing-panel hidden">
+          <div class="shadowing-header">
+            <h3>Shadowing Mode</h3>
+            <label class="toggle-translation">
+              <input id="showTranslation" type="checkbox" />
+              <span>Show English</span>
+            </label>
+          </div>
+          <div class="sentence-display">
+            <p id="currentSentence" class="current-sentence">Select an audio item to start shadowing.</p>
+            <p id="currentTranslation" class="current-translation hidden"></p>
+          </div>
+          <div class="sentence-progress">
+            <span id="sentenceCounter">0 / 0</span>
+          </div>
+          <div class="shadowing-controls">
+            <button id="shadowPrev" class="control-btn" type="button" disabled>Previous</button>
+            <button id="shadowReplay" class="control-btn" type="button" disabled>Replay</button>
+            <button id="shadowRecord" class="control-btn record-btn" type="button" disabled>Record</button>
+            <button id="shadowStop" class="control-btn" type="button" disabled>Stop</button>
+            <button id="shadowPlayRecording" class="control-btn" type="button" disabled>Play My Recording</button>
+            <button id="shadowNext" class="control-btn" type="button" disabled>Next</button>
+          </div>
+          <div class="waveform-container">
+            <canvas id="waveformCanvas" width="600" height="80"></canvas>
+          </div>
+          <div class="recording-status" id="recordingStatus"></div>
+          <div class="pronunciation-feedback" id="pronunciationFeedback"></div>
+          <p class="privacy-note">🔒 Recordings stay in your browser. Nothing is uploaded.</p>
+        </section>
       </main>
+
+      <aside id="aiPanel" class="ai-panel" aria-hidden="true">
+        <div class="ai-panel-header">
+          <h3>AI Assistant</h3>
+          <button id="closeAIPanel" class="ai-close-btn" aria-label="Close panel">&times;</button>
+        </div>
+        <div class="ai-panel-controls">
+          <label class="ai-mode-toggle">
+            <input type="checkbox" id="aiModeToggle" />
+            <span class="toggle-label">Detailed mode</span>
+          </label>
+        </div>
+        <div id="aiPanelContent" class="ai-panel-content">
+          <p class="ai-hint">Click a sentence in the Latvian transcript to get an AI explanation.</p>
+        </div>
+        <div id="aiLoading" class="ai-loading" hidden>
+          <div class="spinner"></div>
+          <span>Getting explanation...</span>
+        </div>
+        <div id="aiError" class="ai-error" hidden>
+          <p>Unable to get explanation. <button id="retryBtn" class="ai-retry-btn">Try again</button></p>
+        </div>
+        <div class="ai-panel-footer">
+          <p class="ai-disclaimer">AI explanations are automated and may not be perfect. They are designed to help A2-level learners.</p>
+        </div>
+      </aside>
+      <div id="aiOverlay" class="ai-overlay" hidden></div>
     </div>
+    <div id="sticky-player" class="sticky-player" hidden aria-label="Sticky audio player">
+      <button id="sticky-play-pause" type="button" aria-label="Play">
+        <span class="icon-play" aria-hidden="true">▶</span>
+      </button>
+      <input id="sticky-seek" type="range" min="0" max="100" value="0" aria-label="Seek" />
+      <span id="sticky-time" class="sticky-time">0:00</span>
+    </div>
+    <script src="ai-transcript-service.js"></script>
+    <script src="comprehension-meter.js"></script>
+    <script src="lib.js"></script>
+    <script src="categories.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
