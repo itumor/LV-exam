@@ -178,6 +178,49 @@ body {
   color: rgba(255, 255, 255, 0.7);
 }
 
+#styleFilter {
+  border: 0;
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-md);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md) var(--spacing-lg);
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+}
+
+#styleFilter:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+#styleFilter option {
+  background: var(--navy);
+  color: white;
+}
+
+.speaker-badge {
+  background: var(--magenta-soft);
+  border-radius: var(--radius-pill);
+  color: white;
+  display: inline-block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  margin-right: var(--spacing-md);
+  padding: var(--spacing-xs) var(--spacing-md);
+}
+
+.voice-recommendation {
+  color: var(--magenta);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  margin: var(--spacing-lg) 0;
+  text-align: center;
+}
+
 .level-section {
   margin-bottom: var(--spacing-lg);
 }

@@ -138,7 +138,7 @@
         runāt: "to-speak", mācīties: "to-study", dzīvot: "to-live",
         strādāt: "to-work", nākt: "to-come", iet: "to-go"
       };
-      
+
       for (const word of words) {
         const clean = word.replace(/[.,!?;:'"]/g, "");
         literalWords.push(meanings[clean] || clean);
@@ -169,10 +169,10 @@
 
     async explainWord(word, sentence) {
       await this.simulateLatency();
-      
+
       const cleanWord = word.toLowerCase().replace(/[.,!?;:()]/g, "");
       const vocabEntry = this.vocabularyDatabase[cleanWord];
-      
+
       if (vocabEntry) {
         return {
           word: cleanWord,
@@ -218,7 +218,7 @@
       if (simpleMode) {
         return `[Latvian: ${sentence}]`;
       }
-      
+
       return "A2-level Latvian sentence. Practice listening to understand the context.";
     }
 
@@ -251,7 +251,7 @@
 
     extractCaseNotes(sentence) {
       const notes = [];
-      
+
       if (sentence.includes("man") || sentence.includes("tav") || sentence.includes("viņ") || sentence.includes("mūsu")) {
         notes.push({
           case: "genitive (possessive)",
@@ -259,7 +259,7 @@
           example: "mana māja = my house (literally 'of me house')"
         });
       }
-      
+
       if (sentence.includes(" - ") || sentence.includes("uz")) {
         notes.push({
           case: "accusative (direction)",
@@ -311,7 +311,7 @@
 
     async extractVocabulary(text, limit = 10) {
       await this.simulateLatency();
-      
+
       const words = text.toLowerCase().split(/\s+/).filter(w => w.length > 2);
       const vocab = [];
 

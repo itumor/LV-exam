@@ -138,6 +138,7 @@
   // ---------------------------------------------------------------------------
   var menu = document.querySelector('#menu');
   var search = document.querySelector('#search');
+  var styleFilter = document.querySelector('#styleFilter');
   var title = document.querySelector('#title');
   var subtitle = document.querySelector('#subtitle');
   var audio = document.querySelector('#audio');
@@ -157,8 +158,10 @@
   var lvLink = document.querySelector('#lvLink');
   var enLink = document.querySelector('#enLink');
   var statusBadge = document.querySelector('#statusBadge');
+  var speakerBadge = document.querySelector('#speakerBadge');
   var previousButton = document.querySelector('#prev');
   var nextButton = document.querySelector('#next');
+  var voiceRecommendation = document.querySelector('#voiceRecommendation');
   var compBarFill = document.querySelector('#compBarFill');
   var compPct = document.querySelector('#compPct');
   var compLabel = document.querySelector('#compLabel');
@@ -209,6 +212,19 @@
     A2: 'A2 Klausīšanās',
   };
 
+  var voiceTypeLabels = {
+    cashier: 'Cashier',
+    doctor: 'Doctor',
+    teacher: 'Teacher',
+    colleague: 'Colleague',
+    driver: 'Bus Driver',
+    grandmother: 'Grandmother',
+    grandfather: 'Grandfather',
+    government: 'Government Office',
+    friend: 'Friend',
+    landlord: 'Landlord'
+  };
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
@@ -217,6 +233,39 @@
     if (status === 'transcribed only' || status === 'translation failed') return 'badge badge-transcribed';
     if (status === 'failed') return 'badge badge-failed';
     return 'badge badge-muted';
+  }
+
+  function getSpeakingStyle(item) {
+    if (!item) return '';
+    return item.speaking_style || item.voice_style || item.style || '';
+  }
+
+  function displaySpeakerBadge(item) {
+    if (!speakerBadge) return;
+    if (!item || !item.has_speaker) {
+      speakerBadge.style.display = 'none';
+      return;
+    }
+
+    var label = item.speaker_label || voiceTypeLabels[item.voice_type] || item.voice_type;
+    if (label) {
+      speakerBadge.textContent = label;
+      speakerBadge.style.display = 'inline-block';
+    } else {
+      speakerBadge.style.display = 'none';
+    }
+  }
+
+  function getVoiceRecommendation(currentItem, items) {
+    if (!currentItem || !currentItem.has_speaker || !currentItem.voice_type) return '';
+    var otherTypes = (items || []).filter(function(item) {
+      return item.has_speaker && item.voice_type && item.voice_type !== currentItem.voice_type;
+    });
+    if (otherTypes.length === 0) return '';
+
+    var nextType = otherTypes[Math.floor(Math.random() * otherTypes.length)].voice_type;
+    var label = voiceTypeLabels[nextType] || nextType;
+    return 'Try a ' + label + ' voice next.';
   }
 
   function renderComprehensionMeter(text) {
@@ -290,9 +339,17 @@
     return ComprehensionMeter.filterCatalogByLabel(items, activeCompFilter);
   }
 
+  function filterBySpeakingStyle(items) {
+    var styleValue = styleFilter ? styleFilter.value : '';
+    if (!styleValue) return items;
+    return items.filter(function(item) {
+      return getSpeakingStyle(item) === styleValue;
+    });
+  }
+
   function applyCombinedFilters() {
     var query = search ? search.value.trim() : '';
-    State.filtered = filterByComprehension(applyFilter(State.catalog, query));
+    State.filtered = filterBySpeakingStyle(filterByComprehension(applyFilter(State.catalog, query)));
     State.selectedIndex = State.filtered.length ? 0 : -1;
     Renderer.renderMenu(
       State.filtered,
@@ -301,8 +358,10 @@
     );
     if (State.filtered.length) {
       Renderer.selectItem(0);
-    } else if (compMeterCard) {
-      compMeterCard.hidden = true;
+    } else {
+      if (compMeterCard) compMeterCard.hidden = true;
+      displaySpeakerBadge(null);
+      if (voiceRecommendation) voiceRecommendation.textContent = '';
     }
   }
 
@@ -515,6 +574,10 @@
       if (statusBadge) {
         statusBadge.textContent = item.status || 'unknown';
         statusBadge.className = badgeClass(item.status);
+      }
+      displaySpeakerBadge(item);
+      if (voiceRecommendation) {
+        voiceRecommendation.textContent = getVoiceRecommendation(item, State.catalog);
       }
 
       // Show panel skeletons then immediately populate (synchronous)
@@ -802,6 +865,9 @@
   previousButton.addEventListener('click', function () { Renderer.selectItem(State.selectedIndex - 1); });
   nextButton.addEventListener('click', function () { Renderer.selectItem(State.selectedIndex + 1); });
   SearchHandler.init();
+  if (styleFilter) {
+    styleFilter.addEventListener('change', applyCombinedFilters);
+  }
 
   // Wire theme toggle
   var themeToggleBtn = document.getElementById('theme-toggle');

@@ -23,6 +23,16 @@
         </button>
         <label class="search-label" for="search">Meklēt</label>
         <input id="search" type="search" placeholder="Search by file or text..." autocomplete="off" />
+        <label class="search-label" for="styleFilter">Speaking Style</label>
+        <select id="styleFilter">
+          <option value="">All styles</option>
+          <option value="clear">Clear</option>
+          <option value="slow">Slow</option>
+          <option value="normal">Normal</option>
+          <option value="casual">Casual</option>
+          <option value="announcement">Announcement</option>
+          <option value="dialogue">Dialogue</option>
+        </select>
         <div class="comp-filters">
           <span class="comp-filter-label">Rādīt pēc grūtības:</span>
           <div class="comp-filter-buttons">
@@ -104,6 +114,7 @@
         </section>
 
         <section class="player-card">
+          <span id="speakerBadge" class="speaker-badge" style="display:none"></span>
           <div class="audio-player" role="group" aria-label="Audio player">
             <button id="play-pause" type="button" aria-label="Play">
               <span class="icon-play" aria-hidden="true">▶</span>
@@ -125,6 +136,8 @@
             <button id="next" type="button">Next</button>
           </div>
         </section>
+
+        <p id="voiceRecommendation" class="voice-recommendation"></p>
 
         <section class="content-grid">
           <article class="text-panel">

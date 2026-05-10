@@ -73,7 +73,10 @@ def lesson_group(title: str) -> str | None:
 def status_for(item: dict[str, Any]) -> str:
     if item.get("overall_status") == "completed":
         return "completed"
-    if item.get("transcription_status") == "transcribed" and item.get("translation_status") != "translated":
+    if (
+        item.get("transcription_status") == "transcribed"
+        and item.get("translation_status") != "translated"
+    ):
         return "transcribed only"
     if item.get("translation_status") == "failed":
         return "translation failed"
@@ -92,7 +95,78 @@ def sort_key(item: dict[str, Any]) -> tuple[str, list[tuple[int, int | str]]]:
     return item.get("level", ""), pieces
 
 
-def main() -> int:
+SPEAKER_TYPES = [
+    "cashier",
+    "doctor",
+    "teacher",
+    "colleague",
+    "driver",
+    "grandmother",
+    "grandfather",
+    "government",
+    "friend",
+    "landlord",
+]
+
+SPEAKING_STYLES = [
+    "clear",
+    "slow",
+    "normal",
+    "casual",
+    "announcement",
+    "dialogue",
+]
+
+AGE_GROUPS = ["child", "teen", "adult", "senior"]
+
+GENDERS = ["male", "female", "non-binary"]
+
+ACCENTS = ["riga", "latgale", "kurzemne", "vidzeme", "zemgale", "standard"]
+
+RECORDING_CONTEXTS = [
+    "studio",
+    "natural",
+    "outdoor",
+    "classroom",
+    "office",
+    "public_space",
+]
+
+
+def normalize_speaker_metadata(item: dict[str, Any]) -> dict[str, Any]:
+    speaker = item.get("speaker", {})
+    if not speaker:
+        return {}
+    return {
+        "speaker_id": speaker.get("speakerId") or speaker.get("speaker_id"),
+        "speaker_label": speaker.get("speakerDisplayName")
+        or speaker.get("speaker_label")
+        or speaker.get("label"),
+        "voice_type": speaker.get("voiceType") or speaker.get("voice_type"),
+        "gender": speaker.get("gender") if speaker.get("gender") in GENDERS else None,
+        "age_group": speaker.get("ageGroup") or speaker.get("age_group")
+        if speaker.get("ageGroup") or speaker.get("age_group") in AGE_GROUPS
+        else None,
+        "accent": speaker.get("accent") or speaker.get("region")
+        if speaker.get("accent") or speaker.get("region") in ACCENTS
+        else None,
+        "speaking_style": speaker.get("speakingStyle") or speaker.get("speaking_style")
+        if speaker.get("speakingStyle")
+        or speaker.get("speaking_style") in SPEAKING_STYLES
+        else None,
+        "recording_context": speaker.get("recordingContext")
+        or speaker.get("recording_context")
+        if speaker.get("recordingContext")
+        or speaker.get("recording_context") in RECORDING_CONTEXTS
+        else None,
+    }
+
+
+def has_speaker_metadata(item: dict[str, Any]) -> bool:
+    meta = normalize_speaker_metadata(item)
+    return bool(
+        meta.get("speaker_id") or meta.get("speaker_label") or meta.get("voice_type")
+    )
     ensure_web_data_link()
     progress = read_json(PROGRESS_PATH, {"items": {}})
     catalog: list[dict[str, Any]] = []
@@ -101,6 +175,7 @@ def main() -> int:
         en_path = LIBRARY_ROOT / item.get("en_markdown_path", "")
         audio_path = item.get("copied_audio_path", "")
         title = Path(item.get("original_file_path", item.get("source", "audio"))).stem
+        speaker_meta = normalize_speaker_metadata(item)
         catalog.append(
             {
                 "id": item.get("id"),
@@ -110,19 +185,34 @@ def main() -> int:
                 "audio_url": rel_from_web(audio_path) if audio_path else "",
                 "lv_text": extract_body(lv_path, "Latvian Transcript"),
                 "en_text": extract_body(en_path, "English Translation"),
-                "lv_markdown_url": rel_from_web(item.get("lv_markdown_path", "")) if item.get("lv_markdown_path") else "",
-                "en_markdown_url": rel_from_web(item.get("en_markdown_path", "")) if item.get("en_markdown_path") else "",
+                "lv_markdown_url": rel_from_web(item.get("lv_markdown_path", ""))
+                if item.get("lv_markdown_path")
+                else "",
+                "en_markdown_url": rel_from_web(item.get("en_markdown_path", ""))
+                if item.get("en_markdown_path")
+                else "",
                 "status": status_for(item),
                 "transcription_status": item.get("transcription_status"),
                 "translation_status": item.get("translation_status"),
                 "lesson_group": lesson_group(title),
                 "order": 0,
+                "speaker_id": speaker_meta.get("speaker_id"),
+                "speaker_label": speaker_meta.get("speaker_label"),
+                "voice_type": speaker_meta.get("voice_type"),
+                "gender": speaker_meta.get("gender"),
+                "age_group": speaker_meta.get("age_group"),
+                "accent": speaker_meta.get("accent"),
+                "speaking_style": speaker_meta.get("speaking_style"),
+                "recording_context": speaker_meta.get("recording_context"),
+                "has_speaker": has_speaker_metadata(item),
             }
         )
     catalog.sort(key=sort_key)
     for index, item in enumerate(catalog, start=1):
         item["order"] = index
-    atomic_write_text(CATALOG_PATH, json.dumps(catalog, ensure_ascii=False, indent=2) + "\n")
+    atomic_write_text(
+        CATALOG_PATH, json.dumps(catalog, ensure_ascii=False, indent=2) + "\n"
+    )
     print(f"Wrote {CATALOG_PATH} with {len(catalog)} item(s).")
     return 0
 
