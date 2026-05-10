@@ -129,7 +129,7 @@
       }
 
       const literalWords = [];
-      const word meanings = {
+      const meanings = {
         prieks: "joy", iepazities: "meet", labs: "good", rit: "morning",
         diena: "day", sveiks: "hello", labdien: "good-day", paldies: "thanks",
         lūdzu: "please", jā: "yes", nē: "no", es: "I", tu: "you", viņš: "he",
@@ -488,7 +488,7 @@
 
     async explainGrammarPoint(sentence, selectedWord) {
       try {
-        return await this.provider.explainGrammarPoint(sentence, currentWord);
+        return await this.provider.explainGrammarPoint(sentence, selectedWord);
       } catch (error) {
         safeLog("error", { error: error.message });
         throw error;
