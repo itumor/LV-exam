@@ -311,6 +311,38 @@
       <div id="aiOverlay" class="ai-overlay" hidden></div>
     </div>
 
+<button id="communityToggle" type="button" class="community-toggle" aria-label="Open community panel" title="Community">💬</button>
+
+    <aside id="communityPanel" class="community-panel" aria-label="Community discussion">
+      <div class="community-header">
+        <h3>Community</h3>
+        <button id="communityClose" type="button" class="panel-close" aria-label="Close panel">×</button>
+      </div>
+      <div class="community-tabs">
+        <button type="button" data-tab="questions" class="tab active">Questions</button>
+        <button type="button" data-tab="comments" class="tab">Comments</button>
+        <button type="button" data-tab="translations" class="tab">Translations</button>
+      </div>
+      <div class="community-form">
+        <select id="entryType">
+          <option value="question">Question</option>
+          <option value="comment">Comment</option>
+          <option value="translation_suggestion">Translation suggestion</option>
+        </select>
+        <input id="authorName" type="text" placeholder="Your name" maxlength="50" />
+        <textarea id="entryBody" placeholder="Share your thoughts..." maxlength="500"></textarea>
+        <button id="submitEntry" type="button">Add</button>
+      </div>
+      <div class="community-sort">
+        <label>Sort by:</label>
+        <select id="sortOrder">
+          <option value="newest">Newest</option>
+          <option value="helpful">Most Helpful</option>
+        </select>
+      </div>
+      <div id="communityList" class="community-list"></div>
+    </aside>
+
     <div id="sticky-player" class="sticky-player" hidden aria-label="Sticky audio player">
       <button id="sticky-play-pause" type="button" aria-label="Play">
         <span class="icon-play" aria-hidden="true">▶</span>
@@ -318,7 +350,7 @@
       <input id="sticky-seek" type="range" min="0" max="100" value="0" aria-label="Seek" />
       <span id="sticky-time" class="sticky-time">0:00</span>
     </div>
-<div class="modal-overlay" id="challengeModal">
+    <div class="modal-overlay" id="challengeModal">
       <div class="modal-card">
         <div class="modal-header">
           <h3 id="challengeTitle">Daily Challenge</h3>
@@ -351,6 +383,7 @@
     <script src="comprehension-meter.js"></script>
     <script src="lib.js"></script>
     <script src="categories.js"></script>
+>>>>>>> origin/main
     <script src="app.js"></script>
     <script src="daily-practice.js"></script>
     <script>
