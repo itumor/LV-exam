@@ -139,6 +139,7 @@
   var menu = document.querySelector('#menu');
   var search = document.querySelector('#search');
   var styleFilter = document.querySelector('#styleFilter');
+  var categoryFilter = document.querySelector('#categoryFilter');
   var title = document.querySelector('#title');
   var subtitle = document.querySelector('#subtitle');
   var audio = document.querySelector('#audio');
@@ -171,10 +172,7 @@
   var statUnique = document.querySelector('#statUnique');
   var statUnknown = document.querySelector('#statUnknown');
   var unknownWordList = document.querySelector('#unknownWordList');
-  var culturalSection = document.querySelector('#culturalSection');
-  var culturalContainer = document.querySelector('#culturalContainer');
   var activeCompFilter = 'all';
-  var culturalContexts = [];
   var aiService = window.AIExplanationService ? new window.AIExplanationService() : null;
   var currentExplanationSentence = null;
   var aiPanel = document.querySelector('#aiPanel');
@@ -614,39 +612,15 @@
     });
   }
 
-  function filterByCulturalContext(items, query) {
-    if (!query || !culturalContexts.length) return items;
-    var normalized = query.toLowerCase();
-    var matchingLessonIds = culturalContexts
-      .filter(function(context) {
-        return [
-          context.title,
-          context.title_en,
-          context.explanation,
-          context.practical_note
-        ].concat(context.related_vocabulary || [])
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-          .indexOf(normalized) !== -1;
-      })
-      .reduce(function(ids, context) {
-        return ids.concat(context.lesson_ids || []);
-      }, []);
-
-    if (matchingLessonIds.length === 0) return items;
-    var existingIds = items.map(function(item) { return item.id; });
-    var combinedIds = existingIds.concat(matchingLessonIds);
-    return State.catalog.filter(function(item) {
-      return combinedIds.indexOf(item.id) !== -1;
-    });
+  function filterByCategory(items) {
+    var categoryValue = categoryFilter ? categoryFilter.value : '';
+    if (!categoryValue || !window.CategoryManager) return items;
+    return CategoryManager.filterByCategory(items, categoryValue);
   }
 
   function applyCombinedFilters() {
     var query = search ? search.value.trim() : '';
-    State.filtered = filterBySpeakingStyle(
-      filterByComprehension(filterByCulturalContext(applyFilter(State.catalog, query), query))
-    );
+    State.filtered = filterByCategory(filterBySpeakingStyle(filterByComprehension(applyFilter(State.catalog, query))));
     State.selectedIndex = State.filtered.length ? 0 : -1;
     Renderer.renderMenu(
       State.filtered,
@@ -659,7 +633,6 @@
       if (compMeterCard) compMeterCard.hidden = true;
       displaySpeakerBadge(null);
       if (voiceRecommendation) voiceRecommendation.textContent = '';
-      renderCulturalContexts(null);
     }
   }
 
@@ -685,91 +658,6 @@
         escapeHtml(sentence) +
         '</span>';
     }).join(' ');
-  }
-
-  function renderCulturalContexts(lessonId) {
-    if (!culturalSection || !culturalContainer) return;
-    culturalContainer.textContent = '';
-    if (!lessonId) {
-      culturalSection.hidden = true;
-      return;
-    }
-
-    var contexts = culturalContexts.filter(function(context) {
-      return Array.isArray(context.lesson_ids) && context.lesson_ids.indexOf(lessonId) !== -1;
-    });
-    culturalSection.hidden = contexts.length === 0;
-    contexts.forEach(function(context) {
-      var card = document.createElement('article');
-      card.className = 'cultural-card';
-
-      var header = document.createElement('div');
-      header.className = 'cultural-header';
-      var titleEl = document.createElement('h4');
-      titleEl.className = 'cultural-title';
-      titleEl.textContent = context.title_en ? context.title + ' (' + context.title_en + ')' : context.title;
-      var expand = document.createElement('button');
-      expand.type = 'button';
-      expand.className = 'cultural-expand';
-      expand.textContent = 'Learn more';
-      expand.setAttribute('aria-expanded', 'false');
-      header.append(titleEl, expand);
-
-      var content = document.createElement('div');
-      content.className = 'cultural-content';
-      content.hidden = true;
-      var explanation = document.createElement('p');
-      explanation.className = 'cultural-explanation';
-      explanation.textContent = context.explanation || '';
-      content.appendChild(explanation);
-
-      if (context.practical_note) {
-        var note = document.createElement('div');
-        note.className = 'cultural-note';
-        note.textContent = context.practical_note;
-        content.appendChild(note);
-      }
-
-      if (Array.isArray(context.phrases) && context.phrases.length) {
-        var phrases = document.createElement('div');
-        phrases.className = 'cultural-phrases';
-        phrases.innerHTML = '<h4>Useful phrases</h4>';
-        context.phrases.forEach(function(phrase) {
-          var phraseItem = document.createElement('div');
-          phraseItem.className = 'phrase-item';
-          phraseItem.innerHTML =
-            '<div class="phrase-text">' + escapeHtml(phrase.lv || '') + '</div>' +
-            '<div class="phrase-translation">' + escapeHtml(phrase.en || '') + '</div>' +
-            '<div class="phrase-context">' + escapeHtml(phrase.usage || '') + '</div>';
-          phrases.appendChild(phraseItem);
-        });
-        content.appendChild(phrases);
-      }
-
-      if (Array.isArray(context.related_vocabulary) && context.related_vocabulary.length) {
-        var vocab = document.createElement('div');
-        vocab.className = 'cultural-vocab';
-        vocab.innerHTML = '<h4>Related vocabulary</h4><div class="vocab-list"></div>';
-        var vocabList = vocab.querySelector('.vocab-list');
-        context.related_vocabulary.forEach(function(word) {
-          var tag = document.createElement('span');
-          tag.className = 'vocab-tag';
-          tag.textContent = word;
-          vocabList.appendChild(tag);
-        });
-        content.appendChild(vocab);
-      }
-
-      expand.addEventListener('click', function() {
-        var expanded = expand.getAttribute('aria-expanded') === 'true';
-        expand.setAttribute('aria-expanded', String(!expanded));
-        expand.textContent = expanded ? 'Learn more' : 'Show less';
-        content.hidden = expanded;
-      });
-
-      card.append(header, content);
-      culturalContainer.appendChild(card);
-    });
   }
 
   function openAIPanel() {
@@ -1013,8 +901,11 @@
         ProgressTracker ? ProgressTracker.getCompleted() : {}
       );
       renderComprehensionMeter(item.lv_text || '');
-      renderCulturalContexts(item.id);
       if (lvText) lvText.innerHTML = renderTranscriptWithClickableSentences(item.lv_text || '');
+
+      if (ShadowingMode.tabShadowing && ShadowingMode.tabShadowing.classList.contains('active')) {
+        ShadowingMode.initForCurrentItem();
+      }
     },
 
     renderEmptyState: function(type) {
@@ -1042,6 +933,334 @@
       }
     }
   };
+
+  // ---------------------------------------------------------------------------
+  // ShadowingMode — pronunciation practice with sentence-by-sentence playback
+  // ---------------------------------------------------------------------------
+  var ShadowingMode = {
+    sentences: [],
+    currentIndex: 0,
+    isRecording: false,
+    mediaRecorder: null,
+    audioChunks: [],
+    userAudioBlob: null,
+    userAudioUrl: null,
+    audioContext: null,
+    analyser: null,
+    animationId: null,
+    recognition: null,
+    SpeechRecognition: window.SpeechRecognition || window.webkitSpeechRecognition,
+
+    init: function() {
+      this.tabTranscript = document.getElementById('tab-transcript');
+      this.tabShadowing = document.getElementById('tab-shadowing');
+      this.transcriptView = document.getElementById('transcript-view');
+      this.shadowingView = document.getElementById('shadowing-view');
+      this.currentSentenceEl = document.getElementById('currentSentence');
+      this.currentTranslationEl = document.getElementById('currentTranslation');
+      this.sentenceCounter = document.getElementById('sentenceCounter');
+      this.showTranslation = document.getElementById('showTranslation');
+      this.prevBtn = document.getElementById('shadowPrev');
+      this.replayBtn = document.getElementById('shadowReplay');
+      this.recordBtn = document.getElementById('shadowRecord');
+      this.stopBtn = document.getElementById('shadowStop');
+      this.playRecordingBtn = document.getElementById('shadowPlayRecording');
+      this.nextBtn = document.getElementById('shadowNext');
+      this.waveformCanvas = document.getElementById('waveformCanvas');
+      this.recordingStatus = document.getElementById('recordingStatus');
+      this.feedbackEl = document.getElementById('pronunciationFeedback');
+
+      if (this.tabTranscript) {
+        this.tabTranscript.addEventListener('click', () => this.showTranscriptTab());
+      }
+      if (this.tabShadowing) {
+        this.tabShadowing.addEventListener('click', () => this.showShadowingTab());
+      }
+      if (this.showTranslation) {
+        this.showTranslation.addEventListener('change', () => this.toggleTranslation());
+      }
+      if (this.prevBtn) this.prevBtn.addEventListener('click', () => this.prevSentence());
+      if (this.replayBtn) this.replayBtn.addEventListener('click', () => this.playCurrentSentence());
+      if (this.recordBtn) this.recordBtn.addEventListener('click', () => this.startRecording());
+      if (this.stopBtn) this.stopBtn.addEventListener('click', () => this.stopRecording());
+      if (this.playRecordingBtn) this.playRecordingBtn.addEventListener('click', () => this.playUserRecording());
+      if (this.nextBtn) this.nextBtn.addEventListener('click', () => this.nextSentence());
+    },
+
+    showTranscriptTab: function() {
+      if (!this.tabTranscript || !this.tabShadowing || !this.transcriptView || !this.shadowingView) return;
+      this.tabTranscript.classList.add('active');
+      this.tabShadowing.classList.remove('active');
+      this.transcriptView.classList.remove('hidden');
+      this.shadowingView.classList.add('hidden');
+    },
+
+    showShadowingTab: function() {
+      if (!this.tabTranscript || !this.tabShadowing || !this.transcriptView || !this.shadowingView) return;
+      this.tabShadowing.classList.add('active');
+      this.tabTranscript.classList.remove('active');
+      this.transcriptView.classList.add('hidden');
+      this.shadowingView.classList.remove('hidden');
+      this.initForCurrentItem();
+    },
+
+    toggleTranslation: function() {
+      if (this.currentTranslationEl) {
+        this.currentTranslationEl.classList.toggle('hidden', !this.showTranslation.checked);
+      }
+    },
+
+    splitIntoSentences: function(text) {
+      if (!text) return [];
+      var sentenceRegex = /[^.!?]+[.!?]+/g;
+      var matches = text.match(sentenceRegex);
+      if (!matches) return text ? [text] : [];
+      return matches.map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+    },
+
+    initForCurrentItem: function() {
+      var item = State.filtered[State.selectedIndex];
+      if (!item || !item.lv_text) {
+        if (this.currentSentenceEl) this.currentSentenceEl.textContent = 'No transcript available for shadowing.';
+        if (this.currentTranslationEl) this.currentTranslationEl.textContent = '';
+        if (this.sentenceCounter) this.sentenceCounter.textContent = '0 / 0';
+        this.sentences = [];
+        this.updateControls();
+        return;
+      }
+
+      this.sentences = this.splitIntoSentences(item.lv_text);
+      this.currentIndex = 0;
+      this.userAudioBlob = null;
+      this.userAudioUrl = null;
+      if (this.recordingStatus) this.recordingStatus.textContent = '';
+      if (this.feedbackEl) this.feedbackEl.textContent = '';
+      this.clearWaveform();
+
+      if (this.sentences.length > 0) {
+        this.displayCurrentSentence();
+      } else {
+        if (this.currentSentenceEl) this.currentSentenceEl.textContent = 'No sentences found in transcript.';
+        if (this.sentenceCounter) this.sentenceCounter.textContent = '0 / 0';
+      }
+      this.updateControls();
+    },
+
+    displayCurrentSentence: function() {
+      if (this.sentences.length === 0) return;
+      if (this.currentSentenceEl) this.currentSentenceEl.textContent = this.sentences[this.currentIndex];
+      if (this.sentenceCounter) this.sentenceCounter.textContent = (this.currentIndex + 1) + ' / ' + this.sentences.length;
+
+      var item = State.filtered[State.selectedIndex];
+      if (item && item.en_text && this.currentTranslationEl) {
+        var enSentences = this.splitIntoSentences(item.en_text);
+        this.currentTranslationEl.textContent = enSentences[this.currentIndex] || '';
+      }
+
+      this.updateControls();
+    },
+
+    updateControls: function() {
+      var hasSentences = this.sentences.length > 0;
+      if (this.prevBtn) this.prevBtn.disabled = !hasSentences || this.currentIndex === 0;
+      if (this.replayBtn) this.replayBtn.disabled = !hasSentences;
+      if (this.recordBtn) this.recordBtn.disabled = !hasSentences || this.isRecording;
+      if (this.stopBtn) this.stopBtn.disabled = !this.isRecording;
+      if (this.playRecordingBtn) this.playRecordingBtn.disabled = !hasSentences || !this.userAudioUrl;
+      if (this.nextBtn) this.nextBtn.disabled = !hasSentences || this.currentIndex >= this.sentences.length - 1;
+    },
+
+    playCurrentSentence: function() {
+      if (this.sentences.length === 0) return;
+      var sentenceText = this.sentences[this.currentIndex];
+      var utterance = new SpeechSynthesisUtterance(sentenceText);
+      utterance.lang = 'lv-LV';
+      utterance.rate = 0.8;
+      speechSynthesis.speak(utterance);
+    },
+
+    prevSentence: function() {
+      if (this.currentIndex > 0) {
+        this.currentIndex--;
+        this.displayCurrentSentence();
+        this.userAudioBlob = null;
+        this.userAudioUrl = null;
+        if (this.recordingStatus) this.recordingStatus.textContent = '';
+        if (this.feedbackEl) this.feedbackEl.textContent = '';
+        this.clearWaveform();
+      }
+    },
+
+    nextSentence: function() {
+      if (this.currentIndex < this.sentences.length - 1) {
+        this.currentIndex++;
+        this.displayCurrentSentence();
+        this.userAudioBlob = null;
+        this.userAudioUrl = null;
+        if (this.recordingStatus) this.recordingStatus.textContent = '';
+        if (this.feedbackEl) this.feedbackEl.textContent = '';
+        this.clearWaveform();
+      }
+    },
+
+    startRecording: function() {
+      var self = this;
+      if (this.isRecording) return;
+
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+        self.mediaRecorder = new MediaRecorder(stream);
+        self.audioChunks = [];
+        self.isRecording = true;
+
+        self.mediaRecorder.ondataavailable = function(event) {
+          self.audioChunks.push(event.data);
+        };
+
+        self.mediaRecorder.onstop = function() {
+          self.userAudioBlob = new Blob(self.audioChunks, { type: 'audio/webm' });
+          if (self.userAudioUrl) URL.revokeObjectURL(self.userAudioUrl);
+          self.userAudioUrl = URL.createObjectURL(self.userAudioBlob);
+          if (self.recordingStatus) self.recordingStatus.textContent = 'Recording saved for self-review.';
+
+          if (self.SpeechRecognition) {
+            self.tryRecognition();
+          }
+
+          stream.getTracks().forEach(function(track) { track.stop(); });
+          self.updateControls();
+        };
+
+        self.mediaRecorder.start();
+        if (self.recordingStatus) self.recordingStatus.textContent = 'Recording...';
+        self.updateControls();
+        self.visualizeAudio(stream);
+      }).catch(function(err) {
+        console.error('Microphone error:', err);
+        if (err.name === 'NotAllowedError') {
+          if (self.recordingStatus) self.recordingStatus.textContent = 'Microphone permission denied. Please allow access to record.';
+        } else {
+          if (self.recordingStatus) self.recordingStatus.textContent = 'Could not access microphone.';
+        }
+      });
+    },
+
+    stopRecording: function() {
+      var self = this;
+      if (this.mediaRecorder && this.isRecording) {
+        this.mediaRecorder.stop();
+        this.isRecording = false;
+        if (this.animationId) {
+          cancelAnimationFrame(this.animationId);
+          this.animationId = null;
+        }
+      }
+    },
+
+    playUserRecording: function() {
+      if (this.userAudioUrl) {
+        var playAudio = new Audio(this.userAudioUrl);
+        playAudio.play();
+      }
+    },
+
+    visualizeAudio: function(stream) {
+      var self = this;
+      if (!this.audioContext) {
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      this.analyser = this.audioContext.createAnalyser();
+      var source = this.audioContext.createMediaStreamSource(stream);
+      source.connect(this.analyser);
+      this.analyser.fftSize = 256;
+
+      var bufferLength = this.analyser.frequencyBinCount;
+      var dataArray = new Uint8Array(bufferLength);
+      var ctx = this.waveformCanvas.getContext('2d');
+
+      function draw() {
+        if (!self.isRecording) return;
+        self.animationId = requestAnimationFrame(draw);
+        self.analyser.getByteFrequencyData(dataArray);
+
+        ctx.fillStyle = '#e7eff3';
+        ctx.fillRect(0, 0, self.waveformCanvas.width, self.waveformCanvas.height);
+
+        var barWidth = (self.waveformCanvas.width / bufferLength) * 2.5;
+        var x = 0;
+        for (var i = 0; i < bufferLength; i++) {
+          var barHeight = (dataArray[i] / 255) * self.waveformCanvas.height;
+          ctx.fillStyle = 'rgb(214, 10, 79)';
+          ctx.fillRect(x, self.waveformCanvas.height - barHeight, barWidth, barHeight);
+          x += barWidth + 1;
+        }
+      }
+
+      draw();
+    },
+
+    clearWaveform: function() {
+      if (!this.waveformCanvas) return;
+      var ctx = this.waveformCanvas.getContext('2d');
+      ctx.fillStyle = '#e7eff3';
+      ctx.fillRect(0, 0, this.waveformCanvas.width, this.waveformCanvas.height);
+    },
+
+    tryRecognition: function() {
+      var self = this;
+      if (!this.SpeechRecognition) {
+        if (this.feedbackEl) this.feedbackEl.textContent = '';
+        return;
+      }
+
+      this.recognition = new this.SpeechRecognition();
+      this.recognition.lang = 'lv-LV';
+      this.recognition.interimResults = false;
+      this.recognition.maxAlternatives = 1;
+
+      this.recognition.onresult = function(event) {
+        var transcript = event.results[0][0].transcript;
+        var targetSentence = self.sentences[self.currentIndex];
+        var similarity = self.calculateSimilarity(transcript.toLowerCase(), targetSentence.toLowerCase());
+
+        var feedback = 'You said: ' + transcript + '<br>';
+        if (similarity > 0.7) {
+          feedback += '<span class="feedback-good">Great match! (' + Math.round(similarity * 100) + '%)</span>';
+        } else if (similarity > 0.4) {
+          feedback += '<span class="feedback-ok">Partial match (' + Math.round(similarity * 100) + '%). Try again!</span>';
+        } else {
+          feedback += '<span class="feedback-low">Keep practicing! (' + Math.round(similarity * 100) + '%)</span>';
+        }
+        if (self.feedbackEl) self.feedbackEl.innerHTML = feedback;
+      };
+
+      this.recognition.onerror = function(event) {
+        console.error('Speech recognition error:', event.error);
+        if (self.feedbackEl) self.feedbackEl.innerHTML = 'Speech recognition unavailable. Recording saved for self-review.';
+      };
+
+      if (this.userAudioBlob) {
+        this.recognition.start();
+      }
+    },
+
+    calculateSimilarity: function(str1, str2) {
+      var words1 = str1.replace(/[^\w\s]/g, '').toLowerCase().split(/\s+/).filter(function(w) { return w; });
+      var words2 = str2.replace(/[^\w\s]/g, '').toLowerCase().split(/\s+/).filter(function(w) { return w; });
+
+      if (words1.length === 0 || words2.length === 0) return 0;
+
+      var set2 = {};
+      words2.forEach(function(w) { set2[w] = true; });
+      var matches = 0;
+      for (var i = 0; i < words1.length; i++) {
+        if (set2[words1[i]]) matches++;
+      }
+
+      return (2 * matches) / (words1.length + words2.length);
+    }
+  };
+
+  ShadowingMode.init();
 
   // ---------------------------------------------------------------------------
   // AudioController — custom audio player, waveform, and sticky player
@@ -1256,6 +1475,12 @@
   if (styleFilter) {
     styleFilter.addEventListener('change', applyCombinedFilters);
   }
+  if (categoryFilter) {
+    categoryFilter.addEventListener('change', function() {
+      updateURLWithCategory(categoryFilter.value);
+      applyCombinedFilters();
+    });
+  }
 
   var brandSection = document.querySelector('.brand');
   if (brandSection) {
@@ -1320,31 +1545,97 @@
   AudioController.init();
 
   // ---------------------------------------------------------------------------
+  // Category population
+  // ---------------------------------------------------------------------------
+  function populateCategoryFilter() {
+    if (!categoryFilter || !window.CategoryManager) return;
+    var categories = CategoryManager.getCategoriesWithCounts(State.catalog);
+    var currentValue = categoryFilter.value;
+    categoryFilter.innerHTML = '<option value="">All categories</option>';
+    categories.forEach(function(cat) {
+      if (cat.id === 'uncategorized' && cat.count === 0) return;
+      var option = document.createElement('option');
+      option.value = cat.id;
+      option.textContent = cat.icon + ' ' + cat.title + ' (' + cat.count + ')';
+      categoryFilter.appendChild(option);
+    });
+    var urlParams = new URLSearchParams(window.location.search);
+    var urlCategory = urlParams.get('category');
+    if (urlCategory) {
+      categoryFilter.value = urlCategory;
+    } else if (currentValue) {
+      categoryFilter.value = currentValue;
+    }
+  }
+
+  function updateURLWithCategory(categoryId) {
+    var url = new URL(window.location.href);
+    if (categoryId) {
+      url.searchParams.set('category', categoryId);
+    } else {
+      url.searchParams.delete('category');
+    }
+    window.history.replaceState({}, '', url);
+  }
+
+  function updateCategoryLanding() {
+    var heroEmpty = document.getElementById('hero-empty');
+    var categoryLanding = document.getElementById('category-landing');
+    var categoryCards = document.getElementById('category-cards');
+    var heroCtas = document.getElementById('hero-ctas');
+    if (!heroEmpty || !categoryLanding || !categoryCards) return;
+    if (State.selectedIndex === -1 && window.CategoryManager && State.catalog.length > 0) {
+      var categories = CategoryManager.getCategoriesWithCounts(State.catalog).filter(function(c) { return c.id !== 'uncategorized' && c.count > 0; });
+      categoryCards.innerHTML = categories.map(function(cat) {
+        return '<div class="category-card" data-category="' + cat.id + '">' +
+          '<span class="category-icon">' + cat.icon + '</span>' +
+          '<span class="category-title">' + cat.title + '</span>' +
+          '<span class="category-count">' + cat.count + ' lessons</span>' +
+          '<span class="category-desc">' + cat.description + '</span>' +
+          '</div>';
+      }).join('');
+      categoryCards.querySelectorAll('.category-card').forEach(function(card) {
+        card.addEventListener('click', function() {
+          if (categoryFilter) {
+            categoryFilter.value = card.getAttribute('data-category');
+            applyCombinedFilters();
+          }
+        });
+      });
+      categoryLanding.hidden = false;
+      if (heroCtas) heroCtas.hidden = true;
+    } else {
+      categoryLanding.hidden = true;
+      if (heroCtas) heroCtas.hidden = false;
+    }
+  }
+
+  var btnBrowseCategory = document.getElementById('btn-browse-category');
+  if (btnBrowseCategory) {
+    btnBrowseCategory.addEventListener('click', function() {
+      updateCategoryLanding();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // Catalog fetch
   // ---------------------------------------------------------------------------
   SkeletonHelper.showSidebar();
-  Promise.all([
-    fetch('catalog.json', { cache: 'no-store' }).then(function (response) {
+  fetch('catalog.json', { cache: 'no-store' })
+    .then(function (response) {
       if (!response.ok) throw new Error('Catalog request failed: ' + response.status);
       return response.json();
-    }),
-    fetch('contexts.json', { cache: 'no-store' }).then(function (response) {
-      return response.ok ? response.json() : [];
-    }).catch(function() {
-      return [];
     })
-  ])
-    .then(function (results) {
-      var items = results[0];
-      var contexts = results[1];
+    .then(function (items) {
       var validation = LessonValidation.validateCatalog(items, isDev);
       if (!validation.valid) {
         console.warn('[Catalog] Lesson data validation failed:', validation.errors);
       }
       State.catalog = Array.isArray(items) ? items : [];
-      culturalContexts = Array.isArray(contexts) ? contexts : [];
       State.filtered = filterByComprehension(State.catalog.slice());
       SkeletonHelper.hideSidebar();
+      populateCategoryFilter();
+      updateCategoryLanding();
       if (currentMode === 'living') {
         enterLivingMode();
         return;
