@@ -3421,6 +3421,14 @@ class AppHandler(SimpleHTTPRequestHandler):
         if path in {"/latvian-listening-library", PUBLIC_LISTENING_PREFIX}:
             self.path = PUBLIC_LISTENING_WEB_PREFIX
             return super().send_head()
+        if path in {"/latvian-listening-library/exam-simulation", PUBLIC_EXAM_SIM_PREFIX}:
+            self.path = PUBLIC_EXAM_SIM_PREFIX
+            return super().send_head()
+        if path.startswith(PUBLIC_EXAM_SIM_PREFIX):
+            if not is_public_static_path(path):
+                self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+                return None
+            return super().send_head()
         if path.startswith(PUBLIC_LISTENING_PREFIX) and not path.startswith(
             PUBLIC_LISTENING_WEB_PREFIX
         ):
