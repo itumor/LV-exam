@@ -848,7 +848,7 @@ body {
   .exam-app {
     flex-direction: column;
   }
-  
+
   .exam-sidebar {
     width: 100%;
     flex-direction: row;
@@ -856,21 +856,21 @@ body {
     gap: 12px;
     padding: 12px;
   }
-  
+
   .brand {
     width: 100%;
   }
-  
+
   .exam-nav {
     flex-direction: row;
     flex-wrap: wrap;
   }
-  
+
   .nav-item {
     padding: 8px 12px;
     font-size: 13px;
   }
-  
+
   .exam-stats {
     width: 100%;
     flex-direction: row;
@@ -878,15 +878,15 @@ body {
     border-top: none;
     padding-top: 0;
   }
-  
+
   .mode-buttons {
     flex-direction: column;
   }
-  
+
   .breakdown-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .word-options {
     grid-template-columns: repeat(2, 1fr);
   }

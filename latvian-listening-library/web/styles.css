@@ -221,6 +221,109 @@ body {
   text-align: center;
 }
 
+.cultural-section {
+  margin-top: var(--spacing-lg);
+}
+
+.cultural-section h3 {
+  color: var(--navy);
+  font-size: var(--font-size-xl);
+  margin: 0 0 var(--spacing-md);
+}
+
+.cultural-card {
+  background: rgba(255, 253, 248, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--spacing-md);
+  overflow: hidden;
+}
+
+.cultural-header {
+  align-items: center;
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: space-between;
+  padding: var(--spacing-lg);
+}
+
+.cultural-title {
+  color: var(--navy);
+  font-size: var(--font-size-lg);
+  margin: 0;
+}
+
+.cultural-expand {
+  background: var(--magenta);
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: white;
+  cursor: pointer;
+  font-weight: var(--font-weight-bold);
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.cultural-content {
+  border-top: 1px solid var(--line);
+  padding: 0 var(--spacing-lg) var(--spacing-lg);
+}
+
+.cultural-explanation {
+  color: var(--ink);
+  line-height: 1.6;
+  margin: var(--spacing-md) 0;
+}
+
+.cultural-note {
+  background: #f0f7fa;
+  border-left: 4px solid var(--magenta);
+  color: var(--ink);
+  margin: var(--spacing-md) 0;
+  padding: var(--spacing-md);
+}
+
+.cultural-phrases,
+.cultural-vocab {
+  margin-top: var(--spacing-lg);
+}
+
+.cultural-phrases h4,
+.cultural-vocab h4 {
+  color: var(--navy);
+  margin: 0 0 var(--spacing-sm);
+}
+
+.phrase-item {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-sm);
+  padding: var(--spacing-md);
+}
+
+.phrase-text {
+  color: var(--navy);
+  font-weight: var(--font-weight-bold);
+}
+
+.phrase-translation {
+  color: var(--ink);
+  margin-top: var(--spacing-xs);
+}
+
+.phrase-context {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-xs);
+}
+
+.vocab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
 .level-section {
   margin-bottom: var(--spacing-lg);
 }

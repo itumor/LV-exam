@@ -146,7 +146,7 @@ function saveHistory() {
 
 function updateStats() {
   document.getElementById('attempt-count').textContent = examAttempts.length;
-  
+
   if (examAttempts.length > 0) {
     const best = Math.max(...examAttempts.map(a => a.score));
     document.getElementById('best-score').textContent = `${best}/15`;
@@ -175,13 +175,13 @@ function setupEventListeners() {
 function switchView(view) {
   document.querySelectorAll('.exam-view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  
+
   const viewEl = document.getElementById(`${view}-view`);
   const navEl = document.querySelector(`.nav-item[data-view="${view}"]`);
-  
+
   if (viewEl) viewEl.classList.add('active');
   if (navEl) navEl.classList.add('active');
-  
+
   if (view === 'history') {
     renderHistory();
   }
@@ -197,11 +197,11 @@ function selectMode(mode) {
 
 function startExam() {
   if (!currentMode) return;
-  
+
   currentTaskIndex = 0;
   answers = {};
   timeRemaining = MODE_DURATIONS[currentMode];
-  
+
   startTimer();
   switchView('simulation');
   showCurrentTask();
@@ -212,7 +212,7 @@ function startTimer() {
   timerInterval = setInterval(() => {
     timeRemaining--;
     updateTimerDisplay();
-    
+
     if (timeRemaining <= 0) {
       finishExam();
     }
@@ -224,7 +224,7 @@ function updateTimerDisplay() {
   const seconds = timeRemaining % 60;
   const timerEl = document.getElementById('exam-timer');
   timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  
+
   if (timeRemaining < 300) {
     timerEl.classList.add('warning');
   }
@@ -241,14 +241,14 @@ function showCurrentTask() {
   const mini = currentMode === 'mini';
   const tasks = getTasks(mini);
   const task = tasks[currentTaskIndex];
-  
+
   const taskTypes = ['announcement', 'dialogue', 'shortdialogue'];
   const currentType = taskTypes[currentTaskIndex];
-  
+
   document.querySelectorAll('.task-type').forEach(el => el.hidden = true);
   document.getElementById('question-progress').textContent = `Question ${currentTaskIndex + 1} of ${tasks.length}`;
   document.getElementById('task-progress').textContent = `Task ${currentTaskIndex + 1} of 3`;
-  
+
   if (currentType === 'announcement') {
     showAnnouncementTask(task);
   } else if (currentType === 'dialogue') {
@@ -256,39 +256,39 @@ function showCurrentTask() {
   } else if (currentType === 'shortdialogue') {
     showShortDialogueTask(task);
   }
-  
+
   document.getElementById('next-task-btn').disabled = true;
 }
 
 function getTasks(mini) {
   const tasks = [];
-  
+
   const annCount = mini ? 2 : examData.announcements.length;
   for (let i = 0; i < annCount; i++) {
     tasks.push({ type: 'announcement', index: i, data: examData.announcements[i] });
   }
-  
+
   tasks.push({ type: 'dialogue', index: 0, data: examData.dialogue });
-  
+
   const shortCount = mini ? 2 : examData.shortDialogues.length;
   for (let i = 0; i < shortCount; i++) {
     tasks.push({ type: 'shortdialogue', index: i, data: examData.shortDialogues[i] });
   }
-  
+
   return tasks;
 }
 
 function showAnnouncementTask(task) {
   const container = document.getElementById('announcement-task');
   container.hidden = false;
-  
+
   document.getElementById('ann-num').textContent = task.index + 1;
   const audio = document.getElementById('ann-audio');
   audio.src = task.data.audio;
-  
+
   const optionsContainer = document.getElementById('ann-options');
   optionsContainer.innerHTML = '';
-  
+
   task.data.options.forEach((opt, i) => {
     const btn = document.createElement('button');
     btn.className = 'option-btn';
@@ -300,10 +300,10 @@ function showAnnouncementTask(task) {
 
 function selectAnnouncementAnswer(questionId, answerIndex, btn) {
   answers[questionId] = answerIndex;
-  
+
   document.querySelectorAll('#ann-options .option-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
-  
+
   document.getElementById('next-task-btn').disabled = false;
 }
 
@@ -312,13 +312,13 @@ function showDialogueTask(task) {
   container.hidden = true;
   document.getElementById('announcement-task').hidden = true;
   container.hidden = false;
-  
+
   const audio = document.getElementById('dialogue-audio');
   audio.src = task.data.audio;
-  
+
   const containerEl = document.getElementById('tf-statements');
   containerEl.innerHTML = '';
-  
+
   task.data.statements.forEach((stmt, i) => {
     const item = document.createElement('div');
     item.className = 'tf-item';
@@ -330,7 +330,7 @@ function showDialogueTask(task) {
       </div>
     `;
     containerEl.appendChild(item);
-    
+
     item.querySelectorAll('.tf-btn').forEach(btn => {
       btn.addEventListener('click', () => selectDialogueAnswer(task.data.id, i, btn.value === 'yes', btn));
     });
@@ -340,11 +340,11 @@ function showDialogueTask(task) {
 function selectDialogueAnswer(questionId, statementIndex, answerValue, btn) {
   const key = `${questionId}-${statementIndex}`;
   answers[key] = answerValue;
-  
+
   const parent = btn.closest('.tf-item');
   parent.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
-  
+
   checkAllDialogueAnswered();
 }
 
@@ -352,13 +352,13 @@ function checkAllDialogueAnswered() {
   const task = examData.dialogue;
   const totalStatements = task.statements.length;
   let answered = 0;
-  
+
   for (let i = 0; i < totalStatements; i++) {
     if (answers[`${task.id}-${i}`] !== undefined) {
       answered++;
     }
   }
-  
+
   document.getElementById('next-task-btn').disabled = answered < totalStatements;
 }
 
@@ -366,14 +366,14 @@ function showShortDialogueTask(task) {
   document.querySelectorAll('.task-type').forEach(el => el.hidden = true);
   const container = document.getElementById('shortdialogue-task');
   container.hidden = false;
-  
+
   document.getElementById('short-num').textContent = task.index + 1;
   const audio = document.getElementById('short-audio');
   audio.src = task.data.audio;
-  
+
   const containerEl = document.getElementById('word-options');
   containerEl.innerHTML = '';
-  
+
   task.data.options.forEach((opt, i) => {
     const btn = document.createElement('button');
     btn.className = 'word-btn';
@@ -385,19 +385,19 @@ function showShortDialogueTask(task) {
 
 function selectWordAnswer(questionId, answerIndex, btn) {
   answers[questionId] = answerIndex;
-  
+
   document.querySelectorAll('#word-options .word-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
-  
+
   document.getElementById('next-task-btn').disabled = false;
 }
 
 function nextTask() {
   const mini = currentMode === 'mini';
   const tasks = getTasks(mini);
-  
+
   currentTaskIndex++;
-  
+
   if (currentTaskIndex >= tasks.length) {
     finishExam();
   } else {
@@ -413,7 +413,7 @@ function finishExam() {
 function calculateAndShowResults() {
   const mini = currentMode === 'mini';
   const tasks = getTasks(mini);
-  
+
   let totalScore = 0;
   let breakdown = { announcements: 0, dialogue: 0, shortDialogue: 0 };
   const skillScores = {
@@ -423,7 +423,7 @@ function calculateAndShowResults() {
     'places': { correct: 0, total: 0 },
     'everyday': { correct: 0, total: 0 }
   };
-  
+
   tasks.forEach(task => {
     if (task.type === 'announcement') {
       const correct = task.data.correct;
@@ -459,10 +459,10 @@ function calculateAndShowResults() {
       skillScores.everyday.total++;
     }
   });
-  
+
   const pass = totalScore >= PASS_THRESHOLD;
   const percent = Math.round((totalScore / TOTAL_POINTS) * 100);
-  
+
   const attempt = {
     date: new Date().toISOString(),
     mode: currentMode,
@@ -473,20 +473,20 @@ function calculateAndShowResults() {
     timeSpent: MODE_DURATIONS[currentMode] - timeRemaining,
     tasks: tasks.map(t => ({ type: t.type, data: t.data }))
   };
-  
+
   examAttempts.push(attempt);
   saveHistory();
   updateStats();
-  
+
   displayResults(attempt, skillScores);
 }
 
 function displayResults(attempt, skillScores) {
   const date = new Date(attempt.date);
   document.getElementById('result-date').textContent = date.toLocaleDateString('lv-LV');
-  
+
   document.getElementById('score-value').textContent = attempt.score;
-  
+
   const badge = document.getElementById('pass-fail-badge');
   if (attempt.pass) {
     badge.textContent = 'Iestājies!';
@@ -495,15 +495,15 @@ function displayResults(attempt, skillScores) {
     badge.textContent = 'Neiestājies';
     badge.className = 'pass-fail fail';
   }
-  
+
   const percent = Math.round((attempt.score / TOTAL_POINTS) * 100);
-  document.getElementById('readiness-text').textContent = 
+  document.getElementById('readiness-text').textContent =
     `Tu esi pašreiz ${percent}% gatavs A2 klausīšanās eksāmenam.`;
-  
+
   const breakdownGrid = document.getElementById('breakdown-grid');
   const maxAnn = currentMode === 'mini' ? 2 : 6;
   const maxShort = currentMode === 'mini' ? 2 : 5;
-  
+
   breakdownGrid.innerHTML = `
     <div class="breakdown-item">
       <div class="breakdown-label">Paziņojumi</div>
@@ -518,7 +518,7 @@ function displayResults(attempt, skillScores) {
       <div class="breakdown-score">${attempt.breakdown.shortDialogue}/${maxShort}</div>
     </div>
   `;
-  
+
   const skillBars = document.getElementById('skill-bars');
   const skillLabels = {
     'announcements': 'Paziņojumi',
@@ -527,13 +527,13 @@ function displayResults(attempt, skillScores) {
     'places': 'Vietas',
     'everyday': 'Ikdienas pakalpojumi'
   };
-  
+
   skillBars.innerHTML = '';
   Object.keys(skillScores).forEach(skill => {
     const data = skillScores[skill];
     const percent = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
     const levelClass = percent >= 70 ? '' : percent >= 40 ? 'medium' : 'low';
-    
+
     skillBars.innerHTML += `
       <div class="skill-item">
         <span class="skill-label">${skillLabels[skill] || skill}</span>
@@ -544,36 +544,36 @@ function displayResults(attempt, skillScores) {
       </div>
     `;
   });
-  
+
   switchView('results');
 }
 
 function showReview() {
   switchView('review');
-  
+
   const mini = currentMode === 'mini';
   const tasks = getTasks(mini);
   const container = document.getElementById('review-container');
   container.innerHTML = '';
-  
+
   tasks.forEach((task, idx) => {
     const item = document.createElement('div');
     item.className = 'review-item';
-    
+
     let question = '';
     let userAnswer = '';
     let correctAnswer = '';
     let isCorrect = false;
-    
+
     if (task.type === 'announcement') {
       question = task.data.question;
       const userIdx = answers[task.data.id];
       const correctIdx = task.data.correct;
-      
+
       userAnswer = userIdx !== undefined ? task.data.options[userIdx] : 'Nav atbildēts';
       correctAnswer = task.data.options[correctIdx];
       isCorrect = userIdx === correctIdx;
-      
+
       item.innerHTML = `
         <div class="review-question">${idx + 1}. ${question}</div>
         <div class="review-answer ${isCorrect ? 'correct' : 'incorrect'}">Tava atbilde: ${userAnswer}</div>
@@ -585,19 +585,19 @@ function showReview() {
     else if (task.type === 'dialogue') {
       question = 'Jā/Nē jautājumi';
       const statements = task.data.statements;
-      
+
       let answersHtml = '';
       statements.forEach((stmt, i) => {
         const key = `${task.data.id}-${i}`;
         const userAns = answers[key];
         const correct = stmt.correct;
         const isCorrect = userAns === correct;
-        
+
         answersHtml += `<div class="review-answer ${isCorrect ? 'correct' : 'incorrect'}">
           ${i + 1}. ${stmt.text} - Tavs: ${userAns ? 'Jā' : 'Nē'}, Pareizi: ${correct ? 'Jā' : 'Nē'}
         </div>`;
       });
-      
+
       item.innerHTML = `
         <div class="review-question">${idx + 1}. ${question}</div>
         ${answersHtml}
@@ -609,11 +609,11 @@ function showReview() {
       question = task.data.question;
       const userIdx = answers[task.data.id];
       const correctIdx = task.data.correct;
-      
+
       userAnswer = userIdx !== undefined ? task.data.options[userIdx] : 'Nav atbildēts';
       correctAnswer = task.data.options[correctIdx];
       isCorrect = userIdx === correctIdx;
-      
+
       item.innerHTML = `
         <div class="review-question">${idx + 1}. ${question}</div>
         <div class="review-answer ${isCorrect ? 'correct' : 'incorrect'}">Tava atbilde: ${userAnswer}</div>
@@ -622,21 +622,21 @@ function showReview() {
         <div class="review-correct">Transkripcija: ${task.data.transcript}</div>
       `;
     }
-    
+
     container.appendChild(item);
   });
 }
 
 function renderHistory() {
   const container = document.getElementById('history-list');
-  
+
   if (examAttempts.length === 0) {
     container.innerHTML = '<p class="empty-state">Nav veiktu mēģinājumu</p>';
     return;
   }
-  
+
   container.innerHTML = '';
-  
+
   examAttempts.slice().reverse().forEach((attempt, idx) => {
     const date = new Date(attempt.date);
     const item = document.createElement('div');
