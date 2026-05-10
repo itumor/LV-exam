@@ -3220,3 +3220,101 @@ line-height: 1;
 .cloze-actions button {
   flex: 1;
 }
+
+/* Cultural Context Cards */
+.cultural-context-section {
+  background: var(--paper);
+  border-radius: var(--radius-lg);
+  margin: var(--spacing-lg) 0;
+  padding: var(--spacing-lg);
+}
+
+.cultural-context-section .panel-heading {
+  margin-bottom: var(--spacing-md);
+}
+
+.cultural-context-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.cultural-card {
+  background: var(--color-surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+}
+
+.cultural-card-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.cultural-card-header h4 {
+  color: var(--navy);
+  font-size: var(--font-size-lg);
+  margin: 0;
+}
+
+.cultural-card-badge {
+  background: var(--magenta);
+  border-radius: var(--radius-pill);
+  color: white;
+  font-size: var(--font-size-xs);
+  padding: 2px 8px;
+}
+
+.cultural-explanation {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  margin: var(--spacing-sm) 0;
+}
+
+.cultural-note {
+  background: rgba(214, 10, 79, 0.08);
+  border-left: 3px solid var(--magenta);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  margin: var(--spacing-md) 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.cultural-phrases {
+  margin-top: var(--spacing-md);
+}
+
+.cultural-phrases h5 {
+  color: var(--navy);
+  font-size: var(--font-size-sm);
+  margin: 0 0 var(--spacing-sm);
+  text-transform: uppercase;
+}
+
+.phrase-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--spacing-xs) 0;
+}
+
+.phrase-lv {
+  color: var(--ink);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.phrase-en {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+
+.phrase-usage {
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  font-style: italic;
+}

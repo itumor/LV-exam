@@ -2978,4 +2978,106 @@ fetch("catalog.json", { cache: "no-store" })
     InteractiveListeningMode.init();
   });
 
+  // ---------------------------------------------------------------------------
+  // CulturalContextManager — display cultural context cards for lessons
+  // ---------------------------------------------------------------------------
+  var CulturalContextManager = {
+    contexts: null,
+    currentLessonId: null,
+
+    loadContexts: function() {
+      var self = this;
+      return fetch('contexts.json')
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+          self.contexts = data;
+          return data;
+        })
+        .catch(function() {
+          self.contexts = [];
+          return [];
+        });
+    },
+
+    getContextsForLesson: function(lessonId) {
+      if (!this.contexts) return [];
+      return this.contexts.filter(function(ctx) {
+        return ctx.lesson_ids && ctx.lesson_ids.indexOf(lessonId) !== -1;
+      });
+    },
+
+    renderContextCard: function(context) {
+      var html = '<div class="cultural-card">';
+      html += '<div class="cultural-card-header">';
+      html += '<h4>' + escapeHtml(context.title) + '</h4>';
+      html += '<span class="cultural-card-badge">' + escapeHtml(context.title_en || '') + '</span>';
+      html += '</div>';
+      html += '<p class="cultural-explanation">' + escapeHtml(context.explanation) + '</p>';
+
+      if (context.practical_note) {
+        html += '<div class="cultural-note">';
+        html += '<strong>Practical note:</strong> ' + escapeHtml(context.practical_note);
+        html += '</div>';
+      }
+
+      if (context.phrases && context.phrases.length > 0) {
+        html += '<div class="cultural-phrases">';
+        html += '<h5>Useful phrases</h5>';
+        context.phrases.forEach(function(phrase) {
+          html += '<div class="phrase-item">';
+          html += '<span class="phrase-lv">' + escapeHtml(phrase.lv) + '</span>';
+          html += '<span class="phrase-en">' + escapeHtml(phrase.en) + '</span>';
+          if (phrase.usage) {
+            html += '<span class="phrase-usage">' + escapeHtml(phrase.usage) + '</span>';
+          }
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+
+      html += '</div>';
+      return html;
+    },
+
+    displayForLesson: function(lessonId) {
+      var section = document.getElementById('culturalContextSection');
+      var container = document.getElementById('culturalContextList');
+      if (!section || !container) return;
+
+      this.currentLessonId = lessonId;
+      var contexts = this.getContextsForLesson(lessonId);
+
+      if (contexts.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+
+      section.style.display = 'block';
+      container.innerHTML = contexts.map(function(ctx) {
+        return this.renderContextCard(ctx);
+      }.bind(this)).join('');
+    },
+
+    init: function() {
+      var self = this;
+      this.loadContexts().then(function() {
+        var item = State.filtered[State.selectedIndex];
+        if (item) self.displayForLesson(item.id);
+      });
+    }
+  };
+
+  // Hook into lesson selection
+  var originalRendererSelectItem2 = Renderer.selectItem;
+  Renderer.selectItem = function(index) {
+    originalRendererSelectItem2.apply(this, arguments);
+    var item = State.filtered[index];
+    if (item) CulturalContextManager.displayForLesson(item.id);
+  };
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    CulturalContextManager.init();
+  });
+
 })();
