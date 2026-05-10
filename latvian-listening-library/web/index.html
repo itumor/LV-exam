@@ -151,8 +151,14 @@
           </div>
         </section>
 
+        <div class="mode-tabs">
+          <button id="tab-transcript" class="tab-button active" type="button">Transcript</button>
+          <button id="tab-shadowing" class="tab-button" type="button">Shadowing</button>
+        </div>
+
         <p id="voiceRecommendation" class="voice-recommendation"></p>
 
+        <div id="transcript-view">
         <section class="content-grid">
           <article class="text-panel">
             <div class="panel-heading">
@@ -177,7 +183,40 @@
               <div class="skeleton-line" hidden></div>
               <pre id="enText" class="reading-text">No translation selected.</pre>
             </div>
+</article>
           </article>
+        </section>
+        </div>
+
+        <section id="shadowing-view" class="shadowing-panel hidden">
+          <div class="shadowing-header">
+            <h3>Shadowing Mode</h3>
+            <label class="toggle-translation">
+              <input id="showTranslation" type="checkbox" />
+              <span>Show English</span>
+            </label>
+          </div>
+          <div class="sentence-display">
+            <p id="currentSentence" class="current-sentence">Select an audio item to start shadowing.</p>
+            <p id="currentTranslation" class="current-translation hidden"></p>
+          </div>
+          <div class="sentence-progress">
+            <span id="sentenceCounter">0 / 0</span>
+          </div>
+          <div class="shadowing-controls">
+            <button id="shadowPrev" class="control-btn" type="button" disabled>Previous</button>
+            <button id="shadowReplay" class="control-btn" type="button" disabled>Replay</button>
+            <button id="shadowRecord" class="control-btn record-btn" type="button" disabled>Record</button>
+            <button id="shadowStop" class="control-btn" type="button" disabled>Stop</button>
+            <button id="shadowPlayRecording" class="control-btn" type="button" disabled>Play My Recording</button>
+            <button id="shadowNext" class="control-btn" type="button" disabled>Next</button>
+          </div>
+          <div class="waveform-container">
+            <canvas id="waveformCanvas" width="600" height="80"></canvas>
+          </div>
+          <div class="recording-status" id="recordingStatus"></div>
+          <div class="pronunciation-feedback" id="pronunciationFeedback"></div>
+          <p class="privacy-note">🔒 Recordings stay in your browser. Nothing is uploaded.</p>
         </section>
       </main>
 
