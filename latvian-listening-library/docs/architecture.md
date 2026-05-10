@@ -111,14 +111,14 @@ python scripts/transcription_pipeline.py \
 ```python
 def transcribe_pipeline(input_path: str, output_path: str):
     mp3 = load_audio(input_path)
-    
+
     transcript = whisper_transcribe(mp3, language='lv')
     segments = extract_timestamps(transcript)
-    
+
     translations = translate_segments(segments, from_lang='lv', to_lang='en')
-    
+
     vocab = extract_vocabulary(transcript)
-    
+
     lesson = {
         'audio': input_path,
         'transcript': transcript,
@@ -126,7 +126,7 @@ def transcribe_pipeline(input_path: str, output_path: str):
         'translations': translations,
         'vocabulary': vocab,
     }
-    
+
     write_json(output_path, lesson)
 ```
 
@@ -312,7 +312,7 @@ test('validateLesson rejects missing fields', () => {
 
 test('validateLesson accepts valid lesson', () => {
   const result = validateLesson({
-    id: 'x', level: 'A1', 
+    id: 'x', level: 'A1',
     original_filename: 'test.mp3',
     audio_url: 'test.mp3',
     status: 'completed'
@@ -327,7 +327,7 @@ test('validateLesson accepts valid lesson', () => {
 test('analytics tracks events', () => {
   const analytics = new Analytics();
   analytics.track('audio_play', { lesson_id: 'A1-1' });
-  
+
   const events = analytics.getEvents();
   expect(events.length).toBe(1);
   expect(events[0].type).toBe('audio_play');
