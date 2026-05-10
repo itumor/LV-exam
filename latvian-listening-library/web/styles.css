@@ -1747,6 +1747,114 @@ audio::-webkit-media-controls-volume-slider {
   background: rgba(255, 255, 255, 0.2);
 }
 
+.category-landing {
+  margin-top: 24px;
+  padding: 16px 0;
+}
+
+.category-landing h3 {
+  margin: 0 0 16px 0;
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
+}
+
+.category-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.category-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.category-card:hover {
+  border-color: var(--magenta);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.category-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.category-title {
+  font-weight: 600;
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+
+.category-count {
+  font-size: var(--text-sm);
+  color: var(--magenta);
+  margin-bottom: 8px;
+}
+
+.category-desc {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.hero-empty .hero-ctas {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.hero-empty .cta-btn {
+  padding: 10px 20px;
+  background: var(--magenta);
+  color: white;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.hero-empty .cta-btn:hover {
+  background: var(--magenta-soft);
+}
+
+#categoryFilter {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  margin-bottom: 16px;
+}
+
+#categoryFilter:focus {
+  outline: none;
+  border-color: var(--magenta);
+  box-shadow: 0 0 0 3px rgba(214, 10, 79, 0.1);
+}
+
+.exam-topic {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--ice);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  color: var(--navy);
+  margin-right: 4px;
+  margin-bottom: 4px;
+}
+
 .link-icon {
   font-size: 18px;
 }

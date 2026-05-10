@@ -139,6 +139,7 @@
   var menu = document.querySelector('#menu');
   var search = document.querySelector('#search');
   var styleFilter = document.querySelector('#styleFilter');
+  var categoryFilter = document.querySelector('#categoryFilter');
   var title = document.querySelector('#title');
   var subtitle = document.querySelector('#subtitle');
   var audio = document.querySelector('#audio');
@@ -611,9 +612,15 @@
     });
   }
 
+  function filterByCategory(items) {
+    var categoryValue = categoryFilter ? categoryFilter.value : '';
+    if (!categoryValue || !window.CategoryManager) return items;
+    return CategoryManager.filterByCategory(items, categoryValue);
+  }
+
   function applyCombinedFilters() {
     var query = search ? search.value.trim() : '';
-    State.filtered = filterBySpeakingStyle(filterByComprehension(applyFilter(State.catalog, query)));
+    State.filtered = filterByCategory(filterBySpeakingStyle(filterByComprehension(applyFilter(State.catalog, query))));
     State.selectedIndex = State.filtered.length ? 0 : -1;
     Renderer.renderMenu(
       State.filtered,
@@ -1136,6 +1143,12 @@
   if (styleFilter) {
     styleFilter.addEventListener('change', applyCombinedFilters);
   }
+  if (categoryFilter) {
+    categoryFilter.addEventListener('change', function() {
+      updateURLWithCategory(categoryFilter.value);
+      applyCombinedFilters();
+    });
+  }
 
   var brandSection = document.querySelector('.brand');
   if (brandSection) {
@@ -1200,6 +1213,79 @@
   AudioController.init();
 
   // ---------------------------------------------------------------------------
+  // Category population
+  // ---------------------------------------------------------------------------
+  function populateCategoryFilter() {
+    if (!categoryFilter || !window.CategoryManager) return;
+    var categories = CategoryManager.getCategoriesWithCounts(State.catalog);
+    var currentValue = categoryFilter.value;
+    categoryFilter.innerHTML = '<option value="">All categories</option>';
+    categories.forEach(function(cat) {
+      if (cat.id === 'uncategorized' && cat.count === 0) return;
+      var option = document.createElement('option');
+      option.value = cat.id;
+      option.textContent = cat.icon + ' ' + cat.title + ' (' + cat.count + ')';
+      categoryFilter.appendChild(option);
+    });
+    var urlParams = new URLSearchParams(window.location.search);
+    var urlCategory = urlParams.get('category');
+    if (urlCategory) {
+      categoryFilter.value = urlCategory;
+    } else if (currentValue) {
+      categoryFilter.value = currentValue;
+    }
+  }
+
+  function updateURLWithCategory(categoryId) {
+    var url = new URL(window.location.href);
+    if (categoryId) {
+      url.searchParams.set('category', categoryId);
+    } else {
+      url.searchParams.delete('category');
+    }
+    window.history.replaceState({}, '', url);
+  }
+
+  function updateCategoryLanding() {
+    var heroEmpty = document.getElementById('hero-empty');
+    var categoryLanding = document.getElementById('category-landing');
+    var categoryCards = document.getElementById('category-cards');
+    var heroCtas = document.getElementById('hero-ctas');
+    if (!heroEmpty || !categoryLanding || !categoryCards) return;
+    if (State.selectedIndex === -1 && window.CategoryManager && State.catalog.length > 0) {
+      var categories = CategoryManager.getCategoriesWithCounts(State.catalog).filter(function(c) { return c.id !== 'uncategorized' && c.count > 0; });
+      categoryCards.innerHTML = categories.map(function(cat) {
+        return '<div class="category-card" data-category="' + cat.id + '">' +
+          '<span class="category-icon">' + cat.icon + '</span>' +
+          '<span class="category-title">' + cat.title + '</span>' +
+          '<span class="category-count">' + cat.count + ' lessons</span>' +
+          '<span class="category-desc">' + cat.description + '</span>' +
+          '</div>';
+      }).join('');
+      categoryCards.querySelectorAll('.category-card').forEach(function(card) {
+        card.addEventListener('click', function() {
+          if (categoryFilter) {
+            categoryFilter.value = card.getAttribute('data-category');
+            applyCombinedFilters();
+          }
+        });
+      });
+      categoryLanding.hidden = false;
+      if (heroCtas) heroCtas.hidden = true;
+    } else {
+      categoryLanding.hidden = true;
+      if (heroCtas) heroCtas.hidden = false;
+    }
+  }
+
+  var btnBrowseCategory = document.getElementById('btn-browse-category');
+  if (btnBrowseCategory) {
+    btnBrowseCategory.addEventListener('click', function() {
+      updateCategoryLanding();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // Catalog fetch
   // ---------------------------------------------------------------------------
   SkeletonHelper.showSidebar();
@@ -1216,6 +1302,8 @@
       State.catalog = Array.isArray(items) ? items : [];
       State.filtered = filterByComprehension(State.catalog.slice());
       SkeletonHelper.hideSidebar();
+      populateCategoryFilter();
+      updateCategoryLanding();
       if (currentMode === 'living') {
         enterLivingMode();
         return;

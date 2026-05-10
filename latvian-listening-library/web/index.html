@@ -39,6 +39,10 @@
           <option value="announcement">Announcement</option>
           <option value="dialogue">Dialogue</option>
         </select>
+        <label class="search-label" for="categoryFilter">Real-Life Situation</label>
+        <select id="categoryFilter">
+          <option value="">All categories</option>
+        </select>
         <div class="comp-filters">
           <span class="comp-filter-label">Rādīt pēc grūtības:</span>
           <div class="comp-filter-buttons">
@@ -70,10 +74,14 @@
         <section class="hero">
           <div id="hero-empty" class="hero-empty">
             <h2>Select an audio item to start listening.</h2>
-            <p>Choose a lesson from the sidebar to begin.</p>
-            <div class="hero-ctas">
-              <button type="button" class="cta-btn">Try today's 5-minute challenge.</button>
-              <button type="button" class="cta-btn">Browse by real-life situation.</button>
+            <p>Choose a lesson from the sidebar or browse by real-life situation.</p>
+            <div id="category-landing" class="category-landing" hidden>
+              <h3>Practical Situations</h3>
+              <div id="category-cards" class="category-cards"></div>
+            </div>
+            <div class="hero-ctas" id="hero-ctas">
+              <button type="button" class="cta-btn" id="btn-daily-challenge">Try today's 5-minute challenge.</button>
+              <button type="button" class="cta-btn" id="btn-browse-category">Browse by real-life situation.</button>
             </div>
           </div>
           <div id="hero-content" hidden>
@@ -210,6 +218,7 @@
     <script src="ai-transcript-service.js"></script>
     <script src="comprehension-meter.js"></script>
     <script src="lib.js"></script>
+    <script src="categories.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
