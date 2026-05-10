@@ -71,6 +71,30 @@
       </aside>
 
       <main class="reader">
+        <section class="daily-widget" id="dailyWidget">
+          <div class="daily-header">
+            <div>
+              <p class="daily-eyebrow">📅 Ikdienas prakse</p>
+              <h2 class="daily-title">Today's Challenge</h2>
+              <p class="daily-subtitle">~5 minutes · 3 questions</p>
+            </div>
+            <div class="daily-stats">
+              <div class="stat-chip">
+                <span class="stat-value" id="streakValue">0</span>
+                <span class="stat-label">🔥 Streak</span>
+              </div>
+              <div class="stat-chip">
+                <span class="stat-value" id="xpValue">0</span>
+                <span class="stat-label">⭐ XP</span>
+              </div>
+            </div>
+          </div>
+          <div class="practice-history" id="practiceHistory"></div>
+          <div id="dailyContent">
+            <button id="startDailyBtn" class="btn-primary">Sākt izaicinājumu</button>
+          </div>
+        </section>
+
         <section class="hero">
           <div id="hero-empty" class="hero-empty">
             <h2>Select an audio item to start listening.</h2>
@@ -256,6 +280,7 @@
       </aside>
       <div id="aiOverlay" class="ai-overlay" hidden></div>
     </div>
+
     <div id="sticky-player" class="sticky-player" hidden aria-label="Sticky audio player">
       <button id="sticky-play-pause" type="button" aria-label="Play">
         <span class="icon-play" aria-hidden="true">▶</span>
@@ -263,10 +288,247 @@
       <input id="sticky-seek" type="range" min="0" max="100" value="0" aria-label="Seek" />
       <span id="sticky-time" class="sticky-time">0:00</span>
     </div>
+<div class="modal-overlay" id="challengeModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="challengeTitle">Daily Challenge</h3>
+          <button class="modal-close" id="closeModal">&times;</button>
+        </div>
+        <div class="challenge-audio">
+          <audio id="challengeAudio" controls preload="metadata"></audio>
+        </div>
+        <div id="challengeQuestions"></div>
+        <div class="modal-footer">
+          <button id="submitChallenge" class="btn-primary" disabled>Iesniegt</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="resultsModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Rezultāts</h3>
+          <button class="modal-close" id="closeResults">&times;</button>
+        </div>
+        <div id="resultsContent"></div>
+        <div class="modal-footer">
+          <button id="closeResultsBtn" class="btn-primary">Turpināt</button>
+        </div>
+      </div>
+    </div>
+
     <script src="ai-transcript-service.js"></script>
     <script src="comprehension-meter.js"></script>
     <script src="lib.js"></script>
     <script src="categories.js"></script>
     <script src="app.js"></script>
+    <script src="daily-practice.js"></script>
+    <script>
+      (function() {
+        const challengeModal = document.getElementById('challengeModal');
+        const resultsModal = document.getElementById('resultsModal');
+        const challengeQuestions = document.getElementById('challengeQuestions');
+        const resultsContent = document.getElementById('resultsContent');
+        const submitBtn = document.getElementById('submitChallenge');
+        const streakValue = document.getElementById('streakValue');
+        const xpValue = document.getElementById('xpValue');
+        const practiceHistory = document.getElementById('practiceHistory');
+        const dailyContent = document.getElementById('dailyContent');
+        const challengeTitle = document.getElementById('challengeTitle');
+        const challengeAudio = document.getElementById('challengeAudio');
+
+        let currentAnswers = [];
+        let currentQuestions = [];
+
+        function renderPracticeHistory(history) {
+          practiceHistory.innerHTML = '';
+          history.forEach(entry => {
+            const day = document.createElement('div');
+            day.className = 'history-day ' + (entry.completed ? 'completed' : '');
+            day.title = entry.date;
+            const dayNames = ['Sv', 'Pr', 'Ot', 'Tr', 'Ce', 'Pk', 'Se'];
+            const date = new Date(entry.date);
+            day.textContent = dayNames[date.getDay()];
+            if (entry.completed) {
+              day.textContent += ' ✓';
+            }
+            practiceHistory.appendChild(day);
+          });
+        }
+
+        function updateStatsUI(progress) {
+          streakValue.textContent = progress.streak;
+          xpValue.textContent = progress.totalXp;
+          renderPracticeHistory(getPracticeHistory(progress));
+        }
+
+        function showChallengeModal(challenge) {
+          challengeTitle.textContent = challenge.title || 'Daily Challenge';
+          challengeAudio.src = challenge.audio_url || '';
+          currentQuestions = challenge.questions || [];
+          currentAnswers = new Array(currentQuestions.length).fill(null);
+          renderQuestions();
+          challengeModal.classList.add('open');
+          submitBtn.disabled = true;
+        }
+
+        function renderQuestions() {
+          challengeQuestions.innerHTML = '';
+          currentQuestions.forEach((q, qIndex) => {
+            const qEl = document.createElement('div');
+            qEl.className = 'question-card';
+            if (q.type === 'multiple_choice') {
+              qEl.innerHTML = `<p class="question-text">${qIndex + 1}. ${q.question}</p>`;
+              const optsDiv = document.createElement('div');
+              optsDiv.className = 'options-grid';
+              q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'option-btn';
+                btn.textContent = opt;
+                btn.addEventListener('click', () => selectOption(qIndex, opt, btn));
+                optsDiv.appendChild(btn);
+              });
+              qEl.appendChild(optsDiv);
+            } else if (q.type === 'true_false') {
+              qEl.innerHTML = `<p class="question-text">${qIndex + 1}. ${q.statement}</p><p class="question-hint">Pareizi / Nepareizi</p>`;
+              const tfDiv = document.createElement('div');
+              tfDiv.className = 'tf-buttons';
+              ['Pareizi', 'Nepareizi'].forEach((label, i) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'option-btn';
+                btn.textContent = label;
+                btn.addEventListener('click', () => selectOption(qIndex, i === 0, btn));
+                tfDiv.appendChild(btn);
+              });
+              qEl.appendChild(tfDiv);
+            } else if (q.type === 'missing_word') {
+              qEl.innerHTML = `<p class="question-text">${qIndex + 1}. ${q.sentence.replace('_____', '<span class="blank-line">_____</span>')}</p>`;
+              const input = document.createElement('input');
+              input.type = 'text';
+              input.className = 'missing-input';
+              input.placeholder = 'Type the missing word...';
+              input.addEventListener('input', (e) => {
+                currentAnswers[qIndex] = e.target.value;
+                checkAllAnswered();
+              });
+              qEl.appendChild(input);
+            }
+            challengeQuestions.appendChild(qEl);
+          });
+        }
+
+        function selectOption(qIndex, value, btn) {
+          currentAnswers[qIndex] = value;
+          const siblings = btn.parentElement.querySelectorAll('.option-btn');
+          siblings.forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          checkAllAnswered();
+        }
+
+        function checkAllAnswered() {
+          const allAnswered = currentAnswers.every(a => a !== null && a !== '');
+          submitBtn.disabled = !allAnswered;
+        }
+
+        function showResults(result) {
+          const { score, xpEarned, newStreak, longestStreak, totalXp, newBadges } = result;
+          let html = `
+            <div class="score-display">
+              <div class="score-circle">${score.percentage}%</div>
+              <p class="score-detail">${score.correct}/${score.total} pareizi</p>
+            </div>
+            <div class="xp-gain">+${xpEarned} XP</div>
+            <div class="streak-info">
+              <p>🔥 Streak: ${newStreak} (rekords: ${longestStreak})</p>
+              <p>⭐ Kopā XP: ${totalXp}</p>
+            </div>
+          `;
+          if (newBadges.length > 0) {
+            html += '<div class="new-badges"><h4>Jaunas balvas!</h4><div class="badges-list">';
+            newBadges.forEach(b => {
+              html += `<div class="badge-award"><span>${b.emoji}</span><span>${b.name}</span></div>`;
+            });
+            html += '</div></div>';
+          }
+          if (score.correct < score.total) {
+            html += '<div class="corrections"><h4>Labojumi:</h4><ul>';
+            currentQuestions.forEach((q, i) => {
+              const correct = q.type === 'missing_word' ? q.missing : q.correct;
+              html += `<li>${q.question || q.statement || q.sentence} → <strong>${correct}</strong></li>`;
+            });
+            html += '</ul></div>';
+          }
+          resultsContent.innerHTML = html;
+          resultsModal.classList.add('open');
+        }
+
+        document.getElementById('startDailyBtn').addEventListener('click', () => {
+          const { challenge, alreadyCompleted } = getTodayChallenge(window.catalog || []);
+          if (alreadyCompleted) {
+            alert('Jūs jau esat pabeidzis šodienas izaicinājumu! Mēģiniet rīt.');
+            return;
+          }
+          showChallengeModal(challenge);
+        });
+
+        submitBtn.addEventListener('click', () => {
+          const result = submitChallenge(currentAnswers, currentQuestions);
+          if (result.error) {
+            alert(result.message);
+            return;
+          }
+          challengeModal.classList.remove('open');
+          showResults(result);
+          const progress = getProgress();
+          updateStatsUI(progress);
+          if (progress.history.length > 0) {
+            dailyContent.innerHTML = `
+              <div class="completed-today">
+                <p>✅ Pabeigts! Rezultāts: ${progress.history[progress.history.length - 1].score}%</p>
+                <p class="next-challenge">Nākamais izaicinājums būs rīt.</p>
+              </div>
+            `;
+          }
+        });
+
+        document.getElementById('closeModal').addEventListener('click', () => {
+          challengeModal.classList.remove('open');
+        });
+
+        document.getElementById('closeResults').addEventListener('click', () => {
+          resultsModal.classList.remove('open');
+        });
+
+        document.getElementById('closeResultsBtn').addEventListener('click', () => {
+          resultsModal.classList.remove('open');
+        });
+
+        fetch('catalog.json', { cache: 'no-store' })
+          .then(r => r.json())
+          .then(items => {
+            window.catalog = Array.isArray(items) ? items : [];
+            const { progress } = getTodayChallenge(window.catalog);
+            updateStatsUI(progress);
+            if (progress.history.some(h => h.date === getDateString(new Date()) && h.completed)) {
+              dailyContent.innerHTML = `
+                <div class="completed-today">
+                  <p>✅ Pabeigts šodien!</p>
+                  <p class="next-challenge">Nākamais izaicinājums būs rīt.</p>
+                </div>
+              `;
+            }
+          })
+          .catch(() => {
+            const progress = getProgress();
+            updateStatsUI(progress);
+          });
+
+        function getDateString(date = new Date()) {
+          return date.toISOString().split('T')[0];
+        }
+      })();
+    </script>
   </body>
 </html>
