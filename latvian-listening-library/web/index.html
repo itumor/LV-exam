@@ -5,11 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta http-equiv="Cache-Control" content="public, max-age=3600, s-maxage=3600" />
     <title>Latvian Listening Library</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <button class="btn btn-outline-light d-lg-none position-fixed top-0 start-0 m-3 z-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-label="Toggle navigation">
+      <span>&#9776;</span>
+    </button>
     <div class="app-shell">
-      <aside class="sidebar">
+      <aside class="sidebar d-lg-block">
+        <div class="offcanvas-lg offcanvas-end" tabindex="-1" id="sidebarOffcanvas" aria-labelledby="sidebarOffcanvasLabel">
+          <div class="offcanvas-header d-lg-none">
+            <h5 class="offcanvas-title" id="sidebarOffcanvasLabel">Navigation</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+          </div>
         <div class="brand">
           <span class="brand-mark">LV</span>
           <div>
@@ -68,10 +77,11 @@
             </div>
           </section>
         </nav>
+        </div>
       </aside>
 
-      <main class="reader">
-        <section class="daily-widget" id="dailyWidget">
+      <main class="reader container-fluid px-3 px-md-4">
+        <section class="daily-widget card shadow-sm mb-4 mx-0 mx-md-2" id="dailyWidget">
           <div class="daily-header">
             <div>
               <p class="daily-eyebrow">📅 Ikdienas prakse</p>
@@ -95,8 +105,7 @@
           </div>
         </section>
 
-        <section class="hero">
-          <div id="hero-empty" class="hero-empty">
+        <section class="hero card shadow-sm mb-4 mx-0 mx-md-2">
             <h2>Select an audio item to start listening.</h2>
             <p>Choose a lesson from the sidebar or browse by real-life situation.</p>
             <div id="category-landing" class="category-landing" hidden>
@@ -104,8 +113,8 @@
               <div id="category-cards" class="category-cards"></div>
             </div>
             <div class="hero-ctas" id="hero-ctas">
-              <button type="button" class="cta-btn" id="btn-daily-challenge">Try today's 5-minute challenge.</button>
-              <button type="button" class="cta-btn" id="btn-browse-category">Browse by real-life situation.</button>
+              <button type="button" class="cta-btn btn btn-primary btn-lg w-100 mb-2" id="btn-daily-challenge">Try today's 5-minute challenge.</button>
+              <button type="button" class="cta-btn btn btn-outline-primary w-100" id="btn-browse-category">Browse by real-life situation.</button>
             </div>
           </div>
           <div id="hero-content" hidden>
@@ -128,7 +137,7 @@
           </div>
         </section>
 
-        <section class="comp-meter-card" id="compMeterCard" hidden>
+        <section class="comp-meter-card card shadow-sm mb-4 mx-0 mx-md-2" id="compMeterCard" hidden>
           <div class="comp-meter-header">
             <h3>Comprehension Meter</h3>
             <span class="comp-estimate-note" id="compEstimateNote">Estimate based on common words</span>
@@ -151,7 +160,7 @@
           </div>
         </section>
 
-        <section class="recommendations-section" id="recommendations" hidden>
+        <section class="recommendations-section card shadow-sm mb-4 mx-0 mx-md-2" id="recommendations" hidden>
           <div class="rec-header">
             <h3>Recommended Next</h3>
             <button id="resetProgress" type="button" class="reset-btn">Reset Progress</button>
@@ -164,9 +173,9 @@
           </div>
         </section>
 
-        <section class="player-card">
+        <section class="player-card card shadow-sm mb-4 mx-0 mx-md-2">
           <span id="speakerBadge" class="speaker-badge" style="display:none"></span>
-          <div class="audio-player" role="group" aria-label="Audio player">
+          <div class="audio-player py-2" role="group" aria-label="Audio player">
             <button id="play-pause" type="button" aria-label="Play">
               <span class="icon-play" aria-hidden="true">▶</span>
             </button>
@@ -195,9 +204,9 @@
           </div>
           <div id="playback-status" aria-live="polite" class="sr-only"></div>
           <audio id="audio" preload="metadata"></audio>
-          <div class="nav-buttons">
-            <button id="prev" type="button">Previous</button>
-            <button id="next" type="button">Next</button>
+          <div class="nav-buttons gap-2">
+            <button id="prev" class="btn btn-outline-secondary btn-sm" type="button">Previous</button>
+            <button id="next" class="btn btn-primary btn-sm" type="button">Next</button>
           </div>
         </section>
 
@@ -209,10 +218,8 @@
         <p id="voiceRecommendation" class="voice-recommendation"></p>
 
         <div id="transcript-view">
-        <section class="content-grid">
-          <article class="text-panel">
-            <div class="panel-heading">
-              <h3>Latvian Transcript</h3>
+        <section class="content-grid row row-cols-1 row-cols-md-2 g-3 mx-0 mx-md-2">
+          <article class="text-panel card shadow-sm p-3">
               <a id="lvLink" href="#" target="_blank" rel="noreferrer" hidden>Markdown</a>
             </div>
             <div class="panel-body">
@@ -222,7 +229,7 @@
               <pre id="lvText" class="reading-text clickable">No transcript selected.</pre>
             </div>
           </article>
-          <article class="text-panel">
+          <article class="text-panel card shadow-sm p-3">
             <div class="panel-heading">
               <h3>English Translation</h3>
               <a id="enLink" href="#" target="_blank" rel="noreferrer" hidden>Markdown</a>
@@ -380,12 +387,12 @@
       <div id="communityList" class="community-list"></div>
     </aside>
 
-    <div id="sticky-player" class="sticky-player" hidden aria-label="Sticky audio player">
-      <button id="sticky-play-pause" type="button" aria-label="Play">
+    <div id="sticky-player" class="sticky-player shadow-lg d-lg-none" hidden aria-label="Sticky audio player">
+      <button id="sticky-play-pause" class="btn btn-primary btn-sm rounded-circle" type="button" aria-label="Play">
         <span class="icon-play" aria-hidden="true">▶</span>
       </button>
-      <input id="sticky-seek" type="range" min="0" max="100" value="0" aria-label="Seek" />
-      <span id="sticky-time" class="sticky-time">0:00</span>
+      <input id="sticky-seek" class="form-range" type="range" min="0" max="100" value="0" aria-label="Seek" />
+      <span id="sticky-time" class="sticky-time small">0:00</span>
     </div>
     <div class="modal-overlay" id="challengeModal">
       <div class="modal-card">
@@ -416,6 +423,7 @@
       </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script src="ai-transcript-service.js"></script>
     <script src="comprehension-meter.js"></script>
     <script src="lib.js"></script>
