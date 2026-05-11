@@ -39,7 +39,8 @@
     isPlaying: false,
     currentTime: 0,
     duration: 0,
-    waveformData: null
+    waveformData: null,
+    culturalContexts: []
   };
   var isDev = window.location.hostname === 'localhost' || window.location.hostname.indexOf('127.0.0.1') !== -1;
   var audioSource = new AudioSource(AudioSourceType.MP3, window.AUDIO_BASE_URL || '');
@@ -642,6 +643,65 @@
     return div.innerHTML;
   }
 
+  function findCulturalContextsForLesson(lessonId) {
+    if (!lessonId || !State.culturalContexts || State.culturalContexts.length === 0) {
+      return [];
+    }
+    return State.culturalContexts.filter(function(ctx) {
+      return ctx.lesson_ids && ctx.lesson_ids.indexOf(lessonId) !== -1;
+    });
+  }
+
+  function renderCulturalContexts(lessonId) {
+    var culturalSection = document.getElementById('culturalContextSection');
+    var culturalList = document.getElementById('culturalContextList');
+    if (!culturalSection || !culturalList) return;
+
+    var contexts = findCulturalContextsForLesson(lessonId);
+    if (contexts.length === 0) {
+      culturalSection.style.display = 'none';
+      return;
+    }
+
+    culturalSection.style.display = 'block';
+    culturalList.innerHTML = contexts.map(function(ctx, idx) {
+      var phrasesHtml = '';
+      if (ctx.phrases && ctx.phrases.length > 0) {
+        phrasesHtml = '<div class="cultural-phrases"><h5>Useful Phrases</h5>';
+        ctx.phrases.forEach(function(phrase) {
+          phrasesHtml += '<div class="phrase-item"><span class="phrase-lv">' + escapeHtml(phrase.lv) + '</span><span class="phrase-en">' + escapeHtml(phrase.en) + '</span><span class="phrase-usage">' + escapeHtml(phrase.usage) + '</span></div>';
+        });
+        phrasesHtml += '</div>';
+      }
+
+      var cardId = 'cultural-card-' + idx;
+      return '<div class="cultural-card" id="' + cardId + '">' +
+        '<div class="cultural-card-header">' +
+        '<h4>' + escapeHtml(ctx.title) + '</h4>' +
+        '<span class="cultural-card-badge">' + escapeHtml(ctx.title_en || '') + '</span>' +
+        '</div>' +
+        '<p class="cultural-explanation">' + escapeHtml(ctx.explanation) + '</p>' +
+        '<button class="cultural-expand" data-target="' + cardId + '-content">Learn more</button>' +
+        '<div class="cultural-content" id="' + cardId + '-content" hidden>' +
+        '<div class="cultural-note"><strong>Practical:</strong> ' + escapeHtml(ctx.practical_note) + '</div>' +
+        phrasesHtml +
+        '</div>' +
+        '</div>';
+    }).join('');
+
+    culturalList.querySelectorAll('.cultural-expand').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var targetId = btn.getAttribute('data-target');
+        var content = document.getElementById(targetId);
+        if (content) {
+          var isHidden = content.hidden;
+          content.hidden = !isHidden;
+          btn.textContent = isHidden ? 'Show less' : 'Learn more';
+        }
+      });
+    });
+  }
+
   function parseTranscriptToSentences(text) {
     if (!text) return [];
     return String(text)
@@ -902,6 +962,8 @@
       );
       renderComprehensionMeter(item.lv_text || '');
       if (lvText) lvText.innerHTML = renderTranscriptWithClickableSentences(item.lv_text || '');
+
+      renderCulturalContexts(item.id);
 
       if (ShadowingMode.tabShadowing && ShadowingMode.tabShadowing.classList.contains('active')) {
         ShadowingMode.initForCurrentItem();
@@ -1653,6 +1715,19 @@
       console.error(error);
       State.filtered = [];
       Renderer.renderEmptyState('catalog-error');
+    });
+
+  fetch('contexts.json', { cache: 'no-store' })
+    .then(function (response) {
+      if (!response.ok) throw new Error('Contexts request failed: ' + response.status);
+      return response.json();
+    })
+    .then(function (contexts) {
+      State.culturalContexts = Array.isArray(contexts) ? contexts : [];
+    })
+    .catch(function (error) {
+      console.warn('Could not load cultural contexts:', error);
+      State.culturalContexts = [];
     });
 
   // ---------------------------------------------------------------------------
