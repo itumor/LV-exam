@@ -974,9 +974,11 @@
   function createLessonButton(item, filtered, selectedIndex, completed) {
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center bg-dark text-white border-secondary';
+    btn.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
     btn.setAttribute('data-lesson-id', item.id || '');
     btn.style.minHeight = '44px';
+    btn.style.width = '100%';
+    btn.style.textAlign = 'left';
 
     if (filtered[selectedIndex] && filtered[selectedIndex].id === item.id) {
       btn.classList.add('active');
@@ -990,7 +992,6 @@
     btn.addEventListener('click', function() {
       var newIndex = filtered.findIndex(function(candidate) { return candidate.id === item.id; });
       Renderer.selectItem(newIndex);
-      // Close offcanvas on mobile after selection
       var offcanvas = document.querySelector('#lessonSidebar');
       if (offcanvas && offcanvas.classList.contains('show')) {
         var bsOffcanvas = bootstrap.Offcanvas.getInstance(offcanvas);
@@ -998,26 +999,12 @@
       }
     });
 
-    var left = document.createElement('span');
-    left.className = 'd-flex align-items-center gap-2 text-truncate';
-    left.style.maxWidth = 'calc(100% - 80px)';
-    var playIcon = document.createElement('i');
-    playIcon.className = 'bi bi-play-fill';
-    playIcon.setAttribute('aria-hidden', 'true');
-    var titleSpan = document.createElement('span');
-    titleSpan.className = 'text-truncate';
-    titleSpan.textContent = item.title || item.original_filename || 'Audio';
-    left.appendChild(playIcon, titleSpan);
-
-    var right = document.createElement('span');
+    var displayTitle = item.title || item.original_filename || item.id || 'Audio';
+    btn.innerHTML = '<span class="lesson-title">' + displayTitle + '</span>';
     if (completed[item.id] === true) {
-      var badge = document.createElement('span');
-      badge.className = 'badge bg-success rounded-pill';
-      badge.textContent = '✓';
-      right.appendChild(badge);
+      btn.innerHTML += '<span class="badge bg-success rounded-pill">✓</span>';
     }
 
-    btn.appendChild(left, right);
     return btn;
   }
 
@@ -1476,9 +1463,12 @@
       var canvas = document.getElementById('waveform-canvas');
       if (!canvas) return;
       fetch(url)
-        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(r) { 
+          if (!r.ok) return null; 
+          return r.json(); 
+        })
         .then(function(data) {
-          if (!Array.isArray(data) || data.length === 0) return;
+          if (!data || !Array.isArray(data) || data.length === 0) return;
           State.waveformData = data;
           var ctx = canvas.getContext('2d');
           var w = canvas.offsetWidth || canvas.width;
@@ -1493,7 +1483,7 @@
             ctx.fillRect(i * barWidth, h - barH, barWidth - 1, barH);
           }
         })
-        .catch(function(e) { console.warn('Waveform load failed:', e); });
+        .catch(function() { /* Silent fail for missing waveform files */ });
     },
 
     initStickyPlayer: function() {

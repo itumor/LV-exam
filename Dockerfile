@@ -12,6 +12,9 @@ COPY codex /app/codex
 COPY latvian-listening-library/web /app/latvian-listening-library/web
 COPY latvian-listening-library/data /app/latvian-listening-library/data
 
+# Ensure symlink exists for audio data path
+RUN cd /app/latvian-listening-library/web && ln -sf ../data data
+
 ENV PORT=80
 EXPOSE 80
 
