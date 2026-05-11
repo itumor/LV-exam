@@ -1515,6 +1515,18 @@ audio::-webkit-media-controls-volume-slider {
   background: rgba(15, 143, 97, 0.15);
 }
 
+.lesson-title {
+  color: inherit;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-group-item .badge {
+  flex-shrink: 0;
+}
+
 .accordion-button:not(.collapsed) {
   background: rgba(8, 47, 73, 0.8);
   color: white;
