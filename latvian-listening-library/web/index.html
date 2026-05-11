@@ -9,57 +9,59 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <button class="btn btn-outline-light d-lg-none position-fixed top-0 start-0 m-3 z-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-label="Toggle navigation">
+      <span>&#9776;</span>
+    </button>
     <div class="app-shell">
-      <aside class="sidebar p-3">
-        <div class="brand d-flex align-items-center gap-3 mb-3">
+      <aside class="sidebar d-lg-block">
+        <div class="offcanvas-lg offcanvas-end" tabindex="-1" id="sidebarOffcanvas" aria-labelledby="sidebarOffcanvasLabel">
+          <div class="offcanvas-header d-lg-none">
+            <h5 class="offcanvas-title" id="sidebarOffcanvasLabel">Navigation</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+          </div>
+        <div class="brand">
           <span class="brand-mark">LV</span>
           <div>
-            <h1 class="h5 mb-0">Klausīšanās</h1>
-            <p class="small mb-0">A1 / A2 audio library</p>
+            <h1>Klausīšanās</h1>
+            <p>A1 / A2 audio library</p>
           </div>
         </div>
-        <button id="theme-toggle" type="button" aria-label="Switch to dark mode" class="btn btn-link text-white p-0 mb-3">
+        <button id="theme-toggle" type="button" aria-label="Switch to dark mode">
           <span class="icon-sun" aria-hidden="true">☀</span>
           <span class="icon-moon" aria-hidden="true">☽</span>
         </button>
-        <nav class="sidebar-links mb-3" aria-label="Links">
-          <a href="../exam-simulation/" class="sidebar-link d-flex align-items-center gap-2 text-decoration-none text-white p-2 rounded">
+        <nav class="sidebar-links" aria-label="Links">
+          <a href="../exam-simulation/" class="sidebar-link">
             <span class="link-icon">📝</span>
             <span class="link-text">A2 Eksāmena Simulācija</span>
           </a>
         </nav>
-        <div class="mb-2">
-          <label class="search-label" for="search">Meklēt</label>
-          <input id="search" type="search" class="form-control form-control-sm" placeholder="Search by file or text..." autocomplete="off" />
-        </div>
-        <div class="mb-2">
-          <label class="search-label" for="styleFilter">Speaking Style</label>
-          <select id="styleFilter" class="form-select form-select-sm">
-            <option value="">All styles</option>
-            <option value="clear">Clear</option>
-            <option value="slow">Slow</option>
-            <option value="normal">Normal</option>
-            <option value="casual">Casual</option>
-            <option value="announcement">Announcement</option>
-            <option value="dialogue">Dialogue</option>
-          </select>
-        </div>
-        <div class="mb-2">
-          <label class="search-label" for="categoryFilter">Real-Life Situation</label>
-          <select id="categoryFilter" class="form-select form-select-sm">
-            <option value="">All categories</option>
-          </select>
-        </div>
+        <label class="search-label" for="search">Meklēt</label>
+        <input id="search" type="search" placeholder="Search by file or text..." autocomplete="off" />
+        <label class="search-label" for="styleFilter">Speaking Style</label>
+        <select id="styleFilter">
+          <option value="">All styles</option>
+          <option value="clear">Clear</option>
+          <option value="slow">Slow</option>
+          <option value="normal">Normal</option>
+          <option value="casual">Casual</option>
+          <option value="announcement">Announcement</option>
+          <option value="dialogue">Dialogue</option>
+        </select>
+        <label class="search-label" for="categoryFilter">Real-Life Situation</label>
+        <select id="categoryFilter">
+          <option value="">All categories</option>
+        </select>
         <div class="comp-filters">
           <span class="comp-filter-label">Rādīt pēc grūtības:</span>
-          <div class="comp-filter-buttons d-flex flex-wrap gap-1">
+          <div class="comp-filter-buttons">
             <button class="comp-filter-btn active" data-filter="all" type="button">Visi</button>
             <button class="comp-filter-btn" data-filter="easy" type="button">Viegli</button>
             <button class="comp-filter-btn" data-filter="manageable" type="button">Ietiekams</button>
             <button class="comp-filter-btn" data-filter="challenging" type="button">Grūti</button>
           </div>
         </div>
-        <nav id="menu" class="menu mt-3" aria-label="Audio lessons">
+        <nav id="menu" class="menu" aria-label="Audio lessons">
           <section class="level-section">
             <div class="item-list">
               <div class="skeleton-item"></div>
@@ -75,367 +77,348 @@
             </div>
           </section>
         </nav>
+        </div>
       </aside>
 
-      <main class="reader p-3 p-md-4">
-        <section class="daily-widget mb-3" id="dailyWidget">
-          <div class="daily-header d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2 mb-3">
+      <main class="reader container-fluid px-3 px-md-4">
+        <section class="daily-widget card shadow-sm mb-4 mx-0 mx-md-2" id="dailyWidget">
+          <div class="daily-header">
             <div>
-              <p class="daily-eyebrow mb-1">📅 Ikdienas prakse</p>
-              <h2 class="daily-title h5 mb-1">Today's Challenge</h2>
-              <p class="daily-subtitle small mb-0">~5 minutes · 3 questions</p>
+              <p class="daily-eyebrow">📅 Ikdienas prakse</p>
+              <h2 class="daily-title">Today's Challenge</h2>
+              <p class="daily-subtitle">~5 minutes · 3 questions</p>
             </div>
-            <div class="daily-stats d-flex gap-2">
-              <div class="stat-chip text-center p-2 rounded">
-                <span class="stat-value fw-bold" id="streakValue">0</span>
-                <span class="stat-label d-block">🔥 Streak</span>
+            <div class="daily-stats">
+              <div class="stat-chip">
+                <span class="stat-value" id="streakValue">0</span>
+                <span class="stat-label">🔥 Streak</span>
               </div>
-              <div class="stat-chip text-center p-2 rounded">
-                <span class="stat-value fw-bold" id="xpValue">0</span>
-                <span class="stat-label d-block">⭐ XP</span>
+              <div class="stat-chip">
+                <span class="stat-value" id="xpValue">0</span>
+                <span class="stat-label">⭐ XP</span>
               </div>
             </div>
           </div>
-          <div class="practice-history d-flex gap-1 mb-3 flex-wrap" id="practiceHistory"></div>
+          <div class="practice-history" id="practiceHistory"></div>
           <div id="dailyContent">
-            <button id="startDailyBtn" class="btn btn-primary w-100">Sākt izaicinājumu</button>
+            <button id="startDailyBtn" class="btn-primary">Sākt izaicinājumu</button>
           </div>
         </section>
 
-        <section class="hero mb-3 p-3 p-md-4" id="heroSection">
-          <div id="hero-empty" class="hero-empty text-center">
-            <h2 class="h4 mb-2">Select an audio item to start listening.</h2>
-            <p class="text-muted mb-3">Choose a lesson from the sidebar or browse by real-life situation.</p>
+        <section class="hero card shadow-sm mb-4 mx-0 mx-md-2">
+            <h2>Select an audio item to start listening.</h2>
+            <p>Choose a lesson from the sidebar or browse by real-life situation.</p>
             <div id="category-landing" class="category-landing" hidden>
-              <h3 class="h5 mb-3">Practical Situations</h3>
-              <div id="category-cards" class="category-cards row g-2"></div>
+              <h3>Practical Situations</h3>
+              <div id="category-cards" class="category-cards"></div>
             </div>
-            <div class="hero-ctas d-flex flex-wrap gap-2 justify-content-center" id="hero-ctas">
-              <button type="button" class="cta-btn btn btn-primary" id="btn-daily-challenge">Try today's 5-minute challenge.</button>
-              <button type="button" class="cta-btn btn btn-outline-primary" id="btn-browse-category">Browse by real-life situation.</button>
+            <div class="hero-ctas" id="hero-ctas">
+              <button type="button" class="cta-btn btn btn-primary btn-lg w-100 mb-2" id="btn-daily-challenge">Try today's 5-minute challenge.</button>
+              <button type="button" class="cta-btn btn btn-outline-primary w-100" id="btn-browse-category">Browse by real-life situation.</button>
             </div>
           </div>
           <div id="hero-content" hidden>
             <p class="eyebrow">Latvian listening course</p>
-            <h2 id="title" class="h3 mb-2"></h2>
-            <p id="subtitle" class="text-muted mb-2"></p>
-            <span id="statusBadge" class="badge bg-secondary mb-2"></span>
-            <div class="level-progress mb-2">
-              <div class="progress-track rounded-pill overflow-hidden" style="height: 8px;">
-                <div id="level-progress-bar" class="progress-fill bg-danger rounded-pill" role="progressbar"
+            <h2 id="title"></h2>
+            <p id="subtitle"></p>
+            <span id="statusBadge" class="badge badge-muted"></span>
+            <div class="level-progress">
+              <div class="progress-track">
+                <div id="level-progress-bar" class="progress-fill" role="progressbar"
                      aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
                      style="width: 0%"></div>
               </div>
-              <span id="level-progress-label" class="small text-muted">0 of 0 completed</span>
+              <span id="level-progress-label">0 of 0 completed</span>
             </div>
-            <div id="exam-readiness" class="exam-readiness small" hidden>
+            <div id="exam-readiness" class="exam-readiness" hidden>
               Exam readiness: <span id="exam-pct">0%</span> (estimated)
             </div>
-            <a href="micro.html" class="micro-link btn btn-danger rounded-pill px-4 py-2 mt-3 d-inline-block text-white text-decoration-none fw-bold">Try Micro Practice →</a>
+            <a href="micro.html" class="micro-link" style="display: inline-block; margin-top: 16px; background: var(--magenta); color: white; padding: 12px 20px; border-radius: 999px; font-weight: 900; text-decoration: none;">Try Micro Practice →</a>
           </div>
         </section>
 
-        <section class="comp-meter-card mb-3 p-3 p-md-4 rounded-4" id="compMeterCard" hidden>
-          <div class="comp-meter-header d-flex flex-wrap gap-2 align-items-baseline mb-3">
-            <h3 class="mb-0">Comprehension Meter</h3>
-            <span class="comp-estimate-note text-muted small fst-italic" id="compEstimateNote">Estimate based on common words</span>
+        <section class="comp-meter-card card shadow-sm mb-4 mx-0 mx-md-2" id="compMeterCard" hidden>
+          <div class="comp-meter-header">
+            <h3>Comprehension Meter</h3>
+            <span class="comp-estimate-note" id="compEstimateNote">Estimate based on common words</span>
           </div>
-          <div class="comp-meter-display d-flex flex-wrap align-items-center gap-3 mb-3" id="compMeterDisplay">
-            <div class="comp-bar-track flex-grow-1 rounded-pill overflow-hidden" style="height: 12px; background: var(--line);">
-              <div class="comp-bar-fill rounded-pill h-100" id="compBarFill" style="width: 0%; transition: width 0.4s ease, background 0.4s ease;"></div>
+          <div class="comp-meter-display" id="compMeterDisplay">
+            <div class="comp-bar-track">
+              <div class="comp-bar-fill" id="compBarFill" style="width: 0%"></div>
             </div>
-            <div class="comp-pct fw-bold text-nowrap" id="compPct">-</div>
-            <div class="comp-label rounded-pill px-3 py-1 small fw-bold" id="compLabel">-</div>
+            <div class="comp-pct" id="compPct">-</div>
+            <div class="comp-label" id="compLabel">-</div>
           </div>
-          <div class="comp-stats d-flex flex-wrap gap-3 pt-3 border-top" id="compStats">
-            <div class="comp-stat text-center">
-              <span class="comp-stat-n fw-bold" id="statTotal">-</span>
-              <span class="comp-stat-l d-block small text-muted text-uppercase">total words</span>
-            </div>
-            <div class="comp-stat text-center">
-              <span class="comp-stat-n fw-bold" id="statUnique">-</span>
-              <span class="comp-stat-l d-block small text-muted text-uppercase">unique words</span>
-            </div>
-            <div class="comp-stat text-center">
-              <span class="comp-stat-n fw-bold" id="statUnknown">-</span>
-              <span class="comp-stat-l d-block small text-muted text-uppercase">new words</span>
-            </div>
+          <div class="comp-stats" id="compStats">
+            <div class="comp-stat"><span class="comp-stat-n" id="statTotal">-</span><span class="comp-stat-l">total words</span></div>
+            <div class="comp-stat"><span class="comp-stat-n" id="statUnique">-</span><span class="comp-stat-l">unique words</span></div>
+            <div class="comp-stat"><span class="comp-stat-n" id="statUnknown">-</span><span class="comp-stat-l">new words</span></div>
           </div>
-          <div class="comp-unknown-words pt-3 border-top" id="compUnknownWords">
-            <h4 class="small mb-2">Top Unknown Words</h4>
-            <div class="unknown-word-list d-flex flex-wrap gap-1" id="unknownWordList"></div>
+          <div class="comp-unknown-words" id="compUnknownWords">
+            <h4>Top Unknown Words</h4>
+            <div class="unknown-word-list" id="unknownWordList"></div>
           </div>
         </section>
 
-        <section class="recommendations-section mb-3 p-3 rounded-4" id="recommendations" hidden>
-          <div class="rec-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-            <h3 class="h5 mb-0">Recommended Next</h3>
-            <button id="resetProgress" type="button" class="reset-btn btn btn-outline-danger btn-sm rounded-pill">Reset Progress</button>
+        <section class="recommendations-section card shadow-sm mb-4 mx-0 mx-md-2" id="recommendations" hidden>
+          <div class="rec-header">
+            <h3>Recommended Next</h3>
+            <button id="resetProgress" type="button" class="reset-btn">Reset Progress</button>
           </div>
-          <div class="rec-list mb-3" id="recList"></div>
+          <div class="rec-list" id="recList"></div>
           <div class="weak-skills" id="weakSkills">
-            <h4 class="h6 mb-2">Weak Skills Analysis</h4>
-            <div id="weakSkillsList" class="weak-skills-list mb-2"></div>
-            <button id="resetLearningBtn" type="button" class="reset-learning-btn btn btn-outline-danger btn-sm">Reset Learning Progress</button>
+            <h4>Weak Skills Analysis</h4>
+            <div id="weakSkillsList" class="weak-skills-list"></div>
+            <button id="resetLearningBtn" type="button" class="reset-learning-btn">Reset Learning Progress</button>
           </div>
         </section>
 
-        <section class="player-card mb-3 p-3 rounded-4">
-          <span id="speakerBadge" class="speaker-badge d-none mb-2"></span>
-          <div class="audio-player d-flex align-items-center gap-2 flex-wrap" role="group" aria-label="Audio player">
-            <button id="play-pause" type="button" aria-label="Play" class="btn btn-danger rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; flex-shrink: 0;">
+        <section class="player-card card shadow-sm mb-4 mx-0 mx-md-2">
+          <span id="speakerBadge" class="speaker-badge" style="display:none"></span>
+          <div class="audio-player py-2" role="group" aria-label="Audio player">
+            <button id="play-pause" type="button" aria-label="Play">
               <span class="icon-play" aria-hidden="true">▶</span>
             </button>
-            <div class="progress-container flex-grow-1 position-relative d-flex align-items-center" style="height: 40px;">
-              <canvas id="waveform-canvas" aria-hidden="true" class="position-absolute top-0 start-0 w-100 h-100"></canvas>
+            <div class="progress-container">
+              <canvas id="waveform-canvas" aria-hidden="true"></canvas>
               <input id="seek-bar" type="range" min="0" max="100" value="0"
-                     aria-label="Seek" step="1" class="w-100 position-relative z-1" />
+                     aria-label="Seek" step="1" />
             </div>
-            <span id="time-display" aria-live="off" class="text-muted small text-nowrap">0:00 / 0:00</span>
-            <div class="playback-controls d-flex align-items-center gap-2 ms-auto">
-              <button id="speed-btn" type="button" class="speed-control btn btn-outline-secondary btn-sm" aria-label="Playback speed" title="Speed">
+            <span id="time-display" aria-live="off">0:00 / 0:00</span>
+            <div class="playback-controls">
+              <button id="speed-btn" type="button" class="speed-control" aria-label="Playback speed" title="Speed">
                 1x
               </button>
-              <div id="speed-menu" class="speed-menu hidden position-absolute bg-white border rounded shadow-sm" role="menu" aria-label="Playback speed options" style="z-index: 100;">
-                <button type="button" class="speed-option dropdown-item" data-speed="1" role="menuitem">1x</button>
-                <button type="button" class="speed-option dropdown-item" data-speed="0.75" role="menuitem">0.75x</button>
-                <button type="button" class="speed-option dropdown-item" data-speed="0.5" role="menuitem">0.5x</button>
+              <div id="speed-menu" class="speed-menu hidden" role="menu" aria-label="Playback speed options">
+                <button type="button" class="speed-option" data-speed="1" role="menuitem">1x</button>
+                <button type="button" class="speed-option" data-speed="0.75" role="menuitem">0.75x</button>
+                <button type="button" class="speed-option" data-speed="0.5" role="menuitem">0.5x</button>
               </div>
-              <button id="hide-transcript-btn" type="button" class="hide-transcript-control btn btn-link p-1" aria-label="Hide transcript" title="Toggle transcript">
+              <button id="hide-transcript-btn" type="button" class="hide-transcript-control" aria-label="Hide transcript" title="Toggle transcript">
                 👁️
               </button>
             </div>
           </div>
-          <div id="audio-error" class="audio-error text-danger small mt-2 p-2 rounded" hidden>
+          <div id="audio-error" class="audio-error" hidden>
             Unable to load audio. Check your connection and try again.
           </div>
           <div id="playback-status" aria-live="polite" class="sr-only"></div>
-          <audio id="audio" preload="metadata" class="w-100 my-2"></audio>
-          <div class="nav-buttons d-flex gap-2 justify-content-end mt-2">
-            <button id="prev" type="button" class="btn btn-danger rounded-pill btn-sm">Previous</button>
-            <button id="next" type="button" class="btn btn-danger rounded-pill btn-sm">Next</button>
+          <audio id="audio" preload="metadata"></audio>
+          <div class="nav-buttons gap-2">
+            <button id="prev" class="btn btn-outline-secondary btn-sm" type="button">Previous</button>
+            <button id="next" class="btn btn-primary btn-sm" type="button">Next</button>
           </div>
         </section>
 
-        <div class="mode-tabs d-flex gap-2 mb-3">
-          <button id="tab-transcript" class="tab-button active btn btn-danger rounded-pill px-4" type="button">Transcript</button>
-          <button id="tab-shadowing" class="tab-button btn btn-outline-danger rounded-pill px-4" type="button">Shadowing</button>
+        <div class="mode-tabs">
+          <button id="tab-transcript" class="tab-button active" type="button">Transcript</button>
+          <button id="tab-shadowing" class="tab-button" type="button">Shadowing</button>
         </div>
 
-        <p id="voiceRecommendation" class="voice-recommendation text-danger text-center my-3 fw-medium"></p>
+        <p id="voiceRecommendation" class="voice-recommendation"></p>
 
         <div id="transcript-view">
-        <section class="content-grid row g-3 mb-3">
-          <article class="text-panel col-12 col-lg-6 p-3 rounded-4">
-            <div class="panel-heading d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-              <h3 class="h6 mb-0 d-flex align-items-center gap-1">
-                <span class="rounded-circle d-inline-block" style="width: 8px; height: 8px; background: var(--magenta);"></span>
-                Latvian Transcript
-              </h3>
-              <a id="lvLink" href="#" target="_blank" rel="noreferrer" hidden class="text-danger fw-bold small">Markdown</a>
+        <section class="content-grid row row-cols-1 row-cols-md-2 g-3 mx-0 mx-md-2">
+          <article class="text-panel card shadow-sm p-3">
+              <a id="lvLink" href="#" target="_blank" rel="noreferrer" hidden>Markdown</a>
             </div>
             <div class="panel-body">
-              <div class="skeleton-line d-none mb-2" style="height: 14px;"></div>
-              <div class="skeleton-line d-none mb-2" style="height: 14px;"></div>
-              <div class="skeleton-line d-none mb-2" style="height: 14px;"></div>
-              <pre id="lvText" class="reading-text clickable rounded p-3" style="background: var(--paper); border: 1px solid var(--line);">No transcript selected.</pre>
+              <div class="skeleton-line" hidden></div>
+              <div class="skeleton-line" hidden></div>
+              <div class="skeleton-line" hidden></div>
+              <pre id="lvText" class="reading-text clickable">No transcript selected.</pre>
             </div>
           </article>
-          <article class="text-panel col-12 col-lg-6 p-3 rounded-4">
-            <div class="panel-heading d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-              <h3 class="h6 mb-0 d-flex align-items-center gap-1">
-                <span class="rounded-circle d-inline-block" style="width: 8px; height: 8px; background: var(--magenta);"></span>
-                English Translation
-              </h3>
-              <a id="enLink" href="#" target="_blank" rel="noreferrer" hidden class="text-danger fw-bold small">Markdown</a>
+          <article class="text-panel card shadow-sm p-3">
+            <div class="panel-heading">
+              <h3>English Translation</h3>
+              <a id="enLink" href="#" target="_blank" rel="noreferrer" hidden>Markdown</a>
             </div>
             <div class="panel-body">
-              <div class="skeleton-line d-none mb-2" style="height: 14px;"></div>
-              <div class="skeleton-line d-none mb-2" style="height: 14px;"></div>
-              <div class="skeleton-line d-none mb-2" style="height: 14px;"></div>
-              <pre id="enText" class="reading-text rounded p-3" style="background: var(--paper); border: 1px solid var(--line);">No translation selected.</pre>
+              <div class="skeleton-line" hidden></div>
+              <div class="skeleton-line" hidden></div>
+              <div class="skeleton-line" hidden></div>
+              <pre id="enText" class="reading-text">No translation selected.</pre>
             </div>
 </article>
           </article>
         </section>
 
-        <section id="clozeSection" class="cloze-section rounded p-3 my-3" style="display:none; background: var(--paper);">
-          <div class="panel-heading d-flex justify-content-between align-items-center mb-3">
-            <h3 class="h6 mb-0">Fill in the missing words</h3>
-            <span id="clozeProgress" class="badge bg-secondary">0/0</span>
+        <section id="clozeSection" class="cloze-section" style="display:none">
+          <div class="panel-heading">
+            <h3>Fill in the missing words</h3>
+            <span id="clozeProgress">0/0</span>
           </div>
           <div id="clozeContainer" class="cloze-container"></div>
-          <div class="cloze-actions d-flex gap-3 mt-3">
-            <button id="checkClozeBtn" type="button" class="btn btn-primary flex-grow-1 rounded-pill">Check Answers</button>
-            <button id="resetClozeBtn" type="button" class="btn btn-outline-secondary flex-grow-1 rounded-pill">Reset</button>
+          <div class="cloze-actions">
+            <button id="checkClozeBtn" type="button" class="btn-primary">Check Answers</button>
+            <button id="resetClozeBtn" type="button" class="btn-secondary">Reset</button>
           </div>
         </section>
 
-        <section id="culturalContextSection" class="cultural-context-section rounded p-3 my-3" style="display:none; background: var(--paper);">
-          <div class="panel-heading mb-3">
-            <h3 class="h6 mb-0">Cultural Context</h3>
+        <section id="culturalContextSection" class="cultural-context-section" style="display:none">
+          <div class="panel-heading">
+            <h3>Cultural Context</h3>
           </div>
           <div id="culturalContextList" class="cultural-context-list"></div>
         </section>
 
-<section class="tabs d-flex gap-1 mb-3 pb-2 border-bottom">
-          <button id="transcriptTabBtn" type="button" class="tab active btn btn-danger rounded-top px-3 py-2">Transcript</button>
-          <button id="vocabTabBtn" type="button" class="tab btn btn-outline-secondary rounded-top px-3 py-2">Vocabulary</button>
-          <button id="reviewTabBtn" type="button" class="tab btn btn-outline-secondary rounded-top px-3 py-2">Review</button>
-          <button id="deckTabBtn" type="button" class="tab btn btn-outline-secondary rounded-top px-3 py-2">Deck</button>
+<section class="tabs">
+          <button id="transcriptTabBtn" type="button" class="tab active">Transcript</button>
+          <button id="vocabTabBtn" type="button" class="tab">Vocabulary</button>
+          <button id="reviewTabBtn" type="button" class="tab">Review</button>
+          <button id="deckTabBtn" type="button" class="tab">Deck</button>
         </section>
 
-        <section id="vocabSection" class="vocab-section my-3" style="display:none;">
-          <div class="panel-heading mb-2"><h3 class="h6">Vocabulary from this lesson</h3></div>
-          <div id="vocabList" class="vocab-list d-flex flex-wrap gap-2"></div>
+        <section id="vocabSection" class="vocab-section" style="display:none">
+          <div class="panel-heading"><h3>Vocabulary from this lesson</h3></div>
+          <div id="vocabList" class="vocab-list"></div>
         </section>
 
-        <section id="reviewSection" class="review-section my-3" style="display:none;">
-          <div class="panel-heading mb-2"><h3 class="h6">Review flashcards</h3></div>
+        <section id="reviewSection" class="review-section" style="display:none">
+          <div class="panel-heading"><h3>Review flashcards</h3></div>
           <div id="reviewContainer" class="review-container"></div>
         </section>
 
-        <section id="deckSection" class="deck-section my-3" style="display:none;">
-          <div class="panel-heading d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-            <h3 class="h6 mb-0">Your flashcard deck</h3>
-            <div class="deck-actions d-flex gap-2 flex-wrap">
-              <button id="exportAnkiBtn" type="button" class="btn btn-outline-danger btn-sm rounded-pill">Export Anki CSV</button>
-              <button id="exportJsonBtn" type="button" class="btn btn-outline-danger btn-sm rounded-pill">Export JSON</button>
-              <label class="btn btn-outline-secondary btn-sm rounded-pill">
-                <input type="file" id="importJsonBtn" accept=".json" class="d-none">Import JSON
-              </label>
+        <section id="deckSection" class="deck-section" style="display:none">
+          <div class="panel-heading">
+            <h3>Your flashcard deck</h3>
+            <div class="deck-actions">
+              <button id="exportAnkiBtn" type="button" class="btn-action">Export Anki CSV</button>
+              <button id="exportJsonBtn" type="button" class="btn-action">Export JSON</button>
+              <label class="btn-action"><input type="file" id="importJsonBtn" accept=".json" style="display:none">Import JSON</label>
             </div>
           </div>
-          <div id="deckStats" class="deck-stats rounded p-3 mb-3" style="background: var(--ice);"></div>
+          <div id="deckStats" class="deck-stats"></div>
           <div id="deckList" class="deck-list"></div>
         </section>
         </div>
 
-        <section id="shadowing-view" class="shadowing-panel rounded-4 p-3 p-md-4 mb-3 hidden">
-          <div class="shadowing-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-            <h3 class="h5 mb-0">Shadowing Mode</h3>
-            <label class="toggle-translation d-flex align-items-center gap-2 small">
+        <section id="shadowing-view" class="shadowing-panel hidden">
+          <div class="shadowing-header">
+            <h3>Shadowing Mode</h3>
+            <label class="toggle-translation">
               <input id="showTranslation" type="checkbox" />
               <span>Show English</span>
             </label>
           </div>
-          <div class="sentence-display rounded p-4 text-center mb-3" style="background: var(--ice);">
-            <p id="currentSentence" class="current-sentence fs-5 mb-2" style="font-family: Georgia, serif; line-height: 1.6;">Select an audio item to start shadowing.</p>
-            <p id="currentTranslation" class="current-translation d-none text-muted fst-italic"></p>
+          <div class="sentence-display">
+            <p id="currentSentence" class="current-sentence">Select an audio item to start shadowing.</p>
+            <p id="currentTranslation" class="current-translation hidden"></p>
           </div>
-          <div class="sentence-progress text-center text-muted mb-3 fw-bold">
+          <div class="sentence-progress">
             <span id="sentenceCounter">0 / 0</span>
           </div>
-          <div class="shadowing-controls d-flex flex-wrap gap-2 justify-content-center mb-4">
-            <button id="shadowPrev" class="control-btn btn btn-dark rounded-pill px-4 py-2" type="button" disabled>Previous</button>
-            <button id="shadowReplay" class="control-btn btn btn-secondary rounded-pill px-4 py-2" type="button" disabled>Replay</button>
-            <button id="shadowRecord" class="control-btn record-btn btn btn-danger rounded-pill px-4 py-2" type="button" disabled>Record</button>
-            <button id="shadowStop" class="control-btn btn btn-dark rounded-pill px-4 py-2" type="button" disabled>Stop</button>
-            <button id="shadowPlayRecording" class="control-btn btn btn-outline-primary rounded-pill px-4 py-2" type="button" disabled>Play My Recording</button>
-            <button id="shadowNext" class="control-btn btn btn-dark rounded-pill px-4 py-2" type="button" disabled>Next</button>
+          <div class="shadowing-controls">
+            <button id="shadowPrev" class="control-btn" type="button" disabled>Previous</button>
+            <button id="shadowReplay" class="control-btn" type="button" disabled>Replay</button>
+            <button id="shadowRecord" class="control-btn record-btn" type="button" disabled>Record</button>
+            <button id="shadowStop" class="control-btn" type="button" disabled>Stop</button>
+            <button id="shadowPlayRecording" class="control-btn" type="button" disabled>Play My Recording</button>
+            <button id="shadowNext" class="control-btn" type="button" disabled>Next</button>
           </div>
-          <div class="waveform-container rounded overflow-hidden mb-3" style="background: var(--ice);">
-            <canvas id="waveformCanvas" width="600" height="80" class="w-100 d-block"></canvas>
+          <div class="waveform-container">
+            <canvas id="waveformCanvas" width="600" height="80"></canvas>
           </div>
-          <div class="recording-status text-center text-muted small mb-3" id="recordingStatus"></div>
-          <div class="pronunciation-feedback rounded p-3 mb-3 text-center" style="background: var(--paper);" id="pronunciationFeedback"></div>
-          <p class="privacy-note text-center text-muted small mb-0">🔒 Recordings stay in your browser. Nothing is uploaded.</p>
+          <div class="recording-status" id="recordingStatus"></div>
+          <div class="pronunciation-feedback" id="pronunciationFeedback"></div>
+          <p class="privacy-note">🔒 Recordings stay in your browser. Nothing is uploaded.</p>
         </section>
         </section>
       </main>
 
-      <aside id="aiPanel" class="ai-panel bg-white border-start shadow" aria-hidden="true" style="width: 380px;">
-        <div class="ai-panel-header d-flex justify-content-between align-items-center p-3 border-bottom">
-          <h3 class="mb-0 text-danger h6">AI Assistant</h3>
-          <button id="closeAIPanel" class="ai-close-btn btn btn-link text-muted p-0" aria-label="Close panel" style="font-size: 1.8rem;">&times;</button>
+      <aside id="aiPanel" class="ai-panel" aria-hidden="true">
+        <div class="ai-panel-header">
+          <h3>AI Assistant</h3>
+          <button id="closeAIPanel" class="ai-close-btn" aria-label="Close panel">&times;</button>
         </div>
-        <div class="ai-panel-controls border-bottom p-3">
-          <label class="ai-mode-toggle d-flex align-items-center gap-2 small">
+        <div class="ai-panel-controls">
+          <label class="ai-mode-toggle">
             <input type="checkbox" id="aiModeToggle" />
-            <span class="toggle-label text-muted">Detailed mode</span>
+            <span class="toggle-label">Detailed mode</span>
           </label>
         </div>
-        <div id="aiPanelContent" class="ai-panel-content flex-grow-1 overflow-auto p-3">
-          <p class="ai-hint text-muted fst-italic text-center py-5">Click a sentence in the Latvian transcript to get an AI explanation.</p>
+        <div id="aiPanelContent" class="ai-panel-content">
+          <p class="ai-hint">Click a sentence in the Latvian transcript to get an AI explanation.</p>
         </div>
-        <div id="aiLoading" class="ai-loading d-none align-items-center justify-content-center flex-column py-5" style="min-height: 100px;">
-          <div class="spinner mb-2" style="border: 3px solid var(--line); border-top-color: var(--magenta); border-radius: 50%; width: 32px; height: 32px; animation: spin 1s linear infinite;"></div>
-          <span class="text-muted small">Getting explanation...</span>
+        <div id="aiLoading" class="ai-loading" hidden>
+          <div class="spinner"></div>
+          <span>Getting explanation...</span>
         </div>
-        <div id="aiError" class="ai-error text-danger p-3 d-none">
-          <p>Unable to get explanation. <button id="retryBtn" class="ai-retry-btn btn btn-danger btn-sm rounded-pill">Try again</button></p>
+        <div id="aiError" class="ai-error" hidden>
+          <p>Unable to get explanation. <button id="retryBtn" class="ai-retry-btn">Try again</button></p>
         </div>
-        <div class="ai-panel-footer border-top p-3">
-          <p class="ai-disclaimer text-muted small mb-0 lh-sm">AI explanations are automated and may not be perfect. They are designed to help A2-level learners.</p>
+        <div class="ai-panel-footer">
+          <p class="ai-disclaimer">AI explanations are automated and may not be perfect. They are designed to help A2-level learners.</p>
         </div>
       </aside>
-      <div id="aiOverlay" class="ai-overlay d-none" style="background: rgba(8, 47, 73, 0.4); position: fixed; inset: 0; z-index: 999;"></div>
+      <div id="aiOverlay" class="ai-overlay" hidden></div>
     </div>
 
-<button id="communityToggle" type="button" class="community-toggle btn btn-danger rounded-circle d-flex align-items-center justify-content-center" aria-label="Open community panel" title="Community" style="width: 56px; height: 56px; font-size: 24px; position: fixed; bottom: 24px; right: 24px; z-index: 100; box-shadow: var(--shadow-lg);">💬</button>
+<button id="communityToggle" type="button" class="community-toggle" aria-label="Open community panel" title="Community">💬</button>
 
-    <aside id="communityPanel" class="community-panel bg-white shadow" aria-label="Community discussion" style="width: 400px; max-width: 100vw;">
-      <div class="community-header d-flex justify-content-between align-items-center p-3 border-bottom" style="background: var(--navy); color: white;">
-        <h3 class="mb-0 h6">Community</h3>
-        <button id="communityClose" type="button" class="panel-close btn btn-link text-white p-0" aria-label="Close panel" style="font-size: 28px;">×</button>
+    <aside id="communityPanel" class="community-panel" aria-label="Community discussion">
+      <div class="community-header">
+        <h3>Community</h3>
+        <button id="communityClose" type="button" class="panel-close" aria-label="Close panel">×</button>
       </div>
-      <div class="community-tabs d-flex border-bottom">
-        <button type="button" data-tab="questions" class="tab active flex-fill p-3 border-0 border-bottom-2 text-muted fw-medium">Questions</button>
-        <button type="button" data-tab="comments" class="tab flex-fill p-3 border-0 border-bottom-2 text-muted fw-medium">Comments</button>
-        <button type="button" data-tab="translations" class="tab flex-fill p-3 border-0 border-bottom-2 text-muted fw-medium">Translations</button>
+      <div class="community-tabs">
+        <button type="button" data-tab="questions" class="tab active">Questions</button>
+        <button type="button" data-tab="comments" class="tab">Comments</button>
+        <button type="button" data-tab="translations" class="tab">Translations</button>
       </div>
-      <div class="community-form p-3 border-bottom d-flex flex-column gap-2">
-        <select id="entryType" class="form-select form-select-sm">
+      <div class="community-form">
+        <select id="entryType">
           <option value="question">Question</option>
           <option value="comment">Comment</option>
           <option value="translation_suggestion">Translation suggestion</option>
         </select>
-        <input id="authorName" type="text" class="form-control form-control-sm" placeholder="Your name" maxlength="50" />
-        <textarea id="entryBody" class="form-control form-control-sm" placeholder="Share your thoughts..." maxlength="500" style="min-height: 80px; resize: vertical;"></textarea>
-        <button id="submitEntry" type="button" class="btn btn-danger btn-sm rounded">Add</button>
+        <input id="authorName" type="text" placeholder="Your name" maxlength="50" />
+        <textarea id="entryBody" placeholder="Share your thoughts..." maxlength="500"></textarea>
+        <button id="submitEntry" type="button">Add</button>
       </div>
-      <div class="community-sort d-flex align-items-center gap-2 p-2 border-bottom small">
-        <label class="text-muted">Sort by:</label>
-        <select id="sortOrder" class="form-select form-select-sm py-1">
+      <div class="community-sort">
+        <label>Sort by:</label>
+        <select id="sortOrder">
           <option value="newest">Newest</option>
           <option value="helpful">Most Helpful</option>
         </select>
       </div>
-      <div id="communityList" class="community-list flex-grow-1 overflow-auto p-3"></div>
+      <div id="communityList" class="community-list"></div>
     </aside>
 
-    <div id="sticky-player" class="sticky-player d-none align-items-center gap-3 p-3" style="background: var(--color-surface-raised); border-top: 1px solid var(--color-border); box-shadow: var(--shadow-md); position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;" aria-label="Sticky audio player">
-      <button id="sticky-play-pause" type="button" aria-label="Play" class="btn btn-danger rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; flex-shrink: 0;">
+    <div id="sticky-player" class="sticky-player shadow-lg d-lg-none" hidden aria-label="Sticky audio player">
+      <button id="sticky-play-pause" class="btn btn-primary btn-sm rounded-circle" type="button" aria-label="Play">
         <span class="icon-play" aria-hidden="true">▶</span>
       </button>
-      <input id="sticky-seek" type="range" min="0" max="100" value="0" class="flex-grow-1" aria-label="Seek" />
-      <span id="sticky-time" class="sticky-time text-muted small text-nowrap">0:00</span>
+      <input id="sticky-seek" class="form-range" type="range" min="0" max="100" value="0" aria-label="Seek" />
+      <span id="sticky-time" class="sticky-time small">0:00</span>
     </div>
-    <div class="modal-overlay" id="challengeModal" style="background: rgba(8, 47, 73, 0.7); display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center;">
-      <div class="modal-card bg-white rounded-4 p-4 mx-3" style="max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
-        <div class="modal-header d-flex justify-content-between align-items-center mb-4">
-          <h3 id="challengeTitle" class="mb-0">Daily Challenge</h3>
-          <button class="modal-close btn btn-link text-muted p-0" id="closeModal" style="font-size: 2rem;">&times;</button>
+    <div class="modal-overlay" id="challengeModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="challengeTitle">Daily Challenge</h3>
+          <button class="modal-close" id="closeModal">&times;</button>
         </div>
-        <div class="challenge-audio mb-4">
-          <audio id="challengeAudio" controls preload="metadata" class="w-100"></audio>
+        <div class="challenge-audio">
+          <audio id="challengeAudio" controls preload="metadata"></audio>
         </div>
         <div id="challengeQuestions"></div>
-        <div class="modal-footer mt-4">
-          <button id="submitChallenge" class="btn btn-primary w-100 rounded-pill" disabled>Iesniegt</button>
+        <div class="modal-footer">
+          <button id="submitChallenge" class="btn-primary" disabled>Iesniegt</button>
         </div>
       </div>
     </div>
 
-    <div class="modal-overlay" id="resultsModal" style="background: rgba(8, 47, 73, 0.7); display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center;">
-      <div class="modal-card bg-white rounded-4 p-4 mx-3" style="max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
-        <div class="modal-header d-flex justify-content-between align-items-center mb-4">
-          <h3 class="mb-0">Rezultāts</h3>
-          <button class="modal-close btn btn-link text-muted p-0" id="closeResults" style="font-size: 2rem;">&times;</button>
+    <div class="modal-overlay" id="resultsModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Rezultāts</h3>
+          <button class="modal-close" id="closeResults">&times;</button>
         </div>
         <div id="resultsContent"></div>
-        <div class="modal-footer mt-4">
-          <button id="closeResultsBtn" class="btn btn-primary w-100 rounded-pill">Turpināt</button>
+        <div class="modal-footer">
+          <button id="closeResultsBtn" class="btn-primary">Turpināt</button>
         </div>
       </div>
     </div>
