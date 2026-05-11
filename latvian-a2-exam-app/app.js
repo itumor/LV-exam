@@ -96,7 +96,15 @@ const state = {
     transcriptInterims: {},
     transcriptErrors: {}
   },
-  listenPlayCount: {}
+  listenPlayCount: {},
+  interactiveListening: {
+    segments: [],
+    activeSegmentIndex: -1,
+    transcriptVisible: true,
+    playbackSpeed: 1.0,
+    clozeAnswers: [],
+    clozeChecked: false
+  }
 };
 
 const PART_CONFIG = [
@@ -121,7 +129,8 @@ const TASK_CONFIG = {
   listening: [
     { taskKey: "task1", title: "1. uzdevums", heading: "#### 1. uzdevums", ends: ["#### 2. uzdevums"], split: "numbered", kind: "choice-list", options: ["a", "b", "c"], expected: 6 },
     { taskKey: "task2", title: "2. uzdevums", heading: "#### 2. uzdevums", ends: ["#### 3. uzdevums"], split: "numbered", kind: "yes-no-table", options: ["Jā", "Nē"], expected: 4 },
-    { taskKey: "task3", title: "3. uzdevums", heading: "#### 3. uzdevums", ends: ["###"], split: "numbered", referenceStarts: "Atbilžu varianti", kind: "drag-fill", expected: 5 }
+    { taskKey: "task3", title: "3. uzdevums", heading: "#### 3. uzdevums", ends: ["###"], split: "numbered", referenceStarts: "Atbilžu varianti", kind: "drag-fill", expected: 5 },
+    { taskKey: "taskInteractive", title: "Interactive Listening", heading: "#### Interactive Listening", ends: ["###"], split: "interactive", kind: "interactive-listening", expected: 0 }
   ],
   reading: [
     { taskKey: "task1", title: "1. uzdevums", heading: "#### 1. uzdevums", ends: ["#### 2. uzdevums"], split: "readingTexts", kind: "reading-choice", options: ["a", "b", "c"], expected: 4 },
@@ -1989,6 +1998,9 @@ function renderTaskQuestions(section, task, questions, view) {
   if (task.kind === "oral-questions") {
     return renderOralQuestionTask(section, task, questions);
   }
+  if (task.kind === "interactive-listening") {
+    return renderInteractiveListeningTask(section, task, view);
+  }
   const safeQuestions = questions.length ? questions : fallbackQuestions(task.expected);
   return safeQuestions.map((question, index) => `
     <article class="question-item">
@@ -2016,6 +2028,9 @@ function buildTaskView(taskLines, task) {
   }
   if (task.split === "inlineGap") {
     return splitInlineGapTask(lines);
+  }
+  if (task.split === "interactive") {
+    return splitInteractiveTask(lines);
   }
   return splitNumberedTask(lines, task.referenceStarts);
 }
@@ -2118,6 +2133,194 @@ function splitNumberedTask(lines, referenceStarts) {
 
 function splitNumberedBlocks(lines) {
   return splitBlocksFrom(lines, line => /^\d+\.\s+/.test(line.trim()));
+}
+
+function splitInteractiveTask(lines) {
+  const audioMarker = lines.findIndex(line => /^<audio\b/i.test(line.trim()));
+  const intro = audioMarker > 0 ? trimOuterLines(lines.slice(0, audioMarker)) : [];
+  const audioLines = audioMarker >= 0 ? lines.slice(audioMarker) : [];
+  const audioSrc = audioLines.find(line => /<source\s+src="([^"]+\.mp3)"/i.test(line))?.match(/<source\s+src="([^"]+\.mp3)"/i)?.[1] || "";
+  const transcriptMarker = audioLines.findIndex(line => /^<\/audio>/i.test(line.trim()));
+  const transcriptLines = transcriptMarker >= 0 ? trimOuterLines(audioLines.slice(transcriptMarker + 1)) : [];
+  const segments = parseTranscriptSegments(transcriptLines);
+  const clozeMarker = transcriptLines.findIndex(line => /cloze|fill missing|write the missing/i.test(line));
+  const clozeLines = clozeMarker >= 0 ? transcriptLines.slice(clozeMarker) : [];
+  return {
+    intro,
+    reference: [],
+    questions: [],
+    audioSrc,
+    segments,
+    clozeLines
+  };
+}
+
+function parseTranscriptSegments(lines) {
+  const segments = [];
+  let currentSentence = "";
+  let currentStart = 0;
+  const wordTimestamps = [];
+  let wordIndex = 0;
+  const totalDuration = 120000;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const timestampMatch = /\[(\d{2}):(\d{2})([.,]\d+)?\]/.exec(trimmed);
+    if (timestampMatch) {
+      const mins = parseInt(timestampMatch[1], 10);
+      const secs = parseFloat(timestampMatch[2] + (timestampMatch[3] || "0"));
+      const timeMs = Math.round((mins * 60 + secs) * 1000);
+      const text = trimmed.replace(/\[\d{2}:\d{2}[.,]\d+\]\s*/, "").replace(/\[.*?\]/g, "").trim();
+      const words = text.split(/\s+/);
+      const segmentDuration = Math.round(totalDuration / Math.max(segments.length + words.length + 10, 1));
+      if (currentSentence) {
+        segments.push({
+          text: currentSentence.trim(),
+          start: currentStart,
+          end: timeMs,
+          words: wordTimestamps.slice()
+        });
+      }
+      currentSentence = text;
+      currentStart = timeMs;
+      words.forEach(word => {
+        if (word) {
+          wordTimestamps.push({ word, time: timeMs + wordIndex * 80 });
+          wordIndex++;
+        }
+      });
+    } else {
+      currentSentence += " " + trimmed;
+      const words = trimmed.split(/\s+/);
+      words.forEach(word => {
+        if (word) {
+          wordTimestamps.push({ word, time: currentStart + wordIndex * 80 });
+          wordIndex++;
+        }
+      });
+    }
+  }
+  if (currentSentence.trim()) {
+    segments.push({
+      text: currentSentence.trim(),
+      start: currentStart,
+      end: totalDuration,
+      words: wordTimestamps.slice()
+    });
+  }
+  return segments;
+}
+
+function renderInteractiveListeningTask(section, task, view) {
+  const audioSrc = view.audioSrc || "";
+  if (!state.interactiveListening.segments.length && view.segments?.length) {
+    state.interactiveListening.segments = view.segments;
+  }
+  const segments = state.interactiveListening.segments.length ? state.interactiveListening.segments : view.segments || [];
+  const clozeLines = view.clozeLines || [];
+  const hasCloze = clozeLines.some(line => /cloze|fill missing|write the missing|hidden words/i.test(line));
+  const clozeWords = hasCloze ? extractClozeWords(segments, 3 + Math.floor(Math.random() * 3)) : [];
+  if (clozeWords.length && !state.interactiveListening.clozeAnswers.length) {
+    state.interactiveListening.clozeAnswers = clozeWords.map(w => ({ word: w, answer: "" }));
+  }
+  const activeIndex = state.interactiveListening.activeSegmentIndex;
+  return `
+    <section class="interactive-listening" data-section="${section}" data-task="${task.taskKey}">
+      <div class="il-controls-bar">
+        <div class="il-transcript-toggle">
+          <button type="button" class="btn btn-sm ${state.interactiveListening.transcriptVisible ? "btn-primary" : "btn-outline-secondary"}" data-action="toggle-transcript">
+            ${state.interactiveListening.transcriptVisible ? "Hide Transcript" : "Show Transcript"}
+          </button>
+        </div>
+        <div class="il-speed-controls" role="group" aria-label="Playback speed">
+          <span class="il-speed-label">Speed:</span>
+          ${[1.0, 0.75, 0.5].map(speed => `
+            <button type="button" class="btn btn-sm ${state.interactiveListening.playbackSpeed === speed ? "btn-primary" : "btn-outline-secondary"}" data-speed="${speed}" data-action="set-speed">
+              ${speed}x
+            </button>
+          `).join("")}
+        </div>
+      </div>
+
+      <div class="il-audio-section">
+        ${audioSrc ? `
+          <div class="stitch-audio-card il-main-player">
+            <audio id="il-audio-player" controls preload="none" src="${escapeHtml(toAssetUrl(audioSrc))}" data-audio-player></audio>
+            <span class="il-time-display" data-time-display>0:00 / 0:00</span>
+          </div>
+        ` : `
+          <div class="il-no-audio-note">
+            <p>No audio source available. Add audio markup in the exam markdown.</p>
+          </div>
+        `}
+      </div>
+
+      <div class="il-transcript-container ${state.interactiveListening.transcriptVisible ? "" : "hidden"}" data-transcript-container>
+        <div class="il-transcript-header">
+          <h4>Transcript</h4>
+          <p class="il-transcript-hint">Click any sentence to jump to that point in the audio</p>
+        </div>
+        <div class="il-transcript-body" data-transcript-body>
+          ${segments.length ? segments.map((seg, i) => `
+            <div class="il-segment ${activeIndex === i ? "active" : ""} ${activeIndex === i - 1 ? "played" : ""}" data-segment-index="${i}" data-start="${seg.start}" data-end="${seg.end}">
+              <button type="button" class="il-segment-replay" data-action="replay-segment" data-index="${i}" title="Replay this sentence">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              </button>
+              <span class="il-segment-text" data-segment-text="${i}">${escapeHtml(seg.text)}</span>
+            </div>
+          `).join("") : `
+            <div class="il-no-transcript">
+              <p>No transcript segments available.</p>
+            </div>
+          `}
+        </div>
+      </div>
+
+      ${hasCloze ? `
+        <div class="il-cloze-section">
+          <h4>Fill in the missing words</h4>
+          <p class="il-cloze-instruction">Listen again and fill in the blanks with the words you hear.</p>
+          <div class="il-cloze-words">
+            ${state.interactiveListening.clozeAnswers.map((item, i) => `
+              <div class="il-cloze-item">
+                <label for="cloze-input-${i}">Word ${i + 1}:</label>
+                <input type="text" id="cloze-input-${i}" class="form-control form-control-sm" 
+                  placeholder="Type the missing word" 
+                  data-cloze-index="${i}"
+                  value="${escapeHtml(item.answer)}"
+                  autocomplete="off">
+              </div>
+            `).join("")}
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" data-action="check-cloze">
+            Check Answers
+          </button>
+          <div class="il-cloze-feedback" id="cloze-feedback" style="display:none;"></div>
+        </div>
+      ` : ""}
+
+      <div class="il-repeat-section">
+        <h4>Repeat after the speaker</h4>
+        <p class="il-repeat-hint">Listen to the audio, then try to say the sentences out loud.</p>
+        <button type="button" class="btn btn-outline-primary" data-action="replay-full">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+          Replay Full Audio
+        </button>
+      </div>
+
+      <div class="il-difficult-words">
+        <h4>Difficult words</h4>
+        <p class="il-words-hint">Click on any difficult word in the transcript above to see its definition.</p>
+        <div class="il-word-list" id="il-word-list"></div>
+      </div>
+    </section>
+  `;
+}
+
+function extractClozeWords(segments, count) {
+  const allWords = segments.flatMap(s => s.text.split(/\s+/)).filter(w => w.length > 3 && !/^[.,!?;:'"()-]+$/.test(w));
+  const shuffled = allWords.sort(() => Math.random() - 0.5);
+  return [...new Set(shuffled)].slice(0, count);
 }
 
 function splitBlocksFrom(lines, startsBlock) {
@@ -3214,6 +3417,25 @@ function bindRunnerEvents() {
       if (counter) counter.textContent = state.listenPlayCount[key] + "× played";
     });
   });
+  // Interactive listening audio sync
+  const ilAudio = document.getElementById("il-audio-player");
+  if (ilAudio) {
+    ilAudio.addEventListener("timeupdate", handleInteractiveTimeUpdate);
+    ilAudio.addEventListener("ended", () => {
+      state.interactiveListening.activeSegmentIndex = -1;
+      updateInteractiveHighlights();
+    });
+    ilAudio.playbackRate = state.interactiveListening.playbackSpeed;
+  }
+  document.querySelectorAll("[data-segment-index]").forEach(el => {
+    el.addEventListener("click", handleSegmentClick);
+  });
+  document.querySelectorAll("[data-cloze-index]").forEach(input => {
+    input.addEventListener("input", handleClozeInput);
+  });
+  document.querySelectorAll("[data-segment-text]").forEach(el => {
+    el.addEventListener("click", handleWordClick);
+  });
 }
 
 function handleRunnerAction(dataset) {
@@ -3280,6 +3502,40 @@ function handleRunnerAction(dataset) {
   }
   if (action === "upload-recording") {
     uploadSpeakingAudio(dataset.key).catch(error => showToast("Upload failed: " + error.message));
+    return;
+  }
+  if (action === "toggle-transcript") {
+    state.interactiveListening.transcriptVisible = !state.interactiveListening.transcriptVisible;
+    renderRunner();
+    return;
+  }
+  if (action === "set-speed") {
+    const speed = parseFloat(dataset.speed);
+    state.interactiveListening.playbackSpeed = speed;
+    const audio = document.getElementById("il-audio-player");
+    if (audio) audio.playbackRate = speed;
+    renderRunner();
+    return;
+  }
+  if (action === "replay-segment") {
+    const index = parseInt(dataset.index, 10);
+    const segments = state.interactiveListening.segments;
+    if (!segments[index]) return;
+    const audio = document.getElementById("il-audio-player");
+    if (!audio) return;
+    audio.currentTime = segments[index].start / 1000;
+    audio.play().catch(() => {});
+    return;
+  }
+  if (action === "replay-full") {
+    const audio = document.getElementById("il-audio-player");
+    if (!audio) return;
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+    return;
+  }
+  if (action === "check-cloze") {
+    checkClozeAnswers();
     return;
   }
   handleTimerAction(action, part);
@@ -5305,6 +5561,179 @@ function setupTestHooks() {
     }),
     getSubmission: () => buildSubmission(state.submission?.status || "draft")
   };
+}
+
+function handleInteractiveTimeUpdate() {
+  const audio = document.getElementById("il-audio-player");
+  if (!audio) return;
+  const currentTime = audio.currentTime * 1000;
+  const segments = state.interactiveListening.segments;
+  let activeIndex = -1;
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (currentTime >= seg.start && currentTime < seg.end) {
+      activeIndex = i;
+      break;
+    }
+    if (currentTime >= seg.start) {
+      activeIndex = i;
+    }
+  }
+  if (state.interactiveListening.activeSegmentIndex !== activeIndex) {
+    state.interactiveListening.activeSegmentIndex = activeIndex;
+    updateInteractiveHighlights();
+  }
+  const timeDisplay = document.querySelector("[data-time-display]");
+  if (timeDisplay) {
+    const current = formatTime(Math.floor(audio.currentTime));
+    const total = formatTime(Math.floor(audio.duration || 0));
+    timeDisplay.textContent = `${current} / ${total}`;
+  }
+}
+
+function updateInteractiveHighlights() {
+  const activeIndex = state.interactiveListening.activeSegmentIndex;
+  document.querySelectorAll("[data-segment-index]").forEach(el => {
+    const idx = parseInt(el.dataset.segmentIndex, 10);
+    el.classList.toggle("active", idx === activeIndex);
+    el.classList.toggle("played", idx < activeIndex);
+  });
+}
+
+function handleSegmentClick(e) {
+  const el = e.currentTarget;
+  const start = parseInt(el.dataset.start, 10);
+  const index = parseInt(el.dataset.segmentIndex, 10);
+  const audio = document.getElementById("il-audio-player");
+  if (!audio) return;
+  audio.currentTime = start / 1000;
+  state.interactiveListening.activeSegmentIndex = index;
+  updateInteractiveHighlights();
+  audio.play().catch(() => {});
+}
+
+function handleClozeInput(e) {
+  const input = e.target;
+  const idx = parseInt(input.dataset.clozeIndex, 10);
+  if (isNaN(idx)) return;
+  state.interactiveListening.clozeAnswers[idx] = {
+    ...state.interactiveListening.clozeAnswers[idx],
+    answer: input.value
+  };
+}
+
+function checkClozeAnswers() {
+  const answers = state.interactiveListening.clozeAnswers;
+  const segments = state.interactiveListening.segments;
+  let correct = 0;
+  let feedbackHtml = "<div class='il-cloze-result'>";
+  answers.forEach((item, i) => {
+    const normalizedAnswer = item.answer.trim().toLowerCase();
+    const normalizedWord = item.word.toLowerCase();
+    const isCorrect = normalizedAnswer === normalizedWord;
+    if (isCorrect) correct++;
+    feedbackHtml += `<p class='${isCorrect ? "correct" : "incorrect"}'>
+      Word ${i + 1}: "${escapeHtml(item.word)}" — 
+      Your answer: "${escapeHtml(item.answer || "(empty)")}"
+      ${isCorrect ? "✓ Correct!" : `✗ Expected: "${escapeHtml(item.word)}"`}
+    </p>`;
+  });
+  feedbackHtml += `<p><strong>Score: ${correct} / ${answers.length}</strong></p></div>`;
+  const feedbackEl = document.getElementById("cloze-feedback");
+  if (feedbackEl) {
+    feedbackEl.innerHTML = feedbackHtml;
+    feedbackEl.style.display = "block";
+  }
+  state.interactiveListening.clozeChecked = true;
+}
+
+function handleWordClick(e) {
+  const textEl = e.target;
+  const selection = window.getSelection();
+  const selectedText = selection.toString().trim();
+  if (!selectedText || selectedText.length < 2) return;
+  const segmentIndex = parseInt(textEl.dataset.segmentText, 10);
+  showWordPopover(selectedText, segmentIndex);
+  selection.removeAllRanges();
+}
+
+function showWordPopover(word, segmentIndex) {
+  const existingPopover = document.querySelector(".il-word-popover");
+  if (existingPopover) existingPopover.remove();
+  const definition = getWordDefinition(word);
+  const wordList = document.getElementById("il-word-list");
+  if (!wordList) return;
+  const wordLower = word.toLowerCase();
+  const alreadyShown = wordList.querySelector(`[data-word="${wordLower}"]`);
+  if (alreadyShown) return;
+  const wordItem = document.createElement("span");
+  wordItem.className = "il-word-item";
+  wordItem.dataset.word = wordLower;
+  const wordText = document.createElement("span");
+  wordText.textContent = word;
+  const popover = document.createElement("div");
+  popover.className = "il-word-popover";
+  popover.innerHTML = `<strong>${escapeHtml(word)}</strong><p>${escapeHtml(definition)}</p>`;
+  wordItem.appendChild(wordText);
+  wordItem.appendChild(popover);
+  wordItem.addEventListener("click", (e) => {
+    e.stopPropagation();
+    popover.style.display = popover.style.display === "none" ? "block" : "none";
+  });
+  document.addEventListener("click", () => {
+    if (popover) popover.style.display = "none";
+  });
+  wordList.appendChild(wordItem);
+  wordItem.querySelector("span").addEventListener("click", (e) => {
+    e.stopPropagation();
+    popover.style.display = popover.style.display === "none" ? "block" : "none";
+  });
+}
+
+function getWordDefinition(word) {
+  const lower = word.toLowerCase().replace(/[.,!?;:'"()]/g, "");
+  const commonLatvianWords = {
+    "es": "Pirmās personas vienības forma, nozīmē 'I' latviešu valodā.",
+    "tu": "Otrās personas vienskāts forma, nozīmē 'you'.",
+    "viņš": "Trešās personas vīriešu dzimtes forma, nozīmē 'he'.",
+    "viņa": "Trešās personas sieviešu dzimtes forma, nozīmē 'she'.",
+    "un": "Saiklis, kas savieno divus vārdus vai teikumus, nozīmē 'and'.",
+    "ir": "Kopula, kas nozīmē 'is/are'.",
+    "nav": "Noraidījuma forma no 'ir', nozīmē 'is not/is not'.",
+    "bet": "Saiklis, kas nozīmē 'but'.",
+    "vai": "Jautājuma vai alternatīvas saiklis, nozīmē 'or'.",
+    "kas": "Vietniekvārds, kas nozīmē 'what/which/who'.",
+    "kur": "Vietniekvārds, kas nozīmē 'where'.",
+    "kad": "Vietniekvārds, kas nozīmē 'when'.",
+    "kā": "Vietniekvārds, kas nozīmē 'how/as'.",
+    "kāpēc": "Vietniekvārds, kas nozīmē 'why'.",
+    "jo": "Saiklis, kas nozīmē 'because'.",
+    "lai": "Konjunkcija, kas nozīmė 'in order to/that'.",
+    "ja": "Konjunkcija, kas nozīmē 'if'.",
+    "tagad": "Laika apstāklis, kas nozīmē 'now'.",
+    "rīt": "Laika apstāklis, kas nozīmē 'tomorrow'.",
+    "vakar": "Laika apstāklis, kas nozīmė 'yesterday'.",
+    "šeit": "Vietas apstāklis, kas nozīmē 'here'.",
+    "tur": "Vietas apstāklis, kas nozīmē 'there'.",
+    "labs": "Īpašības vārds, kas nozīmē 'good'.",
+    "slikts": "Īpašības vārds, kas nozīmė 'bad'.",
+    "liels": "Īpašības vārds, kas nozīmē 'big/large'.",
+    "mazs": "Īpašības vārds, kas nozīmē 'small/little'.",
+    "jauns": "Īpašības vārds, kas nozīmē 'new'.",
+    "vecs": "Īpašības vārds, kas nozīmē 'old'.",
+    "garš": "Īpašības vārds, kas nozīmė 'long/tall'.",
+    "īss": "Īpašības vārds, kas nozīmē 'short'.",
+    "dārgs": "Īpašības vārds, kas nozīmē 'expensive'.",
+    "lēts": "Īpašības vārds, kas nozīmē 'cheap'.",
+    "ātri": "Apstāklis, kas nozīmē 'quickly/fast'.",
+    "lēnām": "Apstāklis, kas nozīmē 'slowly'.",
+    "daudz": "Apstāklis, kas nozīmē 'a lot/much'.",
+    "maz": "Apstāklis, kas nozīmē 'a little/little'."
+  };
+  if (commonLatvianWords[lower]) {
+    return commonLatvianWords[lower];
+  }
+  return `Šis vārds nozīmē "${word}". Skatīt vārdnīcā, lai iegūtu pilnu definīciju.`;
 }
 
 setupTestHooks();
