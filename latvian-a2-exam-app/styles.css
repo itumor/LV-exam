@@ -740,6 +740,144 @@ body,
   background: var(--surface-container-lowest);
 }
 
+.dashboard-card.weak-skills {
+  grid-column: span 12;
+}
+
+.dashboard-subtitle {
+  font-size: 0.875rem;
+  color: var(--on-surface-variant);
+  margin-bottom: 16px;
+}
+
+.weak-skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.weak-skill-card {
+  border: 1px solid var(--outline-variant);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--surface-container-lowest);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.weak-skill-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.weak-skill-card.needs_work {
+  border-left: 4px solid var(--bs-danger);
+}
+
+.weak-skill-card.developing {
+  border-left: 4px solid var(--bs-warning);
+}
+
+.weak-skill-card.passing {
+  border-left: 4px solid var(--bs-success);
+}
+
+.weak-skill-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.weak-skill-header h5 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.weak-skill-status {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.weak-skill-score {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.score-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--on-surface);
+}
+
+.attempt-count {
+  font-size: 0.75rem;
+  color: var(--on-surface-variant);
+}
+
+.weak-skill-bar {
+  height: 6px;
+  background: var(--surface-container-highest);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.weak-skill-fill {
+  height: 100%;
+  background: var(--bs-primary);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.weak-skill-card.needs_work .weak-skill-fill {
+  background: var(--bs-danger);
+}
+
+.weak-skill-card.developing .weak-skill-fill {
+  background: var(--bs-warning);
+}
+
+.weak-skill-card.passing .weak-skill-fill {
+  background: var(--bs-success);
+}
+
+.learning-insights {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--outline-variant);
+}
+
+.learning-insights h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--on-surface-variant);
+}
+
+.insights-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.insights-grid span {
+  display: inline-block;
+  padding: 6px 12px;
+  background: var(--surface-container-high);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  color: var(--on-surface);
+}
+
+.empty-message {
+  color: var(--on-surface-variant);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
 .attempt-row {
   display: flex;
   justify-content: space-between;
