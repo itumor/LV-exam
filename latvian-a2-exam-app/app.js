@@ -96,7 +96,18 @@ const state = {
     transcriptInterims: {},
     transcriptErrors: {}
   },
-  listenPlayCount: {}
+  listenPlayCount: {},
+  learning: {
+    events: [],
+    insights: {},
+    weakSkills: {
+      listening_comprehension: { score: 0, attempts: 0, struggles: [] },
+      numbers_dates: { score: 0, attempts: 0, struggles: [] },
+      everyday_services: { score: 0, attempts: 0, struggles: [] },
+      transport_directions: { score: 0, attempts: 0, struggles: [] },
+      vocabulary_retention: { score: 0, attempts: 0, struggles: [] }
+    }
+  }
 };
 
 const PART_CONFIG = [
@@ -268,6 +279,7 @@ async function init() {
   const requestedExam = urlParams.get("exam");
   await bootstrapAuth();
   ensureLearnerIdentity();
+  loadLearningData();
   state.flow.debugMode = requestedDebugMode && isAdminAccount();
   await loadExamCatalog();
   updateExamListInSidebar();
@@ -654,6 +666,136 @@ function saveLearnerIdentity(partial) {
   return merged;
 }
 
+function trackLearningEvent(eventType, data = {}) {
+  const event = {
+    type: eventType,
+    timestamp: new Date().toISOString(),
+    ...data
+  };
+  state.learning.events.push(event);
+  if (state.learning.events.length > 1000) {
+    state.learning.events = state.learning.events.slice(-500);
+  }
+  persistLearningData();
+  deriveLearnerInsights(eventType, data);
+}
+
+function deriveLearnerInsights(eventType, data) {
+  const insights = state.learning.insights;
+  switch (eventType) {
+    case "audio_played":
+      insights.audioPlays = (insights.audioPlays || 0) + 1;
+      break;
+    case "sentence_replayed":
+      insights.sentenceReplays = (insights.sentenceReplays || 0) + 1;
+      break;
+    case "quiz_answered":
+      const qKey = data.category || "general";
+      insights.quizByCategory = insights.quizByCategory || {};
+      insights.quizByCategory[qKey] = (insights.quizByCategory[qKey] || 0) + 1;
+      if (!data.correct) {
+        insights.quizMistakes = insights.quizMistakes || {};
+        insights.quizMistakes[qKey] = (insights.quizMistakes[qKey] || 0) + 1;
+      }
+      break;
+    case "flashcard_missed":
+      insights.flashcardMisses = (insights.flashcardMisses || 0) + 1;
+      if (data.category) {
+        insights.flashcardCategories = insights.flashcardCategories || {};
+        insights.flashcardCategories[data.category] = (insights.flashcardCategories[data.category] || 0) + 1;
+      }
+      break;
+    case "lesson_opened":
+      insights.lessonsOpened = (insights.lessonsOpened || 0) + 1;
+      break;
+    case "exam_completed":
+      updateWeakSkillsFromExam(data);
+      break;
+  }
+}
+
+function updateWeakSkillsFromExam(examData) {
+  const scores = examData.scores || {};
+  const weakSkills = state.learning.weakSkills;
+  const categoryMap = {
+    listening: "listening_comprehension",
+    numbers_dates: "numbers_dates",
+    time_expressions: "numbers_dates",
+    everyday_services: "everyday_services",
+    shopping: "everyday_services",
+    transport: "transport_directions",
+    directions: "transport_directions",
+    vocabulary: "vocabulary_retention"
+  };
+  for (const [skill, score] of Object.entries(scores)) {
+    const mappedKey = categoryMap[skill] || skill;
+    if (weakSkills[mappedKey]) {
+      weakSkills[mappedKey].attempts++;
+      weakSkills[mappedKey].score = ((weakSkills[mappedKey].score * (weakSkills[mappedKey].attempts - 1)) + score) / weakSkills[mappedKey].attempts;
+      if (score < 9) {
+        weakSkills[mappedKey].struggles.push({
+          timestamp: new Date().toISOString(),
+          score
+        });
+      }
+    }
+  }
+  persistLearningData();
+}
+
+function getWeakSkillsSummary() {
+  const weakSkills = state.learning.weakSkills;
+  return Object.entries(weakSkills)
+    .filter(([_, data]) => data.attempts > 0)
+    .map(([key, data]) => ({
+      key,
+      label: key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+      score: Math.round(data.score * 10) / 10,
+      status: data.score >= 9 ? "passing" : data.score >= 6 ? "developing" : "needs_work",
+      attempts: data.attempts
+    }))
+    .sort((a, b) => a.score - b.score);
+}
+
+function persistLearningData() {
+  const storageKey = "latvian_a2_learning_data";
+  try {
+    localStorage.setItem(storageKey, JSON.stringify({
+      events: state.learning.events,
+      insights: state.learning.insights,
+      weakSkills: state.learning.weakSkills
+    }));
+  } catch {}
+}
+
+function loadLearningData() {
+  const storageKey = "latvian_a2_learning_data";
+  try {
+    const data = JSON.parse(localStorage.getItem(storageKey) || "{}");
+    if (data.events) state.learning.events = data.events;
+    if (data.insights) state.learning.insights = data.insights;
+    if (data.weakSkills) state.learning.weakSkills = data.weakSkills;
+  } catch {}
+}
+
+function resetLearningProgress() {
+  if (!window.confirm("Reset all learning progress? This cannot be undone.")) return;
+  state.learning = {
+    events: [],
+    insights: {},
+    weakSkills: {
+      listening_comprehension: { score: 0, attempts: 0, struggles: [] },
+      numbers_dates: { score: 0, attempts: 0, struggles: [] },
+      everyday_services: { score: 0, attempts: 0, struggles: [] },
+      transport_directions: { score: 0, attempts: 0, struggles: [] },
+      vocabulary_retention: { score: 0, attempts: 0, struggles: [] }
+    }
+  };
+  persistLearningData();
+  renderDashboard();
+  showToast("Learning progress reset");
+}
+
 async function loadBillingContext() {
   ensureLearnerIdentity();
   state.billing.loading = true;
@@ -841,25 +983,37 @@ function renderDashboard() {
          <div class="dashboard-metric"><span>Subscription</span><strong>${escapeHtml(summary.subscription_status || "free")}</strong></div>
          <div class="dashboard-metric"><span>Protected access</span><strong>${state.auth.status === "authenticated" ? "On" : "Off"}</strong></div>
        </article>
-       <article class="dashboard-card">
-         <h3>Skill progress</h3>
-         <div class="dashboard-stats-grid">${skillCards || "<p>No attempts saved yet.</p>"}</div>
-       </article>
-       ${analyticsSection}
-       <article class="dashboard-card attempts">
-         <h3>Recent attempts</h3>
-         ${attempts.length ? attempts.map(attempt => `
-           <div class="attempt-row">
-             <div>
-               <strong>${escapeHtml(attempt.exam_title)}</strong>
-               <p>${escapeHtml(attempt.submitted_at)}</p>
-             </div>
-             <span>${escapeHtml(attempt.score_total ?? "—")} points</span>
-           </div>
-         `).join("") : "<p>No server-backed attempts yet.</p>"}
-       </article>
-     </section>
-   `;
+<article class="dashboard-card">
+          <h3>Skill progress</h3>
+          <div class="dashboard-stats-grid">${skillCards || "<p>No attempts saved yet.</p>"}</div>
+        </article>
+        <article class="dashboard-card weak-skills">
+          <h3>Weak Skills Analysis</h3>
+          <p class="dashboard-subtitle">Based on your learning events and exam performance</p>
+          <div class="weak-skills-grid">
+            ${renderWeakSkillsGrid()}
+          </div>
+          <div class="learning-insights">
+            <h4>Learning Insights</h4>
+            ${renderLearningInsights()}
+          </div>
+          <button id="reset-learning-progress" class="btn btn-outline-danger btn-sm mt-3" type="button">Reset Learning Progress</button>
+        </article>
+        ${analyticsSection}
+        <article class="dashboard-card attempts">
+          <h3>Recent attempts</h3>
+          ${attempts.length ? attempts.map(attempt => `
+            <div class="attempt-row">
+              <div>
+                <strong>${escapeHtml(attempt.exam_title)}</strong>
+                <p>${escapeHtml(attempt.submitted_at)}</p>
+              </div>
+              <span>${escapeHtml(attempt.score_total ?? "—")} points</span>
+            </div>
+          `).join("") : "<p>No server-backed attempts yet.</p>"}
+        </article>
+      </section>
+    `;
    
    // Add event listeners
    els.dashboardOutput.querySelector("#logout-button")?.addEventListener("click", () => logout());
@@ -868,10 +1022,65 @@ function renderDashboard() {
    els.dashboardOutput.querySelector("#profile-form")?.addEventListener("submit", handleProfileSubmit);
    
    // Initialize chart if we have data
-   if (analytics.trends && analytics.trends.length > 0) {
-     initProgressChart(analytics.trends);
-   }
- }
+if (analytics.trends && analytics.trends.length > 0) {
+      initProgressChart(analytics.trends);
+    }
+    els.dashboardOutput.querySelector("#reset-learning-progress")?.addEventListener("click", () => resetLearningProgress());
+  }
+
+function renderWeakSkillsGrid() {
+  const weakSkills = getWeakSkillsSummary();
+  if (weakSkills.length === 0) {
+    return '<p class="empty-message">Complete exams to see weak skills analysis.</p>';
+  }
+  const statusLabels = {
+    passing: "Passing",
+    developing: "Developing",
+    needs_work: "Needs Work"
+  };
+  const statusColors = {
+    passing: "text-success",
+    developing: "text-warning",
+    needs_work: "text-danger"
+  };
+  return weakSkills.map(skill => `
+    <div class="weak-skill-card ${skill.status}">
+      <div class="weak-skill-header">
+        <h5>${escapeHtml(skill.label)}</h5>
+        <span class="weak-skill-status ${statusColors[skill.status]}">${statusLabels[skill.status]}</span>
+      </div>
+      <div class="weak-skill-score">
+        <span class="score-value">${skill.score}/15</span>
+        <span class="attempt-count">${skill.attempts} attempt${skill.attempts !== 1 ? "s" : ""}</span>
+      </div>
+      <div class="weak-skill-bar">
+        <div class="weak-skill-fill" style="width: ${(skill.score / 15) * 100}%"></div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderLearningInsights() {
+  const insights = state.learning.insights;
+  const eventCount = state.learning.events.length;
+  if (eventCount === 0) {
+    return '<p class="empty-message">Start learning to see insights.</p>';
+  }
+  const insightItems = [];
+  if (insights.audioPlays) insightItems.push(`<span>Audio plays: ${insights.audioPlays}</span>`);
+  if (insights.sentenceReplays) insightItems.push(`<span>Sentence replays: ${insights.sentenceReplays}</span>`);
+  if (insights.flashcardMisses) insightItems.push(`<span>Flashcard misses: ${insights.flashcardMisses}</span>`);
+  if (insights.lessonsOpened) insightItems.push(`<span>Lessons opened: ${insights.lessonsOpened}</span>`);
+  if (insights.quizByCategory) {
+    for (const [cat, count] of Object.entries(insights.quizByCategory)) {
+      insightItems.push(`<span>${cat}: ${count} quizzes</span>`);
+    }
+  }
+  if (insightItems.length === 0) {
+    return '<p class="empty-message">Keep learning to generate insights.</p>';
+  }
+  return `<div class="insights-grid">${insightItems.join("")}</div>`;
+}
 
 function renderAdmin() {
   if (!els.adminOutput) return;
@@ -3212,6 +3421,7 @@ function bindRunnerEvents() {
       state.listenPlayCount[key] = (state.listenPlayCount[key] || 0) + 1;
       const counter = document.querySelector(`[data-play-count="${CSS.escape(key)}"]`);
       if (counter) counter.textContent = state.listenPlayCount[key] + "× played";
+      trackLearningEvent("audio_played", { track: key, part: state.runner.activePart });
     });
   });
 }
@@ -4028,6 +4238,13 @@ async function submitAnswers(options = {}) {
   if (!options.autoSubmitted) {
     setView("submission");
   }
+  const scores = {};
+  if (state.submission?.scoring?.by_skill) {
+    for (const [skill, data] of Object.entries(state.submission.scoring.by_skill)) {
+      scores[skill] = Math.round((data.objective_correct / Math.max(1, data.objective_possible)) * 15);
+    }
+  }
+  trackLearningEvent("exam_completed", { scores, examId: state.exam.id });
   showToast("Answers submitted locally");
 }
 
