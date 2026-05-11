@@ -99,8 +99,50 @@ body {
 
 .app-shell {
   display: grid;
-  grid-template-columns: minmax(300px, 390px) 1fr;
+  grid-template-columns: 1fr;
   min-height: 100vh;
+}
+
+@media (min-width: 769px) {
+  .app-shell {
+    grid-template-columns: minmax(260px, 320px) 1fr;
+  }
+}
+
+@media (min-width: 1201px) {
+  .app-shell {
+    grid-template-columns: minmax(300px, 390px) 1fr;
+  }
+}
+
+.sidebar {
+  background: var(--navy);
+  color: white;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    max-height: 45vh;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  
+  #menu {
+    max-height: 30vh;
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 769px) {
+  .sidebar {
+    max-height: none;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
 }
 
 .sidebar {
@@ -1632,20 +1674,110 @@ audio::-webkit-media-controls-volume-slider {
   grid-template-columns: 1fr;
 }
 
-.sidebar {
-  max-height: 52vh;
-  overflow-y: auto;
-}
-
 /* Touch targets ≥44×44px on mobile */
 @media (max-width: 768px) {
   .audio-item,
   .level-toggle,
   .cta-btn,
   #play-pause,
-  #sticky-play-pause {
+  #sticky-play-pause,
+  .control-btn {
     min-height: 44px;
     min-width: 44px;
+  }
+  
+  .player-card {
+    padding: 1rem;
+  }
+  
+  .audio-player {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .playback-controls {
+    width: 100%;
+    justify-content: center;
+    margin-top: 0.5rem;
+  }
+  
+  .mode-tabs {
+    flex-wrap: wrap;
+  }
+  
+  .mode-tabs .tab-button {
+    flex: 1;
+    min-width: 45%;
+    text-align: center;
+  }
+  
+  .comp-meter-display {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .comp-pct {
+    text-align: center;
+  }
+  
+  .daily-widget {
+    padding: 1rem;
+  }
+  
+  .daily-header {
+    flex-direction: column;
+  }
+  
+  .daily-stats {
+    width: 100%;
+    justify-content: space-around;
+  }
+  
+  .shadowing-controls {
+    gap: 0.5rem;
+  }
+  
+  .shadowing-controls .control-btn {
+    font-size: 0.8rem;
+    padding: 0.75rem 1rem;
+  }
+  
+  .community-panel {
+    width: 100%;
+    max-width: 100vw;
+  }
+  
+  .ai-panel {
+    width: 100%;
+  }
+}
+
+/* Extra small screens (≤375px) */
+@media (max-width: 375px) {
+  .reader {
+    padding: 0.75rem;
+  }
+  
+  .hero {
+    padding: 1rem;
+  }
+  
+  .content-grid > * {
+    padding: 0.75rem;
+  }
+  
+  .btn-primary,
+  .cta-btn {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .text-panel {
+    padding: 0.75rem;
+  }
+  
+  .panel-heading h3 {
+    font-size: 0.9rem;
   }
 }
 
@@ -1657,6 +1789,9 @@ audio::-webkit-media-controls-volume-slider {
 
   .sidebar {
     max-height: none;
+    height: 100vh;
+    position: sticky;
+    top: 0;
   }
 }
 
