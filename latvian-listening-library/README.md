@@ -159,6 +159,14 @@ Open:
 http://localhost:8080
 ```
 
+The short-form listening feed is available at:
+
+```text
+http://localhost:8080/micro.html
+```
+
+It turns the catalog into swipeable 15-45 second listening cards with an instant quiz, transcript reveal, and local shadow-speaking recorder.
+
 ## Output Locations
 
 - Copied audio: `latvian-listening-library/data/<level>_klausisanas/audio/`
