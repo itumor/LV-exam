@@ -19,6 +19,12 @@ const FALLBACK_OPTIONS = [
   "Cik tas maksā?",
   "Mani sauc Jānis."
 ];
+const QUIZ_LEVELS = [
+  { key: "easy", label: "Easy" },
+  { key: "intermediate", label: "Intermediate" },
+  { key: "hard", label: "Hard" },
+  { key: "super", label: "Super" }
+];
 
 let allClips = [];
 let filteredClips = [];
@@ -86,6 +92,66 @@ function getFirstSentence(text) {
   return sentence.replace(/\s+/g, " ").trim();
 }
 
+function stripLessonMarker(text) {
+  return String(text || "")
+    .replace(/^\s*\d+(?:[.,_]\d+)*(?:\s*[.,])?\s*/u, "")
+    .replace(/^(klausies|lasi|klausies\s+lasi|klausies\s+un\s+lasi)[.!:,\s-]*/iu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function splitSentences(text) {
+  const matches = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .match(/[^.!?]+[.!?]?/g);
+  return (matches || [])
+    .map((sentence) => stripLessonMarker(sentence))
+    .filter((sentence) => sentence.length >= 8);
+}
+
+function getClipSentences(text) {
+  const sentences = splitSentences(text);
+  return sentences.length ? sentences.slice(0, 6) : [stripLessonMarker(getFirstSentence(text))].filter(Boolean);
+}
+
+function normalizeComparable(text) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{M}\p{N}\s-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function uniqueTexts(values) {
+  const seen = new Set();
+  const result = [];
+  values.forEach((value) => {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    const key = normalizeComparable(text);
+    if (text && key && !seen.has(key)) {
+      seen.add(key);
+      result.push(text);
+    }
+  });
+  return result;
+}
+
+function seededShuffle(values, seedText) {
+  const result = values.slice();
+  let seed = hashString(seedText) || 1;
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const swapIndex = seed % (index + 1);
+    const tmp = result[index];
+    result[index] = result[swapIndex];
+    result[swapIndex] = tmp;
+  }
+  return result;
+}
+
 function summarizeText(text, maxLength) {
   const clean = String(text || "")
     .replace(/\s+/g, " ")
@@ -135,45 +201,126 @@ function inferCategory(lesson) {
 }
 
 function pickPhrase(text, fallback) {
-  const sentence = getFirstSentence(text);
+  const sentence = getClipSentences(text)[0] || getFirstSentence(text);
   if (sentence) {
     return summarizeText(sentence, 86);
   }
   return fallback || "Labdien!";
 }
 
-function buildQuizFromLesson(lesson, pool, index) {
-  const answerText = pickPhrase(lesson.lv_text, lesson.title);
-  const optionSet = new Set([answerText]);
-
-  for (let offset = 1; optionSet.size < 3 && offset < pool.length; offset += 1) {
+function getPoolPhrases(pool, index, field, fallbackField) {
+  const phrases = [];
+  for (let offset = 1; phrases.length < 8 && offset < pool.length; offset += 1) {
     const other = pool[(index + offset * 7) % pool.length];
-    if (other && other.lv_text) {
-      optionSet.add(pickPhrase(other.lv_text, other.title));
+    if (other && other[field]) {
+      phrases.push(pickPhrase(other[field], other[fallbackField] || other.title));
     }
   }
+  return uniqueTexts(phrases);
+}
 
-  for (let fallbackIndex = 0; optionSet.size < 3 && fallbackIndex < FALLBACK_OPTIONS.length; fallbackIndex += 1) {
-    optionSet.add(FALLBACK_OPTIONS[fallbackIndex]);
+function getWords(text) {
+  return String(text || "")
+    .toLowerCase()
+    .match(/[\p{L}\p{M}]{4,}/gu) || [];
+}
+
+function pickClozeWord(sentence, seedText) {
+  const words = uniqueTexts(getWords(sentence));
+  if (!words.length) return "";
+  return words[hashString(seedText) % words.length];
+}
+
+function makeClozeSentence(sentence, word) {
+  if (!word) return sentence;
+  const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return sentence.replace(new RegExp(escapedWord, "iu"), "_____");
+}
+
+function buildDetailStatement(sentence) {
+  const clean = stripLessonMarker(sentence);
+  return summarizeText(clean, 110);
+}
+
+function makeQuestion(level, prompt, promptLv, correct, distractors, seedText, explanation) {
+  const safeCorrect = summarizeText(correct, 116);
+  const options = uniqueTexts([safeCorrect].concat(distractors.map((value) => summarizeText(value, 116))));
+
+  for (let index = 0; options.length < 3 && index < FALLBACK_OPTIONS.length; index += 1) {
+    options.push(FALLBACK_OPTIONS[index]);
   }
 
-  const options = Array.from(optionSet).slice(0, 3);
-  const answer = hashString(lesson.id) % options.length;
-  const correct = options[0];
-  options[0] = options[answer];
-  options[answer] = correct;
+  const finalOptions = seededShuffle(options.slice(0, 3), `${seedText}-${level}`);
+  const answer = finalOptions.findIndex((option) => normalizeComparable(option) === normalizeComparable(safeCorrect));
 
   return {
-    prompt: "Which line did you hear in this clip?",
-    prompt_lv: "Kuru frāzi tu dzirdēji?",
-    options,
-    answer,
-    answer_text: correct
+    level,
+    prompt,
+    prompt_lv: promptLv,
+    options: finalOptions,
+    answer: answer >= 0 ? answer : 0,
+    answer_text: safeCorrect,
+    explanation: explanation || ""
+  };
+}
+
+function buildQuizLevels(source, pool, index) {
+  const lvSentences = getClipSentences(source.lv_text || source.transcript);
+  const enSentences = getClipSentences(source.en_text || source.translation);
+  const primaryLv = lvSentences[0] || source.answer_text || source.title || "Labdien!";
+  const primaryEn = enSentences[0] || source.translation || "Listen for the main meaning.";
+  const detailSentence = lvSentences[Math.min(1, lvSentences.length - 1)] || primaryLv;
+  const superSentence = lvSentences[Math.min(2, lvSentences.length - 1)] || detailSentence;
+  const clozeWord = pickClozeWord(detailSentence, `${source.id || source.title}-hard`);
+  const clozeSentence = makeClozeSentence(detailSentence, clozeWord);
+  const lvDistractors = getPoolPhrases(pool, index, "lv_text", "title");
+  const enDistractors = getPoolPhrases(pool, index, "en_text", "title");
+  const wordDistractors = uniqueTexts(lvDistractors.flatMap(getWords)).filter((word) => normalizeComparable(word) !== normalizeComparable(clozeWord));
+  const detailDistractors = lvDistractors.map(buildDetailStatement);
+
+  return {
+    easy: makeQuestion(
+      "easy",
+      "Which Latvian line did you hear?",
+      "Kuru latviešu frāzi tu dzirdēji?",
+      primaryLv,
+      lvDistractors,
+      `${source.id || source.title}-easy`,
+      "Focus on recognition: match the sound to the exact Latvian line."
+    ),
+    intermediate: makeQuestion(
+      "intermediate",
+      "What is the best English meaning?",
+      "Kāda ir labākā nozīme angliski?",
+      primaryEn,
+      enDistractors,
+      `${source.id || source.title}-intermediate`,
+      "Focus on meaning: understand the line, not only the sound."
+    ),
+    hard: makeQuestion(
+      "hard",
+      `Which word completes: ${clozeSentence}`,
+      `Kurš vārds der teikumā: ${clozeSentence}`,
+      clozeWord || primaryLv,
+      wordDistractors,
+      `${source.id || source.title}-hard`,
+      "Focus on detail: catch the missing word inside the sentence."
+    ),
+    super: makeQuestion(
+      "super",
+      "Which detail is stated in the audio?",
+      "Kura detaļa ir dzirdama audio?",
+      buildDetailStatement(superSentence),
+      detailDistractors,
+      `${source.id || source.title}-super`,
+      "Focus on comprehension: choose the supported detail from the clip."
+    )
   };
 }
 
 function clipFromLesson(lesson, pool, index) {
-  const quiz = buildQuizFromLesson(lesson, pool, index);
+  const quizLevels = buildQuizLevels(lesson, pool, index);
+  const quiz = quizLevels.easy;
   const clipWindow = normalizeClipWindow({ start: 0, end: CLIP_MAX_SECONDS });
   const title = lesson.title || lesson.original_filename || `Audio ${index + 1}`;
   const transcript = lesson.lv_text || "";
@@ -190,6 +337,7 @@ function clipFromLesson(lesson, pool, index) {
     options: quiz.options,
     answer: quiz.answer,
     answer_text: quiz.answer_text,
+    quizLevels,
     transcript,
     translation,
     difficulty: lesson.level || "A1",
@@ -203,18 +351,45 @@ function clipFromLesson(lesson, pool, index) {
   };
 }
 
-function normalizeCuratedClip(clip, index) {
+function normalizeCuratedClip(clip, index, pool) {
   const clipWindow = normalizeClipWindow(clip);
-  return {
+  const source = {
     id: clip.id || `micro-${index + 1}`,
+    title: clip.title || `Clip ${index + 1}`,
+    lv_text: clip.transcript || "",
+    en_text: clip.translation || "",
+    answer_text: clip.answer_text || ""
+  };
+  const quizPool = (Array.isArray(pool) ? pool : []).map((item) => ({
+    id: item.id,
+    title: item.title,
+    lv_text: item.transcript || "",
+    en_text: item.translation || ""
+  }));
+  const quizLevels = buildQuizLevels(source, quizPool, index);
+  const easyOptions = Array.isArray(clip.options) && clip.options.length ? clip.options.slice(0, 3) : quizLevels.easy.options;
+  const easyAnswer = Number.isInteger(clip.answer) ? clamp(clip.answer, 0, easyOptions.length - 1) : quizLevels.easy.answer;
+  quizLevels.easy = {
+    level: "easy",
+    prompt: clip.prompt || quizLevels.easy.prompt,
+    prompt_lv: clip.prompt_lv || quizLevels.easy.prompt_lv,
+    options: easyOptions,
+    answer: easyAnswer,
+    answer_text: clip.answer_text || easyOptions[easyAnswer] || quizLevels.easy.answer_text,
+    explanation: "Focus on recognition: match the sound to the exact Latvian line."
+  };
+
+  return {
+    id: source.id,
     sourceLessonId: clip.sourceLessonId || clip.id,
     audio_url: clip.audio_url,
-    title: clip.title || `Clip ${index + 1}`,
-    prompt: clip.prompt || "Which answer matches the audio?",
-    prompt_lv: clip.prompt_lv || "Kura atbilde atbilst audio?",
-    options: Array.isArray(clip.options) && clip.options.length ? clip.options.slice(0, 3) : FALLBACK_OPTIONS.slice(0, 3),
-    answer: Number.isInteger(clip.answer) ? clip.answer : 0,
-    answer_text: clip.answer_text || (clip.options && clip.options[clip.answer]) || "",
+    title: source.title,
+    prompt: quizLevels.easy.prompt,
+    prompt_lv: quizLevels.easy.prompt_lv,
+    options: quizLevels.easy.options,
+    answer: quizLevels.easy.answer,
+    answer_text: quizLevels.easy.answer_text,
+    quizLevels,
     transcript: clip.transcript || "",
     translation: clip.translation || "",
     difficulty: clip.difficulty || "A1",
@@ -234,7 +409,7 @@ function mergeClips(curated, catalog) {
   });
   const normalizedCurated = (Array.isArray(curated) ? curated : [])
     .filter((clip) => clip && clip.audio_url)
-    .map(normalizeCuratedClip);
+    .map((clip, index, sourcePool) => normalizeCuratedClip(clip, index, sourcePool));
   const audioUrls = new Set(normalizedCurated.map((clip) => clip.audio_url));
   const generated = usableCatalog
     .filter((lesson) => !audioUrls.has(lesson.audio_url))
@@ -318,20 +493,40 @@ function saveProgress(clip, action) {
   localStorage.setItem(FEED_PROGRESS_KEY, JSON.stringify(progress));
 }
 
-function renderOptions(clip) {
-  return clip.options.map((option, index) => {
+function getQuiz(clip, level) {
+  if (clip.quizLevels && clip.quizLevels[level]) return clip.quizLevels[level];
+  return {
+    level: "easy",
+    prompt: clip.prompt,
+    prompt_lv: clip.prompt_lv,
+    options: clip.options,
+    answer: clip.answer,
+    answer_text: clip.answer_text,
+    explanation: ""
+  };
+}
+
+function renderOptions(question) {
+  return question.options.map((option, index) => {
     return `<button class="feed-option" type="button" data-answer-index="${index}">${escapeHtml(option)}</button>`;
   }).join("");
 }
 
+function renderQuizLevelButtons() {
+  return QUIZ_LEVELS.map((level, index) => {
+    return `<button class="quiz-level-btn ${index === 0 ? "active" : ""}" type="button" data-quiz-level="${level.key}" aria-pressed="${index === 0 ? "true" : "false"}">${escapeHtml(level.label)}</button>`;
+  }).join("");
+}
+
 function renderClip(clip, index) {
-  const transcript = summarizeText(clip.transcript, 280);
-  const translation = summarizeText(clip.translation, 220);
+  const question = getQuiz(clip, "easy");
+  const transcript = clip.transcript || "Transcript unavailable.";
+  const translation = clip.translation || "Translation unavailable.";
   const sourceLabel = clip.source === "curated" ? "Curated" : "Library";
   const rangeLabel = `${formatTime(clip.start)}-${formatTime(clip.end)}`;
 
   return `
-    <section class="feed-card" data-index="${index}" data-clip-id="${escapeHtml(clip.id)}" style="--card-rgb: ${rgbForClip(clip)}">
+    <section class="feed-card" data-index="${index}" data-clip-id="${escapeHtml(clip.id)}" data-active-quiz-level="easy" style="--card-rgb: ${rgbForClip(clip)}">
       <div class="feed-main">
         <div class="feed-meta">
           <span class="feed-pill">${escapeHtml(sourceLabel)}</span>
@@ -361,8 +556,11 @@ function renderClip(clip, index) {
 
         <section class="feed-quiz" aria-label="Instant quiz">
           <span class="feed-panel-label">Instant quiz</span>
-          <h2>${escapeHtml(clip.prompt_lv || clip.prompt)}</h2>
-          <div class="feed-options">${renderOptions(clip)}</div>
+          <div class="quiz-levels" role="group" aria-label="Quiz difficulty">
+            ${renderQuizLevelButtons()}
+          </div>
+          <h2 data-role="quiz-prompt">${escapeHtml(question.prompt_lv || question.prompt)}</h2>
+          <div class="feed-options" data-role="quiz-options">${renderOptions(question)}</div>
           <p class="feed-feedback" data-role="feedback"></p>
         </section>
 
@@ -379,9 +577,14 @@ function renderClip(clip, index) {
         </section>
 
         <section class="feed-transcript" data-role="transcript">
-          <span class="feed-panel-label">Transcript</span>
-          <p><strong>LV:</strong> ${escapeHtml(transcript || "Transcript unavailable.")}</p>
-          <p><strong>EN:</strong> ${escapeHtml(translation || "Translation unavailable.")}</p>
+          <div class="transcript-heading">
+            <span class="feed-panel-label">Full transcript</span>
+            <button class="transcript-close" type="button" data-action="transcript" aria-label="Close transcript">×</button>
+          </div>
+          <div class="feed-transcript-body">
+            <p><strong>LV:</strong> ${escapeHtml(transcript)}</p>
+            <p><strong>EN:</strong> ${escapeHtml(translation)}</p>
+          </div>
         </section>
       </div>
 
@@ -550,26 +753,47 @@ function seekWithinClip(card, range) {
   audio.currentTime = clip.start + Number(range.value || 0);
 }
 
+function setQuizLevel(card, level) {
+  const clip = filteredClips[Number(card.dataset.index)];
+  const question = getQuiz(clip, level);
+  card.dataset.activeQuizLevel = question.level || level;
+
+  card.querySelectorAll(".quiz-level-btn").forEach((button) => {
+    const isActive = button.dataset.quizLevel === card.dataset.activeQuizLevel;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+
+  const prompt = card.querySelector('[data-role="quiz-prompt"]');
+  const options = card.querySelector('[data-role="quiz-options"]');
+  const feedback = card.querySelector('[data-role="feedback"]');
+  if (prompt) prompt.textContent = question.prompt_lv || question.prompt;
+  if (options) options.innerHTML = renderOptions(question);
+  if (feedback) feedback.textContent = "";
+}
+
 function answerQuiz(button) {
   const card = button.closest(".feed-card");
   const index = Number(card.dataset.index);
   const clip = filteredClips[index];
+  const level = card.dataset.activeQuizLevel || "easy";
+  const question = getQuiz(clip, level);
   const selectedIndex = Number(button.dataset.answerIndex);
   const options = card.querySelectorAll(".feed-option");
   const feedback = card.querySelector('[data-role="feedback"]');
-  const isCorrect = selectedIndex === clip.answer;
+  const isCorrect = selectedIndex === question.answer;
 
   options.forEach((option) => {
     const optionIndex = Number(option.dataset.answerIndex);
     option.disabled = true;
-    if (optionIndex === clip.answer) option.classList.add("correct");
-    if (optionIndex === selectedIndex && optionIndex !== clip.answer) option.classList.add("incorrect");
+    if (optionIndex === question.answer) option.classList.add("correct");
+    if (optionIndex === selectedIndex && optionIndex !== question.answer) option.classList.add("incorrect");
   });
 
   feedback.textContent = isCorrect
-    ? `Correct: ${clip.answer_text}`
-    : `Answer: ${clip.answer_text}`;
-  saveProgress(clip, isCorrect ? "quiz-correct" : "quiz-review");
+    ? `Correct: ${question.answer_text}`
+    : `Answer: ${question.answer_text}`;
+  saveProgress(clip, isCorrect ? `quiz-${level}-correct` : `quiz-${level}-review`);
 }
 
 function toggleTranscript(card) {
@@ -773,7 +997,13 @@ function renderFeed() {
 deck.addEventListener("click", (event) => {
   const actionButton = event.target.closest("[data-action]");
   const answerButton = event.target.closest("[data-answer-index]");
+  const quizLevelButton = event.target.closest(".quiz-level-btn[data-quiz-level]");
   const card = event.target.closest(".feed-card");
+
+  if (quizLevelButton && card) {
+    setQuizLevel(card, quizLevelButton.dataset.quizLevel);
+    return;
+  }
 
   if (answerButton && card) {
     answerQuiz(answerButton);
