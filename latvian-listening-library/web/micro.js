@@ -94,7 +94,7 @@ function getFirstSentence(text) {
 
 function stripLessonMarker(text) {
   return String(text || "")
-    .replace(/^\s*\d+(?:[.,_]\d+)*(?:\s*[.,])?\s*/u, "")
+    .replace(/^\s*(?:\d+(?:[.,_]\d+)*\s*[.,]?\s*)+/u, "")
     .replace(/^(klausies|lasi|klausies\s+lasi|klausies\s+un\s+lasi)[.!:,\s-]*/iu, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -113,6 +113,25 @@ function splitSentences(text) {
 function getClipSentences(text) {
   const sentences = splitSentences(text);
   return sentences.length ? sentences.slice(0, 6) : [stripLessonMarker(getFirstSentence(text))].filter(Boolean);
+}
+
+function isInstructionSentence(sentence) {
+  const comparable = normalizeComparable(sentence);
+  return /^(klausies|lasi|raksti|atzime|atzimet|nosauc|papildini|izpeti|labo|sakarto|pasvitro)\b/u.test(comparable)
+    && comparable.length < 90;
+}
+
+function getFullTranscriptSentences(text) {
+  const sentences = splitSentences(text);
+  const contentSentences = sentences.filter((sentence) => !isInstructionSentence(sentence));
+  const usableSentences = contentSentences.length ? contentSentences : sentences;
+  return usableSentences.length ? usableSentences : [stripLessonMarker(getFirstSentence(text))].filter(Boolean);
+}
+
+function pickTranscriptSentence(sentences, ratio) {
+  if (!sentences.length) return "";
+  const index = clamp(Math.round((sentences.length - 1) * ratio), 0, sentences.length - 1);
+  return sentences[index];
 }
 
 function normalizeComparable(text) {
@@ -265,12 +284,12 @@ function makeQuestion(level, prompt, promptLv, correct, distractors, seedText, e
 }
 
 function buildQuizLevels(source, pool, index) {
-  const lvSentences = getClipSentences(source.lv_text || source.transcript);
-  const enSentences = getClipSentences(source.en_text || source.translation);
-  const primaryLv = lvSentences[0] || source.answer_text || source.title || "Labdien!";
-  const primaryEn = enSentences[0] || source.translation || "Listen for the main meaning.";
-  const detailSentence = lvSentences[Math.min(1, lvSentences.length - 1)] || primaryLv;
-  const superSentence = lvSentences[Math.min(2, lvSentences.length - 1)] || detailSentence;
+  const lvSentences = getFullTranscriptSentences(source.lv_text || source.transcript);
+  const enSentences = getFullTranscriptSentences(source.en_text || source.translation);
+  const primaryLv = pickTranscriptSentence(lvSentences, 0) || source.answer_text || source.title || "Labdien!";
+  const primaryEn = pickTranscriptSentence(enSentences, 0.35) || source.translation || "Listen for the main meaning.";
+  const detailSentence = pickTranscriptSentence(lvSentences, 0.5) || primaryLv;
+  const superSentence = pickTranscriptSentence(lvSentences, 0.82) || detailSentence;
   const clozeWord = pickClozeWord(detailSentence, `${source.id || source.title}-hard`);
   const clozeSentence = makeClozeSentence(detailSentence, clozeWord);
   const lvDistractors = getPoolPhrases(pool, index, "lv_text", "title");
@@ -281,39 +300,39 @@ function buildQuizLevels(source, pool, index) {
   return {
     easy: makeQuestion(
       "easy",
-      "Which Latvian line did you hear?",
-      "Kuru latviešu frāzi tu dzirdēji?",
+      "Which Latvian line appears in the full audio?",
+      "Kura latviešu frāze ir pilnajā audio?",
       primaryLv,
       lvDistractors,
       `${source.id || source.title}-easy`,
-      "Focus on recognition: match the sound to the exact Latvian line."
+      "Focus on recognition: match the full audio to the exact Latvian line."
     ),
     intermediate: makeQuestion(
       "intermediate",
-      "What is the best English meaning?",
-      "Kāda ir labākā nozīme angliski?",
+      "What is the best English meaning from the full audio?",
+      "Kāda ir labākā nozīme pilnajā audio?",
       primaryEn,
       enDistractors,
       `${source.id || source.title}-intermediate`,
-      "Focus on meaning: understand the line, not only the sound."
+      "Focus on meaning across the full transcript, not only the first clip."
     ),
     hard: makeQuestion(
       "hard",
-      `Which word completes: ${clozeSentence}`,
-      `Kurš vārds der teikumā: ${clozeSentence}`,
+      `Which full-audio word completes: ${clozeSentence}`,
+      `Kurš pilnā audio vārds der teikumā: ${clozeSentence}`,
       clozeWord || primaryLv,
       wordDistractors,
       `${source.id || source.title}-hard`,
-      "Focus on detail: catch the missing word inside the sentence."
+      "Focus on detail: catch the missing word from the full audio."
     ),
     super: makeQuestion(
       "super",
-      "Which detail is stated in the audio?",
-      "Kura detaļa ir dzirdama audio?",
+      "Which detail is stated in the full audio?",
+      "Kura detaļa ir dzirdama pilnajā audio?",
       buildDetailStatement(superSentence),
       detailDistractors,
       `${source.id || source.title}-super`,
-      "Focus on comprehension: choose the supported detail from the clip."
+      "Focus on comprehension: choose the supported detail from the full audio."
     )
   };
 }
@@ -351,38 +370,42 @@ function clipFromLesson(lesson, pool, index) {
   };
 }
 
-function normalizeCuratedClip(clip, index, pool) {
+function normalizeCuratedClip(clip, index, pool, catalogLesson) {
   const clipWindow = normalizeClipWindow(clip);
+  const transcript = catalogLesson && catalogLesson.lv_text ? catalogLesson.lv_text : clip.transcript || "";
+  const translation = catalogLesson && catalogLesson.en_text ? catalogLesson.en_text : clip.translation || "";
   const source = {
     id: clip.id || `micro-${index + 1}`,
     title: clip.title || `Clip ${index + 1}`,
-    lv_text: clip.transcript || "",
-    en_text: clip.translation || "",
+    lv_text: transcript,
+    en_text: translation,
     answer_text: clip.answer_text || ""
   };
   const quizPool = (Array.isArray(pool) ? pool : []).map((item) => ({
     id: item.id,
     title: item.title,
-    lv_text: item.transcript || "",
-    en_text: item.translation || ""
+    lv_text: item.lv_text || item.transcript || "",
+    en_text: item.en_text || item.translation || ""
   }));
   const quizLevels = buildQuizLevels(source, quizPool, index);
-  const easyOptions = Array.isArray(clip.options) && clip.options.length ? clip.options.slice(0, 3) : quizLevels.easy.options;
-  const easyAnswer = Number.isInteger(clip.answer) ? clamp(clip.answer, 0, easyOptions.length - 1) : quizLevels.easy.answer;
-  quizLevels.easy = {
-    level: "easy",
-    prompt: clip.prompt || quizLevels.easy.prompt,
-    prompt_lv: clip.prompt_lv || quizLevels.easy.prompt_lv,
-    options: easyOptions,
-    answer: easyAnswer,
-    answer_text: clip.answer_text || easyOptions[easyAnswer] || quizLevels.easy.answer_text,
-    explanation: "Focus on recognition: match the sound to the exact Latvian line."
-  };
+  if (!catalogLesson) {
+    const easyOptions = Array.isArray(clip.options) && clip.options.length ? clip.options.slice(0, 3) : quizLevels.easy.options;
+    const easyAnswer = Number.isInteger(clip.answer) ? clamp(clip.answer, 0, easyOptions.length - 1) : quizLevels.easy.answer;
+    quizLevels.easy = {
+      level: "easy",
+      prompt: clip.prompt || quizLevels.easy.prompt,
+      prompt_lv: clip.prompt_lv || quizLevels.easy.prompt_lv,
+      options: easyOptions,
+      answer: easyAnswer,
+      answer_text: clip.answer_text || easyOptions[easyAnswer] || quizLevels.easy.answer_text,
+      explanation: "Focus on recognition: match the full audio to the exact Latvian line."
+    };
+  }
 
   return {
     id: source.id,
-    sourceLessonId: clip.sourceLessonId || clip.id,
-    audio_url: clip.audio_url,
+    sourceLessonId: catalogLesson && catalogLesson.id ? catalogLesson.id : clip.sourceLessonId || clip.id,
+    audio_url: catalogLesson && catalogLesson.audio_url ? catalogLesson.audio_url : clip.audio_url,
     title: source.title,
     prompt: quizLevels.easy.prompt,
     prompt_lv: quizLevels.easy.prompt_lv,
@@ -390,15 +413,15 @@ function normalizeCuratedClip(clip, index, pool) {
     answer: quizLevels.easy.answer,
     answer_text: quizLevels.easy.answer_text,
     quizLevels,
-    transcript: clip.transcript || "",
-    translation: clip.translation || "",
-    difficulty: clip.difficulty || "A1",
-    category: normalizeCategory(clip.category || "daily life"),
-    description: clip.description || "Curated micro clip",
+    transcript,
+    translation,
+    difficulty: catalogLesson && catalogLesson.level ? catalogLesson.level : clip.difficulty || "A1",
+    category: normalizeCategory(clip.category || (catalogLesson && catalogLesson.lesson_group) || "daily life"),
+    description: clip.description || (catalogLesson && (catalogLesson.lesson_group || catalogLesson.original_filename)) || "Curated micro clip",
     start: clipWindow.start,
     end: clipWindow.end,
     duration: clipWindow.duration,
-    shadowPhrase: pickPhrase(clip.transcript, clip.answer_text),
+    shadowPhrase: pickPhrase(transcript, quizLevels.easy.answer_text),
     source: "curated"
   };
 }
@@ -407,9 +430,10 @@ function mergeClips(curated, catalog) {
   const usableCatalog = (Array.isArray(catalog) ? catalog : []).filter((lesson) => {
     return lesson && lesson.audio_url && lesson.status === "completed";
   });
+  const catalogByAudioUrl = new Map(usableCatalog.map((lesson) => [lesson.audio_url, lesson]));
   const normalizedCurated = (Array.isArray(curated) ? curated : [])
     .filter((clip) => clip && clip.audio_url)
-    .map((clip, index, sourcePool) => normalizeCuratedClip(clip, index, sourcePool));
+    .map((clip, index) => normalizeCuratedClip(clip, index, usableCatalog, catalogByAudioUrl.get(clip.audio_url)));
   const audioUrls = new Set(normalizedCurated.map((clip) => clip.audio_url));
   const generated = usableCatalog
     .filter((lesson) => !audioUrls.has(lesson.audio_url))
@@ -432,13 +456,13 @@ function getDefaultMicroClips() {
       id: "micro-001",
       audio_url: "data/A1_klausisanas/audio/1_2.mp3",
       title: "Iepazīšanās",
-      prompt: "Can you understand this Latvian?",
-      prompt_lv: "Vai tu saproti šo latviešu valodu?",
-      options: ["Labrīt!", "Labdien!", "Labvakar!"],
+      prompt: "Which Latvian line is in the full audio?",
+      prompt_lv: "Kura latviešu frāze ir pilnajā audio?",
+      options: ["Mani sauc Natālija.", "Mani sauc Sāra.", "Es dzīvoju Rīgā."],
       answer: 0,
-      answer_text: "Labrīt!",
-      transcript: "Klausies un atkārto. Labrīt! Mani sauc Jānis Vaivats. Es esmu pasniedzējs.",
-      translation: "Listen and repeat. Good morning! My name is Jānis Vaivats. I am a teacher.",
+      answer_text: "Mani sauc Natālija.",
+      transcript: "1. 2. Klausies un atkārto. Labrīt! Mani sauc Jānis Vaivats. Es esmu pasniedzējis. Labdien! Kā jūs sauc? Mani sauc Natālija. Esmu studente. Labvakar! Vai tu esi Gunta? Jā. Un tu esi Aigars? Tu esi Andris? Nē, es neesmu Andris, es esmu Edgars.",
+      translation: "2. Listen and repeat. Good morning! My name is John Wyvat. I'm a teacher. Hello! What's your name? I'm Natalie. I'm a student. Good evening! Are you Gunta? Yeah. And you're Aigars? Are you Andris? No, I'm not Andris, I'm Edgars.",
       difficulty: "A1",
       category: "greetings",
       start: 0,
@@ -448,13 +472,13 @@ function getDefaultMicroClips() {
       id: "micro-002",
       audio_url: "data/A1_klausisanas/audio/1_3.mp3",
       title: "Vārds",
-      prompt: "What name did you hear?",
-      prompt_lv: "Kādu vārdu tu dzirdēji?",
-      options: ["Maija", "Sāra", "Deivits"],
-      answer: 2,
-      answer_text: "Deivits",
-      transcript: "Labvakar, mani sauc Deivits, kā tevi sauc? Mani sauc Sāra.",
-      translation: "Good evening, my name is Davit, what's your name? My name is Sarah.",
+      prompt: "Which name appears in the full audio?",
+      prompt_lv: "Kurš vārds ir pilnajā audio?",
+      options: ["Kaspars", "Juris", "Ilze"],
+      answer: 0,
+      answer_text: "Kaspars",
+      transcript: "1. 3. Klausies un raksti. Labvakar, es esmu Maija. Labvakar, bet es esmu Kaspars. Labvakar, vai tu esi Aina? Nē, es neesmu Aina, es esmu Maija. Labrīt, mani sauc Deivits, kā tevi sauc? Mani sauc Sāra.",
+      translation: "3: Listen and write. Good evening, I'm Maya. Good evening, but I'm Cameron. Good evening, are you Aina? No, I'm not Aina, I'm Maija. Good morning, my name's Davit, what's your name? My name is Sarah.",
       difficulty: "A1",
       category: "people",
       start: 0,
@@ -538,7 +562,7 @@ function renderClip(clip, index) {
         <h1 class="feed-title">${escapeHtml(clip.title)}</h1>
         <p class="feed-copy">${escapeHtml(clip.description || "Swipe through short Latvian listening reps.")}</p>
 
-        <div class="feed-player" aria-label="15 to 45 second listening clip">
+        <div class="feed-player" aria-label="Listening audio player">
           <audio preload="none" data-src="${escapeHtml(clip.audio_url)}"></audio>
           <div class="feed-player-top">
             <button class="feed-play" type="button" data-action="play" aria-label="Play clip">
@@ -558,7 +582,7 @@ function renderClip(clip, index) {
           </div>
         </div>
 
-        <section class="feed-quiz" aria-label="Instant quiz">
+        <section class="feed-quiz" aria-label="Instant quiz from full audio">
           <span class="feed-panel-label">Instant quiz</span>
           <div class="quiz-levels" role="group" aria-label="Quiz difficulty">
             ${renderQuizLevelButtons()}
@@ -841,6 +865,7 @@ function seekWithinClip(card, range) {
 function setQuizLevel(card, level) {
   const clip = filteredClips[Number(card.dataset.index)];
   const question = getQuiz(clip, level);
+  setPlaybackMode(card, "full");
   card.dataset.activeQuizLevel = question.level || level;
 
   card.querySelectorAll(".quiz-level-btn").forEach((button) => {
@@ -863,6 +888,7 @@ function answerQuiz(button) {
   const clip = filteredClips[index];
   const level = card.dataset.activeQuizLevel || "easy";
   const question = getQuiz(clip, level);
+  setPlaybackMode(card, "full");
   const selectedIndex = Number(button.dataset.answerIndex);
   const options = card.querySelectorAll(".feed-option");
   const feedback = card.querySelector('[data-role="feedback"]');
