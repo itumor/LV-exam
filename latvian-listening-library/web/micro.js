@@ -526,7 +526,7 @@ function renderClip(clip, index) {
   const rangeLabel = `${formatTime(clip.start)}-${formatTime(clip.end)}`;
 
   return `
-    <section class="feed-card" data-index="${index}" data-clip-id="${escapeHtml(clip.id)}" data-active-quiz-level="easy" style="--card-rgb: ${rgbForClip(clip)}">
+    <section class="feed-card" data-index="${index}" data-clip-id="${escapeHtml(clip.id)}" data-active-quiz-level="easy" data-playback-mode="clip" style="--card-rgb: ${rgbForClip(clip)}">
       <div class="feed-main">
         <div class="feed-meta">
           <span class="feed-pill">${escapeHtml(sourceLabel)}</span>
@@ -547,9 +547,13 @@ function renderClip(clip, index) {
             <div class="feed-timebox">
               <div class="feed-time-row">
                 <span data-role="elapsed">${formatTime(0)}</span>
-                <span>${escapeHtml(rangeLabel)}</span>
+                <span data-role="duration-label">Clip ${escapeHtml(rangeLabel)}</span>
               </div>
-              <input class="feed-range" type="range" min="0" max="${clip.duration}" value="0" step="0.1" data-action="seek" aria-label="Seek within clip" />
+              <input class="feed-range" type="range" min="0" max="${clip.duration}" value="0" step="0.1" data-action="seek" aria-label="Seek within selected audio mode" />
+              <div class="playback-mode" role="group" aria-label="Audio playback length">
+                <button class="playback-mode-btn active" type="button" data-playback-mode="clip" aria-pressed="true">Clip</button>
+                <button class="playback-mode-btn" type="button" data-playback-mode="full" aria-pressed="false">Full</button>
+              </div>
             </div>
           </div>
         </div>
@@ -626,6 +630,69 @@ function pauseNonActiveAudio(activeCard) {
   });
 }
 
+function getAudioDuration(audio) {
+  return audio && Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : null;
+}
+
+function getPlaybackMode(card) {
+  return card && card.dataset.playbackMode === "full" ? "full" : "clip";
+}
+
+function getPlaybackBounds(card, clip, audio) {
+  const mode = getPlaybackMode(card);
+  const audioDuration = getAudioDuration(audio);
+
+  if (mode === "full") {
+    return {
+      mode,
+      start: 0,
+      end: audioDuration || Number.POSITIVE_INFINITY,
+      duration: audioDuration || clip.duration,
+      hasKnownDuration: Boolean(audioDuration)
+    };
+  }
+
+  const clipEnd = audioDuration ? Math.min(clip.end, audioDuration) : clip.end;
+  return {
+    mode,
+    start: clip.start,
+    end: clipEnd,
+    duration: Math.max(1, clipEnd - clip.start),
+    hasKnownDuration: true
+  };
+}
+
+function updatePlaybackUi(card) {
+  if (!card) return;
+  const index = Number(card.dataset.index);
+  const clip = filteredClips[index];
+  const audio = card.querySelector("audio");
+  const range = card.querySelector(".feed-range");
+  const elapsed = card.querySelector('[data-role="elapsed"]');
+  const durationLabel = card.querySelector('[data-role="duration-label"]');
+  if (!clip || !audio || !range) return;
+
+  const bounds = getPlaybackBounds(card, clip, audio);
+  const progress = audio.getAttribute("src")
+    ? clamp((audio.currentTime || bounds.start) - bounds.start, 0, bounds.duration)
+    : 0;
+
+  range.max = String(bounds.duration);
+  range.value = String(progress);
+  if (elapsed) elapsed.textContent = formatTime(progress);
+  if (durationLabel) {
+    durationLabel.textContent = bounds.mode === "full"
+      ? `Full ${bounds.hasKnownDuration ? formatTime(bounds.duration) : "loading"}`
+      : `Clip ${formatTime(bounds.start)}-${formatTime(bounds.end)}`;
+  }
+
+  card.querySelectorAll(".playback-mode-btn").forEach((button) => {
+    const isActive = button.dataset.playbackMode === bounds.mode;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
 function setupObserver() {
   if (observer) observer.disconnect();
   observer = new IntersectionObserver((entries) => {
@@ -650,45 +717,43 @@ function wireAudioEvents() {
     const index = Number(card.dataset.index);
     const clip = filteredClips[index];
     const audio = card.querySelector("audio");
-    const range = card.querySelector(".feed-range");
-    const elapsed = card.querySelector('[data-role="elapsed"]');
 
     audio.addEventListener("loadedmetadata", () => {
       if (Number.isFinite(audio.duration) && audio.duration > 0 && audio.duration < clip.end) {
         clip.end = Math.max(clip.start, audio.duration);
         clip.duration = Math.max(1, clip.end - clip.start);
-        range.max = String(clip.duration);
       }
+      updatePlaybackUi(card);
     });
 
     audio.addEventListener("timeupdate", () => {
-      if (audio.currentTime < clip.start) {
-        audio.currentTime = clip.start;
+      const bounds = getPlaybackBounds(card, clip, audio);
+      if (audio.currentTime < bounds.start) {
+        audio.currentTime = bounds.start;
       }
-      const currentEnd = Math.min(clip.end, Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : clip.end);
-      if (audio.currentTime >= currentEnd) {
+      if (Number.isFinite(bounds.end) && audio.currentTime >= bounds.end) {
         audio.pause();
-        audio.currentTime = clip.start;
+        audio.currentTime = bounds.start;
         setPlayButtonState(card, false);
-        range.value = "0";
-        if (elapsed) elapsed.textContent = formatTime(0);
-        saveProgress(clip, "listened");
+        updatePlaybackUi(card);
+        saveProgress(clip, bounds.mode === "full" ? "full-listened" : "listened");
         return;
       }
-
-      const progress = clamp(audio.currentTime - clip.start, 0, clip.duration);
-      range.value = String(progress);
-      if (elapsed) elapsed.textContent = formatTime(progress);
+      updatePlaybackUi(card);
     });
 
     audio.addEventListener("play", () => {
       activeAudio = audio;
       setPlayButtonState(card, true);
+      updatePlaybackUi(card);
     });
 
     audio.addEventListener("pause", () => {
       setPlayButtonState(card, false);
+      updatePlaybackUi(card);
     });
+
+    updatePlaybackUi(card);
   });
 }
 
@@ -707,6 +772,24 @@ function ensureAudioSource(audio) {
     audio.setAttribute("src", src);
     audio.load();
   }
+}
+
+function setPlaybackMode(card, mode) {
+  const index = Number(card.dataset.index);
+  const clip = filteredClips[index];
+  const audio = card.querySelector("audio");
+  if (!clip || !audio) return;
+
+  card.dataset.playbackMode = mode === "full" ? "full" : "clip";
+  if (card.dataset.playbackMode === "full") {
+    ensureAudioSource(audio);
+  }
+
+  const bounds = getPlaybackBounds(card, clip, audio);
+  if (audio.getAttribute("src") && (audio.currentTime < bounds.start || (Number.isFinite(bounds.end) && audio.currentTime >= bounds.end))) {
+    audio.currentTime = bounds.start;
+  }
+  updatePlaybackUi(card);
 }
 
 function scrollToClip(index) {
@@ -734,9 +817,9 @@ function togglePlay(card) {
   }
 
   ensureAudioSource(audio);
-  const currentEnd = Math.min(clip.end, Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : clip.end);
-  if (audio.currentTime < clip.start || audio.currentTime >= currentEnd) {
-    audio.currentTime = clip.start;
+  const bounds = getPlaybackBounds(card, clip, audio);
+  if (audio.currentTime < bounds.start || (Number.isFinite(bounds.end) && audio.currentTime >= bounds.end)) {
+    audio.currentTime = bounds.start;
   }
 
   audio.play().catch(() => {
@@ -750,7 +833,9 @@ function seekWithinClip(card, range) {
   const audio = card.querySelector("audio");
   if (!clip || !audio) return;
   ensureAudioSource(audio);
-  audio.currentTime = clip.start + Number(range.value || 0);
+  const bounds = getPlaybackBounds(card, clip, audio);
+  audio.currentTime = bounds.start + Number(range.value || 0);
+  updatePlaybackUi(card);
 }
 
 function setQuizLevel(card, level) {
@@ -998,7 +1083,13 @@ deck.addEventListener("click", (event) => {
   const actionButton = event.target.closest("[data-action]");
   const answerButton = event.target.closest("[data-answer-index]");
   const quizLevelButton = event.target.closest(".quiz-level-btn[data-quiz-level]");
+  const playbackModeButton = event.target.closest(".playback-mode-btn[data-playback-mode]");
   const card = event.target.closest(".feed-card");
+
+  if (playbackModeButton && card) {
+    setPlaybackMode(card, playbackModeButton.dataset.playbackMode);
+    return;
+  }
 
   if (quizLevelButton && card) {
     setQuizLevel(card, quizLevelButton.dataset.quizLevel);

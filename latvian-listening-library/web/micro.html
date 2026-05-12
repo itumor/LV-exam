@@ -296,6 +296,31 @@
         width: 100%;
       }
 
+      .playback-mode {
+        display: inline-flex;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      .playback-mode-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        color: rgba(255, 255, 255, 0.76);
+        cursor: pointer;
+        font-size: 0.7rem;
+        font-weight: 1000;
+        min-height: 28px;
+        padding: 0 10px;
+        text-transform: uppercase;
+      }
+
+      .playback-mode-btn.active {
+        background: white;
+        border-color: transparent;
+        color: #05070d;
+      }
+
       .feed-quiz,
       .feed-shadow,
       .feed-transcript {
@@ -647,6 +672,10 @@
         .feed-player {
           border-radius: 18px;
           padding: 10px;
+        }
+
+        .playback-mode {
+          margin-top: 6px;
         }
 
         .feed-play {
