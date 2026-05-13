@@ -818,6 +818,64 @@
         width: 48px;
       }
 
+      .feed-transcript.open {
+        -webkit-backdrop-filter: blur(28px);
+        backdrop-filter: blur(28px);
+        background:
+          linear-gradient(180deg, rgba(38, 27, 48, 0.96), rgba(10, 14, 24, 0.96)),
+          rgba(10, 17, 27, 0.96);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 30px;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+        box-shadow: 0 34px 110px rgba(0, 0, 0, 0.58);
+        display: grid;
+        gap: 18px;
+        grid-template-rows: auto minmax(0, 1fr);
+        left: max(26px, env(safe-area-inset-left, 0px));
+        max-height: none;
+        max-width: none;
+        overflow: hidden;
+        padding: 22px;
+        position: fixed;
+        right: max(26px, env(safe-area-inset-right, 0px));
+        top: calc(env(safe-area-inset-top, 0px) + 72px);
+        width: auto;
+        z-index: 60;
+      }
+
+      .feed-transcript.open::before {
+        background: rgba(0, 0, 0, 0.58);
+        content: "";
+        inset: -100vh -100vw;
+        pointer-events: none;
+        position: absolute;
+        z-index: -1;
+      }
+
+      .feed-transcript.open .transcript-heading {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+
+      .feed-transcript.open .transcript-close {
+        background: white;
+        color: #05070d;
+        height: 44px;
+        width: 44px;
+      }
+
+      .feed-transcript.open .feed-transcript-body {
+        max-height: none;
+        overflow-y: auto;
+        padding-right: 10px;
+      }
+
+      .feed-transcript.open p {
+        font-size: clamp(1.05rem, 1.5vw, 1.32rem);
+        line-height: 1.62;
+      }
+
       .feed-title {
         font-size: clamp(5rem, 9.2vw, 8.4rem);
         line-height: 0.82;
@@ -1053,6 +1111,20 @@
         .rail-btn {
           height: 42px;
           width: 42px;
+        }
+
+        .feed-transcript.open {
+          border-radius: 22px;
+          left: max(10px, env(safe-area-inset-left, 0px));
+          bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+          padding: 16px;
+          right: max(10px, env(safe-area-inset-right, 0px));
+          top: calc(env(safe-area-inset-top, 0px) + 54px);
+        }
+
+        .feed-transcript.open p {
+          font-size: 1rem;
+          line-height: 1.55;
         }
       }
 
