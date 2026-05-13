@@ -31,6 +31,7 @@ let filteredClips = [];
 let activeIndex = 0;
 let activeAudio = null;
 let observer = null;
+let autoplayBlockedNoticeShown = false;
 let currentRecorder = null;
 let currentStream = null;
 let currentRecognition = null;
@@ -654,6 +655,14 @@ function pauseNonActiveAudio(activeCard) {
   });
 }
 
+function getCardPlayback(card) {
+  const index = Number(card.dataset.index);
+  const clip = filteredClips[index];
+  const audio = card.querySelector("audio");
+  if (!clip || !audio) return null;
+  return { clip, audio };
+}
+
 function getAudioDuration(audio) {
   return audio && Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : null;
 }
@@ -726,6 +735,7 @@ function setupObserver() {
         const index = Number(card.dataset.index);
         setActiveIndex(index, true);
         pauseNonActiveAudio(card);
+        playCardAudio(card, { isAutoplay: true });
       }
     });
   }, {
@@ -799,10 +809,9 @@ function ensureAudioSource(audio) {
 }
 
 function setPlaybackMode(card, mode) {
-  const index = Number(card.dataset.index);
-  const clip = filteredClips[index];
-  const audio = card.querySelector("audio");
-  if (!clip || !audio) return;
+  const playback = getCardPlayback(card);
+  if (!playback) return;
+  const { clip, audio } = playback;
 
   card.dataset.playbackMode = mode === "full" ? "full" : "clip";
   if (card.dataset.playbackMode === "full") {
@@ -822,22 +831,17 @@ function scrollToClip(index) {
   if (target) {
     target.scrollIntoView({ behavior: "smooth", block: "start" });
     setActiveIndex(safeIndex, true);
+    pauseNonActiveAudio(target);
+    playCardAudio(target, { isAutoplay: true });
   }
 }
 
-function togglePlay(card) {
-  const index = Number(card.dataset.index);
-  const clip = filteredClips[index];
-  const audio = card.querySelector("audio");
-  if (!clip || !audio) return;
-
+function playCardAudio(card, options = {}) {
+  const playback = getCardPlayback(card);
+  if (!playback) return;
+  const { clip, audio } = playback;
   if (activeAudio && activeAudio !== audio) {
     activeAudio.pause();
-  }
-
-  if (!audio.paused) {
-    audio.pause();
-    return;
   }
 
   ensureAudioSource(audio);
@@ -847,15 +851,37 @@ function togglePlay(card) {
   }
 
   audio.play().catch(() => {
+    if (options.isAutoplay) {
+      if (!autoplayBlockedNoticeShown) {
+        autoplayBlockedNoticeShown = true;
+        showToast("Tap play once to enable scroll autoplay.");
+      }
+      setPlayButtonState(card, false);
+      updatePlaybackUi(card);
+      return;
+    }
     showToast("Tap again to start audio.");
   });
 }
 
+function togglePlay(card) {
+  const playback = getCardPlayback(card);
+  if (!playback) return;
+  const { audio } = playback;
+
+  if (!audio.paused) {
+    audio.pause();
+    return;
+  }
+
+  autoplayBlockedNoticeShown = false;
+  playCardAudio(card);
+}
+
 function seekWithinClip(card, range) {
-  const index = Number(card.dataset.index);
-  const clip = filteredClips[index];
-  const audio = card.querySelector("audio");
-  if (!clip || !audio) return;
+  const playback = getCardPlayback(card);
+  if (!playback) return;
+  const { clip, audio } = playback;
   ensureAudioSource(audio);
   const bounds = getPlaybackBounds(card, clip, audio);
   audio.currentTime = bounds.start + Number(range.value || 0);
