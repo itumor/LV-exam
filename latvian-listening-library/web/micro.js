@@ -631,6 +631,11 @@ function renderClip(clip, index) {
 
 function setActiveIndex(index, updateUrl) {
   activeIndex = clamp(index, 0, Math.max(filteredClips.length - 1, 0));
+  deck.querySelectorAll(".feed-card").forEach((card) => {
+    const isActive = Number(card.dataset.index) === activeIndex;
+    card.classList.toggle("active", isActive);
+    card.toggleAttribute("data-active-card", isActive);
+  });
   if (feedCount) {
     feedCount.textContent = `${filteredClips.length ? activeIndex + 1 : 0} / ${filteredClips.length}`;
   }
