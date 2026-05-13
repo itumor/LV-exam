@@ -296,6 +296,31 @@
         width: 100%;
       }
 
+      .playback-mode {
+        display: inline-flex;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      .playback-mode-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        color: rgba(255, 255, 255, 0.76);
+        cursor: pointer;
+        font-size: 0.7rem;
+        font-weight: 1000;
+        min-height: 28px;
+        padding: 0 10px;
+        text-transform: uppercase;
+      }
+
+      .playback-mode-btn.active {
+        background: white;
+        border-color: transparent;
+        color: #05070d;
+      }
+
       .feed-quiz,
       .feed-shadow,
       .feed-transcript {
@@ -316,6 +341,31 @@
         letter-spacing: 0.08em;
         margin-bottom: 8px;
         text-transform: uppercase;
+      }
+
+      .quiz-levels {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-bottom: 10px;
+      }
+
+      .quiz-level-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        color: rgba(255, 255, 255, 0.78);
+        cursor: pointer;
+        font-size: 0.72rem;
+        font-weight: 1000;
+        min-height: 30px;
+        padding: 0 10px;
+      }
+
+      .quiz-level-btn.active {
+        background: var(--feed-gold);
+        border-color: transparent;
+        color: #17120a;
       }
 
       .feed-quiz h2,
@@ -412,13 +462,52 @@
 
       .feed-transcript.open {
         display: block;
+        left: 0;
+        max-height: min(62vh, 540px);
+        overflow: hidden;
+        position: absolute;
+        right: 0;
+        top: auto;
+        bottom: 0;
+        z-index: 12;
+      }
+
+      .transcript-heading {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+      }
+
+      .transcript-close {
+        align-items: center;
+        background: rgba(255, 255, 255, 0.13);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        color: white;
+        cursor: pointer;
+        display: inline-flex;
+        flex: 0 0 auto;
+        font-size: 1rem;
+        font-weight: 1000;
+        height: 32px;
+        justify-content: center;
+        width: 32px;
+      }
+
+      .feed-transcript-body {
+        max-height: calc(min(62vh, 540px) - 54px);
+        overflow-y: auto;
+        padding-right: 6px;
+        scrollbar-color: rgba(255, 255, 255, 0.36) transparent;
       }
 
       .feed-transcript p {
         color: var(--feed-muted);
         font-size: 0.92rem;
         line-height: 1.45;
-        margin: 0;
+        margin: 0 0 12px;
+        white-space: pre-wrap;
       }
 
       .feed-transcript strong {
@@ -585,6 +674,10 @@
           padding: 10px;
         }
 
+        .playback-mode {
+          margin-top: 6px;
+        }
+
         .feed-play {
           height: 48px;
           width: 48px;
@@ -594,6 +687,17 @@
         .feed-shadow h2 {
           font-size: 1rem;
           margin-bottom: 8px;
+        }
+
+        .quiz-levels {
+          gap: 6px;
+          margin-bottom: 8px;
+        }
+
+        .quiz-level-btn {
+          font-size: 0.66rem;
+          min-height: 28px;
+          padding: 0 8px;
         }
 
         .feed-option {
@@ -621,6 +725,14 @@
           height: 42px;
           width: 42px;
         }
+
+        .feed-transcript.open {
+          max-height: 64vh;
+        }
+
+        .feed-transcript-body {
+          max-height: calc(64vh - 52px);
+        }
       }
 
       @media (max-width: 420px) {
@@ -647,6 +759,11 @@
         .feed-bottom {
           display: none;
         }
+
+        .quiz-level-btn {
+          font-size: 0.62rem;
+          padding: 0 7px;
+        }
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -656,6 +773,295 @@
 
         .feed-progress-fill {
           transition: none;
+        }
+      }
+
+      /* ===== FEED LAYOUT FIX ===== */
+
+      .feed-card {
+        grid-template-columns: minmax(0, 1fr);
+        padding:
+          calc(env(safe-area-inset-top, 0px) + 118px)
+          26px
+          calc(env(safe-area-inset-bottom, 0px) + 42px);
+      }
+
+      .feed-main {
+        align-content: start;
+        gap: 22px;
+        justify-items: start;
+        max-width: min(1120px, calc(100vw - 52px));
+        width: 100%;
+      }
+
+      .feed-rail {
+        align-self: center;
+        display: none;
+        gap: 14px;
+        justify-items: center;
+        padding-left: 0;
+        pointer-events: auto;
+        position: fixed;
+        right: calc(env(safe-area-inset-right, 0px) + 20px);
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 20;
+      }
+
+      .feed-card.active .feed-rail,
+      .feed-card[data-active-card] .feed-rail {
+        display: grid;
+      }
+
+      .rail-btn {
+        height: 48px;
+        width: 48px;
+      }
+
+      .feed-title {
+        font-size: clamp(5rem, 9.2vw, 8.4rem);
+        line-height: 0.82;
+        max-width: 100%;
+      }
+
+      .feed-copy {
+        font-size: clamp(1.15rem, 2vw, 1.6rem);
+        line-height: 1.25;
+        max-width: 900px;
+      }
+
+      .feed-player,
+      .feed-quiz,
+      .feed-shadow,
+      .feed-transcript {
+        max-width: min(1080px, 100%);
+        width: 100%;
+      }
+
+      .feed-player {
+        border-radius: 28px;
+        min-height: 126px;
+        padding: 18px 20px;
+      }
+
+      .feed-player-top {
+        gap: 18px;
+      }
+
+      .feed-play {
+        height: 74px;
+        width: 74px;
+      }
+
+      .feed-time-row {
+        font-size: 1rem;
+        margin-bottom: 10px;
+      }
+
+      .playback-mode {
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .feed-shell button,
+      .toast button {
+        -webkit-appearance: none;
+        appearance: none;
+      }
+
+      .feed-shell .playback-mode-btn,
+      .feed-shell .quiz-level-btn {
+        align-items: center;
+        border-radius: 999px;
+        cursor: pointer;
+        display: inline-flex;
+        font-weight: 900;
+        justify-content: center;
+        line-height: 1;
+      }
+
+      .feed-shell .playback-mode-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: rgba(255, 255, 255, 0.78);
+        font-size: 0.82rem;
+        min-height: 42px;
+        padding: 0 18px;
+        text-transform: uppercase;
+      }
+
+      .feed-shell .playback-mode-btn.active {
+        background: white;
+        border-color: transparent;
+        color: #05070d;
+      }
+
+      .feed-quiz,
+      .feed-shadow {
+        border-radius: 26px;
+        padding: 22px;
+      }
+
+      .feed-panel-label {
+        font-size: 0.88rem;
+        margin-bottom: 14px;
+      }
+
+      .quiz-levels {
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      .feed-shell .quiz-level-btn {
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: rgba(255, 255, 255, 0.78);
+        font-size: 0.9rem;
+        min-height: 42px;
+        padding: 0 18px;
+      }
+
+      .feed-shell .quiz-level-btn.active {
+        background: var(--feed-gold);
+        border-color: transparent;
+        color: #17120a;
+      }
+
+      .feed-quiz h2,
+      .feed-shadow h2 {
+        font-size: 1.45rem;
+        margin-bottom: 16px;
+      }
+
+      .feed-options {
+        gap: 12px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .feed-option {
+        border-radius: 18px;
+        font-size: 1.2rem;
+        min-height: 72px;
+        padding: 14px 18px;
+      }
+
+      .feed-shadow {
+        min-height: 220px;
+      }
+
+      .feed-shadow-text {
+        font-size: 1.4rem;
+        margin-bottom: 18px;
+      }
+
+      .shadow-btn {
+        font-size: 1.15rem;
+        min-height: 54px;
+        padding: 0 24px;
+      }
+
+      @media (max-width: 780px) {
+        .feed-card {
+          grid-template-columns: 1fr;
+          padding:
+            calc(env(safe-area-inset-top, 0px) + 86px)
+            14px
+            calc(env(safe-area-inset-bottom, 0px) + 18px);
+        }
+
+        .feed-main {
+          gap: 12px;
+          max-width: 100%;
+        }
+
+        .feed-title {
+          font-size: clamp(2.8rem, 15vw, 4.4rem);
+          line-height: 0.88;
+        }
+
+        .feed-player,
+        .feed-quiz,
+        .feed-shadow,
+        .feed-transcript {
+          max-width: 100%;
+          width: 100%;
+        }
+
+        .feed-player {
+          border-radius: 20px;
+          min-height: auto;
+          padding: 12px;
+        }
+
+        .feed-play {
+          height: 52px;
+          width: 52px;
+        }
+
+        .feed-time-row {
+          font-size: 0.82rem;
+        }
+
+        .feed-shell .playback-mode-btn,
+        .feed-shell .quiz-level-btn {
+          font-size: 0.72rem;
+          min-height: 32px;
+          padding: 0 11px;
+        }
+
+        .feed-quiz,
+        .feed-shadow {
+          border-radius: 18px;
+          padding: 14px;
+        }
+
+        .feed-quiz h2,
+        .feed-shadow h2 {
+          font-size: 1.08rem;
+          margin-bottom: 10px;
+        }
+
+        .feed-options {
+          grid-template-columns: 1fr;
+        }
+
+        .feed-option {
+          font-size: 1rem;
+          min-height: 46px;
+          padding: 10px 12px;
+        }
+
+        .feed-shadow {
+          min-height: auto;
+        }
+
+        .feed-shadow-text {
+          font-size: 1.05rem;
+        }
+
+        .shadow-btn {
+          font-size: 1rem;
+          min-height: 40px;
+          padding: 0 14px;
+        }
+
+        .feed-rail {
+          gap: 10px;
+          right: calc(env(safe-area-inset-right, 0px) + 10px);
+        }
+
+        .rail-btn {
+          height: 42px;
+          width: 42px;
+        }
+      }
+
+      @media (max-width: 420px) {
+        .feed-player,
+        .feed-quiz,
+        .feed-shadow,
+        .feed-transcript {
+          max-width: 100%;
         }
       }
     </style>
