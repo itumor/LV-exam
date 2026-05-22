@@ -94,7 +94,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
       - name: Deploy
-        run: flyctl deploy --app ${{ env.FLY_APP }} --remote-only
+        run: flyctl deploy --app ${{ env.FLY_APP }} --remote-only --wait-timeout 300
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
