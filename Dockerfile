@@ -1,7 +1,5 @@
 FROM python:3.13-alpine
 
-RUN apk add --no-cache su-exec
-
 WORKDIR /app
 
 RUN mkdir -p /app/data/.multica /app/data/uploads
@@ -20,15 +18,9 @@ COPY latvian-listening-library/data /app/latvian-listening-library/data
 # Ensure symlink exists for audio data path
 RUN cd /app/latvian-listening-library/web && ln -sf ../data data
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
-    && chown -R appuser:appgroup /app
-
-COPY docker/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
 ENV PORT=80
 EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % os.getenv('PORT', '80'), timeout=3).read(1)"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % os.getenv('PORT', '80'), timeout=3).read(1)"
 
-CMD ["/app/entrypoint.sh"]
+CMD ["python", "server.py"]
