@@ -4753,15 +4753,19 @@ class AppHandler(SimpleHTTPRequestHandler):
             payload = safe_read_raw_body(self)
             secret = stripe_webhook_secret()
             if not secret:
-                raise ValueError("STRIPE_WEBHOOK_SECRET is required.")
+                json_response(self, HTTPStatus.BAD_REQUEST, {"error": "Webhook not configured."})
+                return
             signature = self.headers.get("Stripe-Signature")
             store = get_billing_store()
             result = store.handle_webhook(payload, signature, secret)
             json_response(self, HTTPStatus.OK, {"status": "ok", "result": result})
+        except ValueError as error:
+            log_event("warning", "stripe_webhook_bad_signature", error=str(error))
+            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
         except Exception as error:  # noqa: BLE001 - keep API responses JSON.
             capture_exception(error)
             log_event("error", "stripe_webhook_error", error=type(error).__name__)
-            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+            json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "Internal error."})
 
 
 class DualStackServer(ThreadingHTTPServer):
