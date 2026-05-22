@@ -979,9 +979,11 @@ class ClosingSqliteConnection(sqlite3.Connection):
 def db_connection() -> sqlite3.Connection:
     path = Path(os.getenv("AUTH_DB_PATH", str(AUTH_DB_PATH)))
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, factory=ClosingSqliteConnection)
+    conn = sqlite3.connect(path, timeout=10, factory=ClosingSqliteConnection)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA synchronous = NORMAL")
     return conn
 
 
