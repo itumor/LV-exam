@@ -139,6 +139,22 @@
     // More mappings can be added as needed
   };
 
+  // Keywords for category detection based on title/lesson_group
+  var CATEGORY_KEYWORDS = {
+    doctor: ['ārsta', 'ārsts', 'vesel', 'slim', 'medic', 'recepte', 'analīzes', 'aptieka', 'uz slimību', 'pie ārsta'],
+    pharmacy: ['aptiek', 'zāl', 'medikament'],
+    school: ['skol', 'bērnudārz', 'stunda', 'mājasdarbs', 'atzīme', 'vecāk', 'sapulce', 'skolotāj'],
+    grocery: ['veikal', 'pārtik', 'pērc', 'kase', 'cena', 'atlaid', 'prece', 'svars', 'kvit'],
+    cafe: ['kafejnīc', 'restorān', 'ēdien', 'menu', 'pasūt', 'bārs', 'dzērien'],
+    transport: ['autobus', 'tramvaj', 'vilciens', 'vilciens', 'transports', 'biļete', 'marsrut', 'pietura', 'brauc', 'centrs'],
+    work: ['darb', 'sanāksm', 'projekt', 'uzdevums', 'komand', 'darbavieta', 'kolēģ', 'priekšniek'],
+    government: ['valsts', 'iestād', 'dokument', 'veidlapa', 'rinda', 'apstiprinājums', 'dzivesviet', 'iedzīvotāju', 'reģistr', 'birokrāt'],
+    bank: ['bank', 'maksājum', 'konts', 'karte', 'kredīt', 'pasts', 'pasta', 'rēķin', 'utilities'],
+    housing: ['dzīvokl', 'māj', 'īpašnieks', 'istsallē', 'remont', 'īre', 'naktsmītn', 'log', 'durvis'],
+    weather: ['laiks', 'temperatūr', 'debesis', 'saul', 'lietus', 'snieg'],
+    family: ['gimene', 'ģimen', 'bērn', 'vecāk', 'māte', 'tēvs', 'brālis', 'māsa', 'vecmāmiņ', 'vectēvs', 'ikdien', 'rīts', 'vakars', 'diena']
+  };
+
   // ---------------------------------------------------------------------------
   // Category API
   // ---------------------------------------------------------------------------
@@ -160,6 +176,18 @@
       // First check explicit mapping
       if (CATEGORY_MAPPINGS[item.id]) {
         return CATEGORY_MAPPINGS[item.id];
+      }
+
+      // Check title and lesson_group for keywords
+      var searchText = ((item.title || '') + ' ' + (item.lesson_group || '') + ' ' + (item.original_filename || '')).toLowerCase();
+      
+      for (var catId in CATEGORY_KEYWORDS) {
+        var keywords = CATEGORY_KEYWORDS[catId];
+        for (var i = 0; i < keywords.length; i++) {
+          if (searchText.indexOf(keywords[i].toLowerCase()) !== -1) {
+            return catId;
+          }
+        }
       }
       
       // Default to uncategorized

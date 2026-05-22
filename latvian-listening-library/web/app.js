@@ -39,7 +39,8 @@
     isPlaying: false,
     currentTime: 0,
     duration: 0,
-    waveformData: null
+    waveformData: null,
+    culturalContexts: []
   };
   var isDev = window.location.hostname === 'localhost' || window.location.hostname.indexOf('127.0.0.1') !== -1;
   var audioSource = new AudioSource(AudioSourceType.MP3, window.AUDIO_BASE_URL || '');
@@ -50,19 +51,21 @@
   // ---------------------------------------------------------------------------
   var SkeletonHelper = {
     showSidebar: function() {
-      document.querySelectorAll('#menu .skeleton-item').forEach(function(el) { el.hidden = false; });
-      document.querySelectorAll('#menu .audio-item').forEach(function(el) { el.hidden = true; });
+      var skeletonItems = document.querySelectorAll('#a1-lesson-list .skeleton-item, #a2-lesson-list .skeleton-item');
+      var lessonBtns = document.querySelectorAll('#a1-lesson-list button[data-lesson-id], #a2-lesson-list button[data-lesson-id]');
+      skeletonItems.forEach(function(el) { el.style.display = ''; });
+      lessonBtns.forEach(function(el) { el.style.display = 'none'; });
     },
     hideSidebar: function() {
-      document.querySelectorAll('#menu .skeleton-item').forEach(function(el) { el.hidden = true; });
+      document.querySelectorAll('#a1-lesson-list .skeleton-item, #a2-lesson-list .skeleton-item').forEach(function(el) { el.style.display = 'none'; });
     },
     showPanels: function() {
-      document.querySelectorAll('.panel-body .skeleton-line').forEach(function(el) { el.hidden = false; });
-      document.querySelectorAll('.reading-text').forEach(function(el) { el.hidden = true; });
+      document.querySelectorAll('.panel-body .skeleton-line').forEach(function(el) { el.style.display = ''; });
+      document.querySelectorAll('.reading-text').forEach(function(el) { el.style.visibility = 'hidden'; });
     },
     hidePanels: function() {
-      document.querySelectorAll('.panel-body .skeleton-line').forEach(function(el) { el.hidden = true; });
-      document.querySelectorAll('.reading-text').forEach(function(el) { el.hidden = false; });
+      document.querySelectorAll('.panel-body .skeleton-line').forEach(function(el) { el.style.display = 'none'; });
+      document.querySelectorAll('.reading-text').forEach(function(el) { el.style.visibility = ''; });
     }
   };
 
@@ -91,20 +94,25 @@
       return ProgressTracker._completed;
     },
     updateUI: function() {
-      // Update completion dots on sidebar buttons
-      var buttons = document.querySelectorAll('.audio-item[data-lesson-id]');
+      var buttons = document.querySelectorAll('#a1-lesson-list button[data-lesson-id], #a2-lesson-list button[data-lesson-id]');
       buttons.forEach(function(btn) {
         var id = btn.getAttribute('data-lesson-id');
-        var dot = btn.querySelector('.completion-dot');
-        if (dot) {
-          if (ProgressTracker.isCompleted(id)) {
-            btn.classList.add('completed');
-          } else {
-            btn.classList.remove('completed');
+        var existingBadge = btn.querySelector('.badge');
+        if (ProgressTracker.isCompleted(id)) {
+          btn.classList.add('completed');
+          if (!existingBadge) {
+            var badge = document.createElement('span');
+            badge.className = 'badge bg-success rounded-pill';
+            badge.textContent = '✓';
+            btn.appendChild(badge);
+          }
+        } else {
+          btn.classList.remove('completed');
+          if (existingBadge && !btn.classList.contains('active')) {
+            existingBadge.remove();
           }
         }
       });
-      // Update progress bar for current level
       var item = State.filtered[State.selectedIndex];
       if (!item) return;
       var levelItems = State.catalog.filter(function(l) { return l.level === item.level; });
@@ -117,7 +125,6 @@
         bar.style.width = progress.valuenow + '%';
       }
       if (label) label.textContent = progress.label;
-      // Show/hide exam readiness
       var examItems = levelItems.filter(function(l) { return l.exam; });
       var examEl = document.getElementById('exam-readiness');
       var examPct = document.getElementById('exam-pct');
@@ -125,19 +132,26 @@
         var examCompleted = examItems.filter(function(l) { return ProgressTracker.isCompleted(l.id); }).length;
         var pct = Math.round(examCompleted / examItems.length * 100);
         if (examPct) examPct.textContent = pct + '%';
-        examEl.hidden = false;
+        var examVal = document.getElementById('exam-readiness-val');
+        var examBar = document.getElementById('exam-progress-bar');
+        if (examVal) examVal.textContent = pct + '%';
+        if (examBar) examBar.style.width = pct + '%';
+        examEl.style.display = '';
       } else if (examEl) {
-        examEl.hidden = true;
+        examEl.style.display = 'none';
       }
     }
   };
   ProgressTracker.load();
 
   // ---------------------------------------------------------------------------
-  // DOM references
+  // DOM references — updated for Bootstrap offcanvas structure
   // ---------------------------------------------------------------------------
-  var menu = document.querySelector('#menu');
+  var a1List = document.querySelector('#a1-lesson-list');
+  var a2List = document.querySelector('#a2-lesson-list');
+  var menu = document.querySelector('#lessonAccordion');
   var search = document.querySelector('#search');
+  var searchClear = document.querySelector('#search-clear');
   var styleFilter = document.querySelector('#styleFilter');
   var categoryFilter = document.querySelector('#categoryFilter');
   var title = document.querySelector('#title');
@@ -535,11 +549,15 @@
 
   function renderComprehensionMeter(text) {
     if (!compMeterCard || !window.ComprehensionMeter || !text || !text.trim()) {
-      if (compMeterCard) compMeterCard.hidden = true;
+      if (compMeterCard) compMeterCard.style.display = 'none';
+      var compPctCard = document.getElementById('comp-pct-card');
+      var compBarCard = document.getElementById('comp-progress-bar');
+      if (compPctCard) compPctCard.textContent = '-';
+      if (compBarCard) compBarCard.style.width = '0%';
       return;
     }
 
-    compMeterCard.hidden = false;
+    compMeterCard.style.display = '';
     var stats = ComprehensionMeter.computeLessonStats(text);
     var result = ComprehensionMeter.getComprehensionLabel(stats.comprehensionPct);
 
@@ -561,8 +579,14 @@
     if (statUnique) statUnique.textContent = stats.uniqueWords;
     if (statUnknown) statUnknown.textContent = stats.unknownUniqueWords + ' unknown';
 
+    // Also update the hero cards
+    var compPctCard = document.getElementById('comp-pct-card');
+    var compBarCard = document.getElementById('comp-progress-bar');
+    if (compPctCard) compPctCard.textContent = '~' + stats.comprehensionPct + '%';
+    if (compBarCard) compBarCard.style.width = stats.comprehensionPct + '%';
+
     if (!unknownWordList) return;
-    unknownWordList.textContent = '';
+    unknownWordList.innerHTML = '';
     if (stats.topUnknownWords.length === 0) {
       var empty = document.createElement('p');
       empty.className = 'unknown-empty';
@@ -642,6 +666,65 @@
     return div.innerHTML;
   }
 
+  function findCulturalContextsForLesson(lessonId) {
+    if (!lessonId || !State.culturalContexts || State.culturalContexts.length === 0) {
+      return [];
+    }
+    return State.culturalContexts.filter(function(ctx) {
+      return ctx.lesson_ids && ctx.lesson_ids.indexOf(lessonId) !== -1;
+    });
+  }
+
+  function renderCulturalContexts(lessonId) {
+    var culturalSection = document.getElementById('culturalContextSection');
+    var culturalList = document.getElementById('culturalContextList');
+    if (!culturalSection || !culturalList) return;
+
+    var contexts = findCulturalContextsForLesson(lessonId);
+    if (contexts.length === 0) {
+      culturalSection.style.display = 'none';
+      return;
+    }
+
+    culturalSection.style.display = 'block';
+    culturalList.innerHTML = contexts.map(function(ctx, idx) {
+      var phrasesHtml = '';
+      if (ctx.phrases && ctx.phrases.length > 0) {
+        phrasesHtml = '<div class="cultural-phrases"><h5>Useful Phrases</h5>';
+        ctx.phrases.forEach(function(phrase) {
+          phrasesHtml += '<div class="phrase-item"><span class="phrase-lv">' + escapeHtml(phrase.lv) + '</span><span class="phrase-en">' + escapeHtml(phrase.en) + '</span><span class="phrase-usage">' + escapeHtml(phrase.usage) + '</span></div>';
+        });
+        phrasesHtml += '</div>';
+      }
+
+      var cardId = 'cultural-card-' + idx;
+      return '<div class="cultural-card" id="' + cardId + '">' +
+        '<div class="cultural-card-header">' +
+        '<h4>' + escapeHtml(ctx.title) + '</h4>' +
+        '<span class="cultural-card-badge">' + escapeHtml(ctx.title_en || '') + '</span>' +
+        '</div>' +
+        '<p class="cultural-explanation">' + escapeHtml(ctx.explanation) + '</p>' +
+        '<button class="cultural-expand" data-target="' + cardId + '-content">Learn more</button>' +
+        '<div class="cultural-content" id="' + cardId + '-content" hidden>' +
+        '<div class="cultural-note"><strong>Practical:</strong> ' + escapeHtml(ctx.practical_note) + '</div>' +
+        phrasesHtml +
+        '</div>' +
+        '</div>';
+    }).join('');
+
+    culturalList.querySelectorAll('.cultural-expand').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var targetId = btn.getAttribute('data-target');
+        var content = document.getElementById(targetId);
+        if (content) {
+          var isHidden = content.hidden;
+          content.hidden = !isHidden;
+          btn.textContent = isHidden ? 'Show less' : 'Learn more';
+        }
+      });
+    });
+  }
+
   function parseTranscriptToSentences(text) {
     if (!text) return [];
     return String(text)
@@ -662,21 +745,21 @@
 
   function openAIPanel() {
     if (!aiPanel || !aiOverlay) return;
-    aiPanel.classList.add('open');
+    aiPanel.style.transform = 'translateX(0)';
     aiPanel.setAttribute('aria-hidden', 'false');
-    aiOverlay.hidden = false;
+    aiOverlay.style.display = '';
   }
 
   function closeAIPanel() {
     if (!aiPanel || !aiOverlay) return;
-    aiPanel.classList.remove('open');
+    aiPanel.style.transform = 'translateX(100%)';
     aiPanel.setAttribute('aria-hidden', 'true');
-    aiOverlay.hidden = true;
+    aiOverlay.style.display = 'none';
   }
 
   function setAILoading(isLoading) {
-    if (aiLoading) aiLoading.hidden = !isLoading;
-    if (aiError) aiError.hidden = true;
+    if (aiLoading) aiLoading.style.display = isLoading ? '' : 'none';
+    if (aiError) aiError.style.display = 'none';
     if (isLoading && aiPanelContent) aiPanelContent.textContent = '';
   }
 
@@ -730,8 +813,8 @@
       .then(displayExplanation)
       .catch(function(error) {
         console.error('AI explanation error:', error);
-        if (aiLoading) aiLoading.hidden = true;
-        if (aiError) aiError.hidden = false;
+        if (aiLoading) aiLoading.style.display = 'none';
+        if (aiError) aiError.style.display = '';
       });
   }
 
@@ -741,95 +824,44 @@
   var Renderer = {
     renderMenu: function(filtered, selectedIndex, completed) {
       completed = completed || {};
-      menu.textContent = '';
-      if (currentMode === 'living') {
-        renderLivingMenu();
-        return;
-      }
-      var levels = ['A1', 'A2'];
-      for (var li = 0; li < levels.length; li++) {
-        var level = levels[li];
-        var items = filtered.filter(function(item) { return item.level === level; });
-        var section = document.createElement('section');
-        section.className = 'level-section';
+      if (!a1List || !a2List) return;
+      a1List.innerHTML = '';
+      a2List.innerHTML = '';
 
-        var toggle = document.createElement('button');
-        toggle.type = 'button';
-        toggle.className = 'level-toggle';
-        toggle.setAttribute('aria-expanded', 'true');
-        toggle.textContent = (levelLabels[level] || level) + ' (' + items.length + ')';
-        var plus = document.createElement('span');
-        plus.textContent = '−';
-        toggle.appendChild(plus);
+      var a1Items = filtered.filter(function(item) { return item.level === 'A1'; });
+      var a2Items = filtered.filter(function(item) { return item.level === 'A2'; });
 
-        var list = document.createElement('div');
-        list.className = 'item-list';
+      var a1Badge = document.querySelector('#a1Lessons .badge');
+      var a2Badge = document.querySelector('#a2Lessons .badge');
+      if (a1Badge) a1Badge.textContent = a1Items.length;
+      if (a2Badge) a2Badge.textContent = a2Items.length;
 
-        for (var ii = 0; ii < items.length; ii++) {
-          (function(item) {
-            var button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'audio-item';
-            button.setAttribute('data-lesson-id', item.id || '');
+      a1Items.forEach(function(item) {
+        a1List.appendChild(createLessonButton(item, filtered, selectedIndex, completed));
+      });
+      a2Items.forEach(function(item) {
+        a2List.appendChild(createLessonButton(item, filtered, selectedIndex, completed));
+      });
 
-            // Apply active class to the selected item only
-            if (filtered[selectedIndex] && filtered[selectedIndex].id === item.id) {
-              button.classList.add('active');
-            }
+      var searchEmpty = document.querySelector('#search-empty');
+      if (searchEmpty) searchEmpty.style.display = filtered.length === 0 ? 'block' : 'none';
 
-            // Apply completed class if lesson is in completed map
-            if (completed[item.id] === true) {
-              button.classList.add('completed');
-            }
-
-            button.addEventListener('click', function() {
-              var newIndex = filtered.findIndex(function(candidate) { return candidate.id === item.id; });
-              Renderer.selectItem(newIndex);
-            });
-
-            var playIcon = document.createElement('span');
-            playIcon.className = 'play-icon';
-            playIcon.setAttribute('aria-hidden', 'true');
-            playIcon.textContent = '▶';
-
-            var lessonTitle = document.createElement('span');
-            lessonTitle.className = 'lesson-title';
-            lessonTitle.textContent = item.title || item.original_filename || 'Audio';
-
-            var lessonStatus = document.createElement('span');
-            lessonStatus.className = 'lesson-status';
-            lessonStatus.textContent = item.status || 'unknown';
-
-            var completionDot = document.createElement('span');
-            completionDot.className = 'completion-dot';
-            completionDot.setAttribute('aria-hidden', 'true');
-
-            button.append(playIcon, lessonTitle, lessonStatus, completionDot);
-            list.appendChild(button);
-          })(items[ii]);
+      // Auto-expand the group containing selected item
+      var a1Collapse = document.querySelector('#a1Lessons');
+      var a2Collapse = document.querySelector('#a2Lessons');
+      var selectedItem = filtered[selectedIndex];
+      if (selectedItem) {
+        if (selectedItem.level === 'A1' && a1Collapse) {
+          var bsCollapse = bootstrap.Collapse.getOrCreateInstance(a1Collapse);
+          bsCollapse.show();
+        } else if (selectedItem.level === 'A2' && a2Collapse) {
+          var bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(a2Collapse);
+          bsCollapse2.show();
         }
-
-        // Level-toggle collapse/expand behavior
-        (function(toggleBtn, plusSpan, listEl) {
-          toggleBtn.addEventListener('click', function() {
-            var expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
-            toggleBtn.setAttribute('aria-expanded', String(!expanded));
-            plusSpan.textContent = expanded ? '+' : '−';
-            listEl.hidden = expanded;
-          });
-        })(toggle, plus, list);
-
-        section.append(toggle, list);
-        menu.appendChild(section);
       }
 
-      // Inject .search-empty paragraph when filtered is empty
-      if (filtered.length === 0) {
-        var emptyP = document.createElement('p');
-        emptyP.className = 'search-empty';
-        emptyP.textContent = 'No lessons match your search.';
-        menu.appendChild(emptyP);
-      }
+      if (a1Items.length === 0) a1List.innerHTML = '<p class="text-secondary text-center py-3 small">No A1 lessons</p>';
+      if (a2Items.length === 0) a2List.innerHTML = '<p class="text-secondary text-center py-3 small">No A2 lessons</p>';
     },
 
     selectItem: function(index) {
@@ -848,7 +880,7 @@
       if (subtitle) subtitle.textContent = (levelLabels[item.level] || item.level) + ' · ' + (item.original_filename || '');
       if (statusBadge) {
         statusBadge.textContent = item.status || 'unknown';
-        statusBadge.className = badgeClass(item.status);
+        statusBadge.className = 'badge rounded-pill ' + (item.status === 'completed' ? 'bg-success' : item.status === 'transcribed only' ? 'bg-warning' : item.status === 'failed' ? 'bg-danger' : 'bg-secondary');
       }
       displaySpeakerBadge(item);
       if (voiceRecommendation) {
@@ -894,6 +926,12 @@
       if (previousButton) previousButton.disabled = State.selectedIndex <= 0;
       if (nextButton) nextButton.disabled = State.selectedIndex >= State.filtered.length - 1;
 
+      // Update sticky player title/subtitle
+      var stickyTitle = document.getElementById('sticky-title');
+      var stickySubtitle = document.getElementById('sticky-subtitle');
+      if (stickyTitle) stickyTitle.textContent = item.title || item.original_filename || 'Untitled';
+      if (stickySubtitle) stickySubtitle.textContent = (levelLabels[item.level] || item.level) + ' · ' + (item.original_filename || '');
+
       // Re-render menu to reflect new active state
       Renderer.renderMenu(
         State.filtered,
@@ -903,6 +941,8 @@
       renderComprehensionMeter(item.lv_text || '');
       if (lvText) lvText.innerHTML = renderTranscriptWithClickableSentences(item.lv_text || '');
 
+      renderCulturalContexts(item.id);
+
       if (ShadowingMode.tabShadowing && ShadowingMode.tabShadowing.classList.contains('active')) {
         ShadowingMode.initForCurrentItem();
       }
@@ -910,29 +950,63 @@
 
     renderEmptyState: function(type) {
       if (type === 'catalog-error') {
-        // Hide .player-card and both .text-panel elements
         var playerCard = document.querySelector('.player-card');
-        if (playerCard) playerCard.hidden = true;
+        if (playerCard) playerCard.style.display = 'none';
         var textPanels = document.querySelectorAll('.text-panel');
-        textPanels.forEach(function(el) { el.hidden = true; });
+        textPanels.forEach(function(el) { el.style.display = 'none'; });
 
-        // Show error message in #hero-empty
         var heroEmpty = document.getElementById('hero-empty');
         var heroContent = document.getElementById('hero-content');
         if (heroContent) heroContent.hidden = true;
         if (heroEmpty) {
           heroEmpty.hidden = false;
-          // Update the heading to show the error message
           var heading = heroEmpty.querySelector('h2');
           if (heading) heading.textContent = 'Catalog not ready. Run the build script after processing audio.';
           var para = heroEmpty.querySelector('p');
-          if (para) para.hidden = true;
-          var ctas = heroEmpty.querySelector('.hero-ctas');
-          if (ctas) ctas.hidden = true;
+          if (para) para.style.display = 'none';
+          var ctas = heroEmpty.querySelector('#hero-ctas');
+          if (ctas) ctas.style.display = 'none';
         }
       }
     }
   };
+
+  function createLessonButton(item, filtered, selectedIndex, completed) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+    btn.setAttribute('data-lesson-id', item.id || '');
+    btn.style.minHeight = '44px';
+    btn.style.width = '100%';
+    btn.style.textAlign = 'left';
+
+    if (filtered[selectedIndex] && filtered[selectedIndex].id === item.id) {
+      btn.classList.add('active');
+      btn.setAttribute('aria-current', 'true');
+    }
+
+    if (completed[item.id] === true) {
+      btn.classList.add('completed');
+    }
+
+    btn.addEventListener('click', function() {
+      var newIndex = filtered.findIndex(function(candidate) { return candidate.id === item.id; });
+      Renderer.selectItem(newIndex);
+      var offcanvas = document.querySelector('#lessonSidebar');
+      if (offcanvas && offcanvas.classList.contains('show')) {
+        var bsOffcanvas = bootstrap.Offcanvas.getInstance(offcanvas);
+        if (bsOffcanvas) bsOffcanvas.hide();
+      }
+    });
+
+    var displayTitle = item.title || item.original_filename || item.id || 'Audio';
+    btn.innerHTML = '<span class="lesson-title">' + displayTitle + '</span>';
+    if (completed[item.id] === true) {
+      btn.innerHTML += '<span class="badge bg-success rounded-pill">✓</span>';
+    }
+
+    return btn;
+  }
 
   // ---------------------------------------------------------------------------
   // ShadowingMode — pronunciation practice with sentence-by-sentence playback
@@ -1355,7 +1429,8 @@
       var timeDisplay = document.getElementById('time-display');
       var stickyPlayPause = document.getElementById('sticky-play-pause');
       var stickySeek = document.getElementById('sticky-seek');
-      var stickyTime = document.getElementById('sticky-time');
+      var stickyCurrent = document.getElementById('sticky-current');
+      var stickyDuration = document.getElementById('sticky-duration');
 
       var currentTime = audio ? audio.currentTime : 0;
       var duration = audio ? (audio.duration || 0) : 0;
@@ -1373,9 +1448,9 @@
         if (icon) icon.textContent = paused ? '▶' : '⏸';
       }
 
-      // Mirror to sticky player
       if (stickySeek) stickySeek.value = progress;
-      if (stickyTime) stickyTime.textContent = formatTime(currentTime);
+      if (stickyCurrent) stickyCurrent.textContent = formatTime(currentTime);
+      if (stickyDuration) stickyDuration.textContent = formatTime(duration);
       if (stickyPlayPause) {
         stickyPlayPause.setAttribute('aria-label', paused ? 'Play' : 'Pause');
         var stickyIcon = stickyPlayPause.querySelector('.icon-play');
@@ -1388,9 +1463,12 @@
       var canvas = document.getElementById('waveform-canvas');
       if (!canvas) return;
       fetch(url)
-        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(r) { 
+          if (!r.ok) return null; 
+          return r.json(); 
+        })
         .then(function(data) {
-          if (!Array.isArray(data) || data.length === 0) return;
+          if (!data || !Array.isArray(data) || data.length === 0) return;
           State.waveformData = data;
           var ctx = canvas.getContext('2d');
           var w = canvas.offsetWidth || canvas.width;
@@ -1405,18 +1483,21 @@
             ctx.fillRect(i * barWidth, h - barH, barWidth - 1, barH);
           }
         })
-        .catch(function(e) { console.warn('Waveform load failed:', e); });
+        .catch(function() { /* Silent fail for missing waveform files */ });
     },
 
     initStickyPlayer: function() {
       var stickyPlayer = document.getElementById('sticky-player');
-      var playerCard = document.querySelector('.player-card');
+      var playerCard = document.querySelector('#playerCard');
       var stickyPlayPause = document.getElementById('sticky-play-pause');
       var stickySeek = document.getElementById('sticky-seek');
+      var stickyPrev = document.getElementById('sticky-prev');
+      var stickyNext = document.getElementById('sticky-next');
+      var stickyCurrent = document.getElementById('sticky-current');
+      var stickyDuration = document.getElementById('sticky-duration');
 
       if (!stickyPlayer || !playerCard) return;
 
-      // Wire sticky controls
       if (stickyPlayPause) {
         stickyPlayPause.addEventListener('click', function() {
           if (audio && audio.paused) {
@@ -1431,16 +1512,25 @@
           AudioController.seek(stickySeek.value / 100);
         });
       }
+      if (stickyPrev) {
+        stickyPrev.addEventListener('click', function() {
+          Renderer.selectItem(State.selectedIndex - 1);
+        });
+      }
+      if (stickyNext) {
+        stickyNext.addEventListener('click', function() {
+          Renderer.selectItem(State.selectedIndex + 1);
+        });
+      }
 
-      // IntersectionObserver: show sticky player when player-card is out of view on mobile
       if ('IntersectionObserver' in window) {
         var observer = new IntersectionObserver(function(entries) {
           var isMobile = window.innerWidth <= 768;
           entries.forEach(function(entry) {
             if (isMobile && !entry.isIntersecting) {
-              stickyPlayer.hidden = false;
+              stickyPlayer.style.display = '';
             } else {
-              stickyPlayer.hidden = true;
+              stickyPlayer.style.display = 'none';
             }
           });
         }, { threshold: 0 });
@@ -1450,19 +1540,28 @@
   };
 
   // ---------------------------------------------------------------------------
-  // SearchHandler — debounced search input handling
+  // SearchHandler — debounced search with clear button
   // ---------------------------------------------------------------------------
   var SearchHandler = {
     _timer: null,
     init: function() {
       var searchInput = document.getElementById('search');
+      var searchClearBtn = document.getElementById('search-clear');
       if (!searchInput) return;
       searchInput.addEventListener('input', function() {
+        if (searchClearBtn) searchClearBtn.style.display = searchInput.value ? '' : 'none';
         clearTimeout(SearchHandler._timer);
         SearchHandler._timer = setTimeout(function() {
           applyCombinedFilters();
         }, 300);
       });
+      if (searchClearBtn) {
+        searchClearBtn.addEventListener('click', function() {
+          searchInput.value = '';
+          searchClearBtn.style.display = 'none';
+          applyCombinedFilters();
+        });
+      }
     }
   };
 
@@ -1482,39 +1581,23 @@
     });
   }
 
-  var brandSection = document.querySelector('.brand');
-  if (brandSection) {
-    var modeButton = document.createElement('button');
-    modeButton.type = 'button';
-    modeButton.className = 'mode-switch-btn';
-    modeButton.textContent = currentMode === 'living' ? 'Library' : 'Dzivo Latvija';
-    modeButton.addEventListener('click', function() {
-      if (currentMode === 'living') {
-        currentMode = 'library';
-        localStorage.setItem(MODE_KEY, currentMode);
-        window.location.reload();
-      } else {
-        modeButton.textContent = 'Library';
-        enterLivingMode();
-      }
-    });
-    brandSection.appendChild(modeButton);
-  }
-
-  // Wire theme toggle
+  // Wire theme toggle (both mobile and desktop buttons)
   var themeToggleBtn = document.getElementById('theme-toggle');
-  if (themeToggleBtn) {
-    themeToggleBtn.addEventListener('click', function () {
-      ThemeManager.toggle();
-    });
+  var themeToggleDesktop = document.getElementById('theme-toggle-desktop');
+  function handleThemeToggle() {
+    ThemeManager.toggle();
   }
+  if (themeToggleBtn) themeToggleBtn.addEventListener('click', handleThemeToggle);
+  if (themeToggleDesktop) themeToggleDesktop.addEventListener('click', handleThemeToggle);
 
   document.querySelectorAll('.comp-filter-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
       document.querySelectorAll('.comp-filter-btn').forEach(function(other) {
-        other.classList.remove('active');
+        other.classList.remove('btn-primary');
+        other.classList.add('btn-outline-light');
       });
-      btn.classList.add('active');
+      btn.classList.remove('btn-outline-light');
+      btn.classList.add('btn-primary');
       activeCompFilter = btn.getAttribute('data-filter') || 'all';
       applyCombinedFilters();
     });
@@ -1653,6 +1736,19 @@
       console.error(error);
       State.filtered = [];
       Renderer.renderEmptyState('catalog-error');
+    });
+
+  fetch('contexts.json', { cache: 'no-store' })
+    .then(function (response) {
+      if (!response.ok) throw new Error('Contexts request failed: ' + response.status);
+      return response.json();
+    })
+    .then(function (contexts) {
+      State.culturalContexts = Array.isArray(contexts) ? contexts : [];
+    })
+    .catch(function (error) {
+      console.warn('Could not load cultural contexts:', error);
+      State.culturalContexts = [];
     });
 
   // ---------------------------------------------------------------------------
