@@ -6,9 +6,11 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import html
 import json
 import math
 import os
+import random
 import re
 import shutil
 import sqlite3
@@ -31,12 +33,29 @@ from pathlib import Path
 from typing import Any
 
 from billing import BillingStore, FREE_EXAM_ID, DEFAULT_PRODUCTS, StripeClient
+from exam_bank import SKILL_ORDER, import_exam_markdown
+
+
+class _LRUDict(dict):
+    """Fixed-capacity LRU dict. Evicts oldest entry on overflow."""
+
+    def __init__(self, maxsize: int) -> None:
+        super().__init__()
+        self._maxsize = maxsize
+
+    def set(self, key: str, value: Any) -> None:
+        if key in self:
+            del self[key]
+        elif len(self) >= self._maxsize:
+            del self[next(iter(self))]
+        self[key] = value
 
 
 ROOT = Path(__file__).resolve().parent
 UPLOAD_ROOT = ROOT / "data" / "uploads"
 MAX_BODY_BYTES = 1_500_000
 MAX_AUDIO_BYTES = 20_000_000
+_ALLOWED_AUDIO_TYPES = frozenset({"audio/webm", "audio/ogg", "audio/wav", "audio/mp4", "audio/mpeg"})
 DEFAULT_BILLING_DB_PATH = ROOT / "data" / "billing.sqlite3"
 PUBLIC_APP_PREFIX = "/latvian-a2-exam-app/"
 PUBLIC_ATTACHMENT_PREFIX = "/codex/Attachments/"
@@ -109,7 +128,7 @@ DEFAULT_DAILY_COST_LIMIT_CENTS = {
 MAX_FREE_TEXT_CHARS = int(os.getenv("AI_SCORING_MAX_FREE_TEXT_CHARS", "12000"))
 MAX_TOTAL_ANSWER_CHARS = int(os.getenv("AI_SCORING_MAX_TOTAL_ANSWER_CHARS", "40000"))
 DEFAULT_PLAN = os.getenv("AI_SCORING_DEFAULT_PLAN", "free").strip().lower() or "free"
-EVALUATION_CACHE: dict[str, dict[str, Any]] = {}
+EVALUATION_CACHE: _LRUDict = _LRUDict(int(os.getenv("EVAL_CACHE_MAX_SIZE", "500")))
 EVALUATION_CACHE_LOCK = threading.Lock()
 QUOTA_USAGE: dict[str, dict[str, Any]] = {}
 QUOTA_USAGE_LOCK = threading.Lock()
@@ -271,7 +290,11 @@ def reserve_quota(
     request_limit = plan_request_limit(plan)
     cost_limit = plan_cost_limit_cents(plan)
 
+    _today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     with QUOTA_USAGE_LOCK:
+        _stale = [k for k in QUOTA_USAGE if not k.endswith(f":{_today}")]
+        for _k in _stale:
+            del QUOTA_USAGE[_k]
         usage = QUOTA_USAGE.setdefault(
             quota_key,
             {
@@ -956,9 +979,11 @@ class ClosingSqliteConnection(sqlite3.Connection):
 def db_connection() -> sqlite3.Connection:
     path = Path(os.getenv("AUTH_DB_PATH", str(AUTH_DB_PATH)))
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, factory=ClosingSqliteConnection)
+    conn = sqlite3.connect(path, timeout=10, factory=ClosingSqliteConnection)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA synchronous = NORMAL")
     return conn
 
 
@@ -1152,9 +1177,17 @@ def init_auth_store() -> None:
         ensure_bootstrap_superadmin(conn)
 
 
+_ALLOWED_SCHEMA_TABLES = frozenset({"attempts", "accounts", "users", "profiles", "sessions", "exams"})
+_SAFE_IDENTIFIER_RE = re.compile(r"^[a-z_][a-z0-9_]{1,63}$")
+
+
 def ensure_column(
     conn: sqlite3.Connection, table_name: str, column_name: str, definition: str
 ) -> None:
+    if table_name not in _ALLOWED_SCHEMA_TABLES:
+        raise ValueError(f"ensure_column: disallowed table '{table_name}'")
+    if not _SAFE_IDENTIFIER_RE.match(column_name):
+        raise ValueError(f"ensure_column: unsafe column name '{column_name}'")
     columns = {
         row["name"]
         for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
@@ -2686,6 +2719,248 @@ def load_server_answer_key(
     return fallback or {}
 
 
+FEED_SKILL_TITLES = {
+    "listening": "Klausīšanās",
+    "reading": "Lasīšana",
+    "writing": "Rakstīšana",
+    "speaking": "Runāšana",
+}
+FEED_INPUT_KIND_BY_QUESTION = {
+    "multiple_choice": "choice",
+    "reading_text_choice": "choice",
+    "true_false": "choice",
+    "matching": "short_text",
+    "gap_fill": "short_text",
+    "inflection": "short_text",
+}
+FEED_SUGGESTED_SECONDS = {
+    "listening": 120,
+    "reading": 90,
+    "writing": 180,
+    "speaking": 120,
+}
+
+
+def asset_public_url(path: str) -> str:
+    clean = str(path or "").strip()
+    if clean.startswith("/"):
+        return clean
+    return f"/{clean}"
+
+
+def all_card_assets_exist(media: list[dict[str, Any]]) -> bool:
+    for asset in media:
+        path = str(asset.get("path") or "").lstrip("/")
+        if path and not (ROOT / path).is_file():
+            return False
+    return True
+
+
+def feed_prompt_html(question: dict[str, Any], skill: str, task_title: str) -> str:
+    parts: list[str] = []
+    passage = str(question.get("passage") or "").strip()
+    prompt = str(question.get("prompt") or "").strip()
+    if passage:
+        parts.append(f'<div class="feed-passage">{html.escape(passage)}</div>')
+    if prompt:
+        parts.append(f"<p>{html.escape(prompt)}</p>")
+    if not parts:
+        parts.append(
+            f"<p>{html.escape(FEED_SKILL_TITLES.get(skill, skill))}: {html.escape(task_title)}</p>"
+        )
+    return "\n".join(parts)
+
+
+def question_media(
+    task: dict[str, Any], question: dict[str, Any], skill: str
+) -> list[dict[str, Any]]:
+    media: list[dict[str, Any]] = []
+    if skill == "listening":
+        for asset in task.get("assets") or []:
+            if asset.get("type") == "audio":
+                media.append(
+                    {
+                        "type": "audio",
+                        "label": asset.get("label") or "Audio",
+                        "path": asset.get("path"),
+                        "url": asset_public_url(asset.get("path", "")),
+                    }
+                )
+    image = question.get("image")
+    if isinstance(image, dict) and image.get("path"):
+        media.append(
+            {
+                "type": "image",
+                "label": image.get("label") or "Image",
+                "path": image.get("path"),
+                "url": asset_public_url(image.get("path", "")),
+            }
+        )
+    return media
+
+
+def feed_input_for_question(question: dict[str, Any], scoring_mode: str) -> dict[str, Any]:
+    options = question.get("options") or []
+    if options:
+        return {
+            "input_id": "answer",
+            "kind": "choice",
+            "options": [
+                {
+                    "value": str(option.get("label") or option.get("text") or ""),
+                    "label": str(option.get("label") or option.get("text") or ""),
+                    "text": str(option.get("text") or option.get("label") or ""),
+                }
+                for option in options
+            ],
+        }
+    if scoring_mode == "objective":
+        return {
+            "input_id": "answer",
+            "kind": FEED_INPUT_KIND_BY_QUESTION.get(
+                str(question.get("kind") or ""), "short_text"
+            ),
+        }
+    return {"input_id": "answer", "kind": "long_text"}
+
+
+def card_from_question(
+    *,
+    exam: dict[str, Any],
+    section: dict[str, Any],
+    task: dict[str, Any],
+    question: dict[str, Any],
+    question_index: int,
+) -> dict[str, Any] | None:
+    skill = str(section.get("skill") or "")
+    task_key = str(task.get("task_key") or "")
+    answers = [
+        str(value)
+        for value in (question.get("correct_answers") or [])
+        if str(value).strip()
+    ]
+    scoring_mode = "objective" if answers else "subjective"
+    media = question_media(task, question, skill)
+    if not all_card_assets_exist(media):
+        return None
+    return {
+        "card_id": f"{exam['id']}:{skill}:{task_key}:item{question_index + 1}",
+        "exam_id": exam["id"],
+        "content_version": exam["content_version"],
+        "skill": skill,
+        "task_key": task_key,
+        "task_type": str(question.get("kind") or task.get("kind") or task_key),
+        "title": f"{FEED_SKILL_TITLES.get(skill, skill)} - {task.get('title') or task_key}",
+        "prompt_html": feed_prompt_html(question, skill, str(task.get("title") or task_key)),
+        "media": media,
+        "inputs": [feed_input_for_question(question, scoring_mode)],
+        "answer_key": answers if scoring_mode == "objective" else [],
+        "points_max": 1,
+        "suggested_seconds": FEED_SUGGESTED_SECONDS.get(skill, 90),
+        "scoring_mode": scoring_mode,
+    }
+
+
+def build_practice_feed_card_pool() -> list[dict[str, Any]]:
+    cards: list[dict[str, Any]] = []
+    with db_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM exams WHERE status = 'published' ORDER BY id"
+        ).fetchall()
+    for row in rows:
+        manifest_payload = parse_json_object(row["manifest_payload"])
+        try:
+            markdown_path = exam_markdown_path_from_manifest(manifest_payload, row["id"])
+            manifest = import_exam_markdown(
+                markdown_path,
+                status="published",
+                content_version=int(row["content_version"] or 1),
+            )
+        except (ApiError, OSError, ValueError):
+            continue
+        exam = {
+            "id": row["id"],
+            "content_version": int(
+                row["content_version"] or manifest.get("content_version") or 1
+            ),
+        }
+        for section in manifest.get("sections") or []:
+            for task in section.get("tasks") or []:
+                for index, question in enumerate(task.get("questions") or []):
+                    card = card_from_question(
+                        exam=exam,
+                        section=section,
+                        task=task,
+                        question=question,
+                        question_index=index,
+                    )
+                    if card is not None:
+                        cards.append(card)
+    return cards
+
+
+def select_balanced_practice_cards(
+    pool: list[dict[str, Any]], *, count: int, seed: str
+) -> list[dict[str, Any]]:
+    rng = random.Random(seed)
+    per_skill = max(1, count // len(SKILL_ORDER))
+    selected: list[dict[str, Any]] = []
+    used_ids: set[str] = set()
+    for skill in SKILL_ORDER:
+        skill_cards = [card for card in pool if card.get("skill") == skill]
+        rng.shuffle(skill_cards)
+        skill_cards.sort(key=lambda card: (card.get("task_key"), card.get("exam_id")))
+        by_exam: dict[str, list[dict[str, Any]]] = {}
+        for card in skill_cards:
+            by_exam.setdefault(str(card.get("exam_id")), []).append(card)
+        skill_selected: list[dict[str, Any]] = []
+        exam_ids = list(by_exam)
+        rng.shuffle(exam_ids)
+        for exam_id in exam_ids:
+            if len(skill_selected) >= per_skill:
+                break
+            card = by_exam[exam_id].pop(0)
+            if card["card_id"] not in used_ids:
+                skill_selected.append(card)
+                used_ids.add(card["card_id"])
+        for card in skill_cards:
+            if len(skill_selected) >= per_skill:
+                break
+            if card["card_id"] not in used_ids:
+                skill_selected.append(card)
+                used_ids.add(card["card_id"])
+        selected.extend(skill_selected)
+    remaining = [card for card in pool if card["card_id"] not in used_ids]
+    rng.shuffle(remaining)
+    selected.extend(remaining[: max(0, count - len(selected))])
+    selected = selected[:count]
+    rng.shuffle(selected)
+    return selected
+
+
+def build_practice_feed(
+    *, mode: str = "balanced", count: int = 12, seed: str | None = None
+) -> dict[str, Any]:
+    safe_count = min(24, max(4, int(count or 12)))
+    feed_mode = "balanced" if mode != "balanced" else mode
+    feed_seed = seed or secrets.token_hex(8)
+    pool = build_practice_feed_card_pool()
+    cards = select_balanced_practice_cards(pool, count=safe_count, seed=feed_seed)
+    if len(cards) < safe_count:
+        raise ApiError(
+            HTTPStatus.SERVICE_UNAVAILABLE,
+            "practice_feed_unavailable",
+            "Not enough valid published exam cards are available.",
+            {"requested": safe_count, "available": len(cards)},
+        )
+    return {
+        "session_id": f"feed_{feed_seed}",
+        "mode": feed_mode,
+        "count": len(cards),
+        "cards": cards,
+    }
+
+
 def compact_submission(submission: dict[str, Any]) -> dict[str, Any]:
     scoring = submission.get("scoring", {})
     compact_scoring = {
@@ -3211,7 +3486,7 @@ def evaluate_submission(
                 },
             }
             with EVALUATION_CACHE_LOCK:
-                EVALUATION_CACHE[cache_key] = result_payload
+                EVALUATION_CACHE.set(cache_key, result_payload)
             record_audit_event(
                 {
                     "event": "evaluation.success",
@@ -3327,10 +3602,22 @@ def upload_storage_for_id(upload_id: str) -> Path:
     return UPLOAD_ROOT / "speaking" / f"{safe_id}.meta.json"
 
 
+def _safe_speaking_audio_path(audio_filename: str) -> Path | None:
+    """Return resolved path only if it stays within UPLOAD_ROOT/speaking/."""
+    target = (UPLOAD_ROOT / "speaking" / audio_filename).resolve()
+    speaking_root = (UPLOAD_ROOT / "speaking").resolve()
+    try:
+        target.relative_to(speaking_root)
+        return target
+    except ValueError:
+        return None
+
+
 def store_speaking_upload(
     content: bytes,
     content_type: str,
     query: dict[str, list[str]],
+    account_id: str,
 ) -> dict[str, Any]:
     """Persist a speaking audio upload and return metadata."""
     submission_id = (query.get("submission_id") or [""])[0].strip()
@@ -3359,6 +3646,7 @@ def store_speaking_upload(
         "submission_id": submission_id,
         "task": task,
         "exam_id": exam_id,
+        "account_id": account_id,
         "content_type": content_type,
         "audio_filename": audio_filename,
         "size_bytes": len(content),
@@ -3479,6 +3767,23 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/exams/catalog":
             session = current_session_record(self)
             json_response(self, HTTPStatus.OK, list_exam_catalog(session))
+            return
+        if parsed.path == "/api/practice-feed":
+            try:
+                params = urllib.parse.parse_qs(parsed.query)
+                count_raw = (params.get("count") or ["12"])[0]
+                try:
+                    count = int(count_raw)
+                except ValueError:
+                    count = 12
+                payload = build_practice_feed(
+                    mode=(params.get("mode") or ["balanced"])[0],
+                    count=count,
+                    seed=(params.get("seed") or [None])[0],
+                )
+                json_response(self, HTTPStatus.OK, payload)
+            except ApiError as error:
+                api_error_response(self, error)
             return
         exam_content_match = re.fullmatch(r"/api/exams/([^/]+)/content", parsed.path)
         if exam_content_match:
@@ -3656,72 +3961,95 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
 
         if self.path.startswith("/api/billing/state"):
-            query = urllib.parse.urlparse(self.path).query
-            params = urllib.parse.parse_qs(query)
-            learner_id = (params.get("learner_id") or [""])[0].strip()
-            if not learner_id:
+            try:
+                session = require_session(self)
+                query = urllib.parse.urlparse(self.path).query
+                params = urllib.parse.parse_qs(query)
+                learner_id = (params.get("learner_id") or [""])[0].strip()
+                if not learner_id:
+                    json_response(
+                        self, HTTPStatus.BAD_REQUEST, {"error": "learner_id is required."}
+                    )
+                    return
+                if learner_id != session["account"]["id"] and account_role(session) not in {"admin", "superadmin"}:
+                    json_response(self, HTTPStatus.FORBIDDEN, {"error": "forbidden"})
+                    return
+                store = get_billing_store()
+                store.ensure_learner(learner_id)
+                user_role = account_role(session)
                 json_response(
-                    self, HTTPStatus.BAD_REQUEST, {"error": "learner_id is required."}
+                    self,
+                    HTTPStatus.OK,
+                    {
+                        "learner_id": learner_id,
+                        "state": store.get_state(learner_id, user_role=user_role),
+                    },
                 )
-                return
-            store = get_billing_store()
-            store.ensure_learner(learner_id)
-            user_role = get_session_user_role(self)
-            json_response(
-                self,
-                HTTPStatus.OK,
-                {
-                    "learner_id": learner_id,
-                    "state": store.get_state(learner_id, user_role=user_role),
-                },
-            )
+            except PermissionError as error:
+                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
             return
 
         if self.path.startswith("/api/billing/audit"):
-            query = urllib.parse.urlparse(self.path).query
-            params = urllib.parse.parse_qs(query)
-            learner_id = (params.get("learner_id") or [""])[0].strip()
-            if not learner_id:
+            try:
+                session = require_session(self)
+                query = urllib.parse.urlparse(self.path).query
+                params = urllib.parse.parse_qs(query)
+                learner_id = (params.get("learner_id") or [""])[0].strip()
+                if not learner_id:
+                    json_response(
+                        self, HTTPStatus.BAD_REQUEST, {"error": "learner_id is required."}
+                    )
+                    return
+                if learner_id != session["account"]["id"] and account_role(session) not in {"admin", "superadmin"}:
+                    json_response(self, HTTPStatus.FORBIDDEN, {"error": "forbidden"})
+                    return
+                store = get_billing_store()
                 json_response(
-                    self, HTTPStatus.BAD_REQUEST, {"error": "learner_id is required."}
+                    self,
+                    HTTPStatus.OK,
+                    {
+                        "learner_id": learner_id,
+                        "events": store.list_recent_events(learner_id, limit=20),
+                        "activity": store.list_recent_activity(learner_id, limit=20),
+                    },
                 )
-                return
-            store = get_billing_store()
-            json_response(
-                self,
-                HTTPStatus.OK,
-                {
-                    "learner_id": learner_id,
-                    "events": store.list_recent_events(learner_id, limit=20),
-                    "activity": store.list_recent_activity(learner_id, limit=20),
-                },
-            )
+            except PermissionError as error:
+                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
             return
 
         # Speaking audio playback
-        parsed_path = urllib.parse.urlparse(self.path).path
-        if parsed_path.startswith("/api/uploads/speaking/"):
-            upload_id = parsed_path[len("/api/uploads/speaking/") :]
-            meta_path = upload_storage_for_id(upload_id)
-            if not meta_path.exists():
-                json_response(
-                    self, HTTPStatus.NOT_FOUND, {"error": "Upload not found."}
-                )
-                return
-            metadata = json.loads(meta_path.read_text(encoding="utf-8"))
-            audio_path = UPLOAD_ROOT / "speaking" / metadata["audio_filename"]
-            if not audio_path.exists():
-                json_response(
-                    self, HTTPStatus.NOT_FOUND, {"error": "Audio file not found."}
-                )
-                return
-            audio_bytes = audio_path.read_bytes()
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", metadata.get("content_type", "audio/webm"))
-            self.send_header("Content-Length", str(len(audio_bytes)))
-            self.send_header("Accept-Ranges", "bytes")
-            self.end_headers()
-            self.wfile.write(audio_bytes)
+        parsed_path_str = urllib.parse.urlparse(self.path).path
+        if parsed_path_str.startswith("/api/uploads/speaking/"):
+            try:
+                session = require_session(self)
+                upload_id = parsed_path_str[len("/api/uploads/speaking/"):]
+                meta_path = upload_storage_for_id(upload_id)
+                if not meta_path.exists():
+                    json_response(
+                        self, HTTPStatus.NOT_FOUND, {"error": "Upload not found."}
+                    )
+                    return
+                metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+                if metadata.get("account_id") and metadata["account_id"] != session["account"]["id"] and account_role(session) not in {"admin", "superadmin"}:
+                    json_response(self, HTTPStatus.FORBIDDEN, {"error": "forbidden"})
+                    return
+                audio_path = _safe_speaking_audio_path(metadata["audio_filename"])
+                if audio_path is None or not audio_path.exists():
+                    json_response(
+                        self, HTTPStatus.NOT_FOUND, {"error": "Audio file not found."}
+                    )
+                    return
+                ct = metadata.get("content_type", "audio/webm")
+                safe_ct = ct if ct in _ALLOWED_AUDIO_TYPES else "audio/webm"
+                audio_bytes = audio_path.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", safe_ct)
+                self.send_header("Content-Length", str(len(audio_bytes)))
+                self.send_header("Accept-Ranges", "bytes")
+                self.end_headers()
+                self.wfile.write(audio_bytes)
+            except PermissionError as error:
+                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
             return
 
         super().do_GET()
@@ -3730,6 +4058,19 @@ class AppHandler(SimpleHTTPRequestHandler):
         try:
             parsed = urllib.parse.urlparse(self.path)
             if self.path == "/api/auth/register":
+                allowed, retry_after = check_rate_limit(
+                    f"register:{client_ip(self)}",
+                    limit_env="AUTH_REGISTER_RATE_LIMIT",
+                    window_env="AUTH_REGISTER_RATE_WINDOW_SECONDS",
+                )
+                if not allowed:
+                    json_response_with_headers(
+                        self,
+                        HTTPStatus.TOO_MANY_REQUESTS,
+                        {"error": "Too many registration attempts. Try again later."},
+                        {"Retry-After": str(retry_after)},
+                    )
+                    return
                 payload = safe_read_json(self)
                 response, token = create_account_record(payload)
                 json_response_with_headers(
@@ -3740,6 +4081,19 @@ class AppHandler(SimpleHTTPRequestHandler):
                 )
                 return
             if self.path == "/api/auth/login":
+                allowed, retry_after = check_rate_limit(
+                    f"login:{client_ip(self)}",
+                    limit_env="AUTH_LOGIN_RATE_LIMIT",
+                    window_env="AUTH_LOGIN_RATE_WINDOW_SECONDS",
+                )
+                if not allowed:
+                    json_response_with_headers(
+                        self,
+                        HTTPStatus.TOO_MANY_REQUESTS,
+                        {"error": "Too many login attempts. Try again later."},
+                        {"Retry-After": str(retry_after)},
+                    )
+                    return
                 payload = safe_read_json(self)
                 response, token = login_account(payload)
                 json_response_with_headers(
@@ -4234,6 +4588,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             # Speaking audio upload
             parsed_path = urllib.parse.urlparse(self.path)
             if parsed_path.path == "/api/uploads/speaking":
+                session = require_session(self)
                 content_length = int(self.headers.get("Content-Length", 0))
                 if content_length > MAX_AUDIO_BYTES:
                     json_response(
@@ -4243,10 +4598,14 @@ class AppHandler(SimpleHTTPRequestHandler):
                     )
                     return
                 content = self.rfile.read(content_length) if content_length > 0 else b""
-                content_type = self.headers.get("Content-Type", "audio/webm")
+                raw_ct = self.headers.get("Content-Type", "audio/webm")
+                content_type = raw_ct if raw_ct in _ALLOWED_AUDIO_TYPES else "audio/webm"
                 query = urllib.parse.parse_qs(parsed_path.query)
                 result = store_speaking_upload(
-                    content=content, content_type=content_type, query=query
+                    content=content,
+                    content_type=content_type,
+                    query=query,
+                    account_id=session["account"]["id"],
                 )
                 json_response(self, HTTPStatus.CREATED, result)
                 return
@@ -4303,14 +4662,18 @@ class AppHandler(SimpleHTTPRequestHandler):
             learner_id = str(payload.get("learner_id", "")).strip()
             product_key = str(payload.get("product_key", "")).strip()
             email = str(payload.get("email", "")).strip() or None
+            _base = request_base_url(self)
             success_url = (
                 str(payload.get("success_url", "")).strip()
-                or f"{request_base_url(self)}/latvian-a2-exam-app/?view=billing&checkout=success"
+                or f"{_base}/latvian-a2-exam-app/?view=billing&checkout=success"
             )
             cancel_url = (
                 str(payload.get("cancel_url", "")).strip()
-                or f"{request_base_url(self)}/latvian-a2-exam-app/?view=billing&checkout=cancel"
+                or f"{_base}/latvian-a2-exam-app/?view=billing&checkout=cancel"
             )
+            for _url in (success_url, cancel_url):
+                if not _url.startswith(_base + "/") and _url != _base:
+                    raise ValueError("Redirect URL must be on this site.")
             if not learner_id:
                 raise ValueError("learner_id is required.")
             if not product_key:
@@ -4423,15 +4786,19 @@ class AppHandler(SimpleHTTPRequestHandler):
             payload = safe_read_raw_body(self)
             secret = stripe_webhook_secret()
             if not secret:
-                raise ValueError("STRIPE_WEBHOOK_SECRET is required.")
+                json_response(self, HTTPStatus.BAD_REQUEST, {"error": "Webhook not configured."})
+                return
             signature = self.headers.get("Stripe-Signature")
             store = get_billing_store()
             result = store.handle_webhook(payload, signature, secret)
             json_response(self, HTTPStatus.OK, {"status": "ok", "result": result})
+        except ValueError as error:
+            log_event("warning", "stripe_webhook_bad_signature", error=str(error))
+            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
         except Exception as error:  # noqa: BLE001 - keep API responses JSON.
             capture_exception(error)
             log_event("error", "stripe_webhook_error", error=type(error).__name__)
-            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+            json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "Internal error."})
 
 
 class DualStackServer(ThreadingHTTPServer):
