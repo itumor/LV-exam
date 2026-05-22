@@ -3572,10 +3572,22 @@ def upload_storage_for_id(upload_id: str) -> Path:
     return UPLOAD_ROOT / "speaking" / f"{safe_id}.meta.json"
 
 
+def _safe_speaking_audio_path(audio_filename: str) -> Path | None:
+    """Return resolved path only if it stays within UPLOAD_ROOT/speaking/."""
+    target = (UPLOAD_ROOT / "speaking" / audio_filename).resolve()
+    speaking_root = (UPLOAD_ROOT / "speaking").resolve()
+    try:
+        target.relative_to(speaking_root)
+        return target
+    except ValueError:
+        return None
+
+
 def store_speaking_upload(
     content: bytes,
     content_type: str,
     query: dict[str, list[str]],
+    account_id: str,
 ) -> dict[str, Any]:
     """Persist a speaking audio upload and return metadata."""
     submission_id = (query.get("submission_id") or [""])[0].strip()
@@ -3604,6 +3616,7 @@ def store_speaking_upload(
         "submission_id": submission_id,
         "task": task,
         "exam_id": exam_id,
+        "account_id": account_id,
         "content_type": content_type,
         "audio_filename": audio_filename,
         "size_bytes": len(content),
@@ -3975,29 +3988,39 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
 
         # Speaking audio playback
-        parsed_path = urllib.parse.urlparse(self.path).path
-        if parsed_path.startswith("/api/uploads/speaking/"):
-            upload_id = parsed_path[len("/api/uploads/speaking/") :]
-            meta_path = upload_storage_for_id(upload_id)
-            if not meta_path.exists():
-                json_response(
-                    self, HTTPStatus.NOT_FOUND, {"error": "Upload not found."}
-                )
-                return
-            metadata = json.loads(meta_path.read_text(encoding="utf-8"))
-            audio_path = UPLOAD_ROOT / "speaking" / metadata["audio_filename"]
-            if not audio_path.exists():
-                json_response(
-                    self, HTTPStatus.NOT_FOUND, {"error": "Audio file not found."}
-                )
-                return
-            audio_bytes = audio_path.read_bytes()
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", metadata.get("content_type", "audio/webm"))
-            self.send_header("Content-Length", str(len(audio_bytes)))
-            self.send_header("Accept-Ranges", "bytes")
-            self.end_headers()
-            self.wfile.write(audio_bytes)
+        parsed_path_str = urllib.parse.urlparse(self.path).path
+        if parsed_path_str.startswith("/api/uploads/speaking/"):
+            try:
+                session = require_session(self)
+                upload_id = parsed_path_str[len("/api/uploads/speaking/"):]
+                meta_path = upload_storage_for_id(upload_id)
+                if not meta_path.exists():
+                    json_response(
+                        self, HTTPStatus.NOT_FOUND, {"error": "Upload not found."}
+                    )
+                    return
+                metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+                if metadata.get("account_id") and metadata["account_id"] != session["account"]["id"] and account_role(session) not in {"admin", "superadmin"}:
+                    json_response(self, HTTPStatus.FORBIDDEN, {"error": "forbidden"})
+                    return
+                audio_path = _safe_speaking_audio_path(metadata["audio_filename"])
+                if audio_path is None or not audio_path.exists():
+                    json_response(
+                        self, HTTPStatus.NOT_FOUND, {"error": "Audio file not found."}
+                    )
+                    return
+                _ALLOWED_AUDIO_TYPES = {"audio/webm", "audio/ogg", "audio/wav", "audio/mp4", "audio/mpeg"}
+                ct = metadata.get("content_type", "audio/webm")
+                safe_ct = ct if ct in _ALLOWED_AUDIO_TYPES else "audio/webm"
+                audio_bytes = audio_path.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", safe_ct)
+                self.send_header("Content-Length", str(len(audio_bytes)))
+                self.send_header("Accept-Ranges", "bytes")
+                self.end_headers()
+                self.wfile.write(audio_bytes)
+            except PermissionError as error:
+                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
             return
 
         super().do_GET()
@@ -4510,6 +4533,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             # Speaking audio upload
             parsed_path = urllib.parse.urlparse(self.path)
             if parsed_path.path == "/api/uploads/speaking":
+                session = require_session(self)
                 content_length = int(self.headers.get("Content-Length", 0))
                 if content_length > MAX_AUDIO_BYTES:
                     json_response(
@@ -4519,10 +4543,15 @@ class AppHandler(SimpleHTTPRequestHandler):
                     )
                     return
                 content = self.rfile.read(content_length) if content_length > 0 else b""
-                content_type = self.headers.get("Content-Type", "audio/webm")
+                raw_ct = self.headers.get("Content-Type", "audio/webm")
+                _ALLOWED_AUDIO_TYPES = {"audio/webm", "audio/ogg", "audio/wav", "audio/mp4", "audio/mpeg"}
+                content_type = raw_ct if raw_ct in _ALLOWED_AUDIO_TYPES else "audio/webm"
                 query = urllib.parse.parse_qs(parsed_path.query)
                 result = store_speaking_upload(
-                    content=content, content_type=content_type, query=query
+                    content=content,
+                    content_type=content_type,
+                    query=query,
+                    account_id=session["account"]["id"],
                 )
                 json_response(self, HTTPStatus.CREATED, result)
                 return
