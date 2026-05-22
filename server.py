@@ -4029,6 +4029,19 @@ class AppHandler(SimpleHTTPRequestHandler):
         try:
             parsed = urllib.parse.urlparse(self.path)
             if self.path == "/api/auth/register":
+                allowed, retry_after = check_rate_limit(
+                    f"register:{client_ip(self)}",
+                    limit_env="AUTH_REGISTER_RATE_LIMIT",
+                    window_env="AUTH_REGISTER_RATE_WINDOW_SECONDS",
+                )
+                if not allowed:
+                    json_response_with_headers(
+                        self,
+                        HTTPStatus.TOO_MANY_REQUESTS,
+                        {"error": "Too many registration attempts. Try again later."},
+                        {"Retry-After": str(retry_after)},
+                    )
+                    return
                 payload = safe_read_json(self)
                 response, token = create_account_record(payload)
                 json_response_with_headers(
@@ -4039,6 +4052,19 @@ class AppHandler(SimpleHTTPRequestHandler):
                 )
                 return
             if self.path == "/api/auth/login":
+                allowed, retry_after = check_rate_limit(
+                    f"login:{client_ip(self)}",
+                    limit_env="AUTH_LOGIN_RATE_LIMIT",
+                    window_env="AUTH_LOGIN_RATE_WINDOW_SECONDS",
+                )
+                if not allowed:
+                    json_response_with_headers(
+                        self,
+                        HTTPStatus.TOO_MANY_REQUESTS,
+                        {"error": "Too many login attempts. Try again later."},
+                        {"Retry-After": str(retry_after)},
+                    )
+                    return
                 payload = safe_read_json(self)
                 response, token = login_account(payload)
                 json_response_with_headers(
