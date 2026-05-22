@@ -36,6 +36,21 @@ from billing import BillingStore, FREE_EXAM_ID, DEFAULT_PRODUCTS, StripeClient
 from exam_bank import SKILL_ORDER, import_exam_markdown
 
 
+class _LRUDict(dict):
+    """Fixed-capacity LRU dict. Evicts oldest entry on overflow."""
+
+    def __init__(self, maxsize: int) -> None:
+        super().__init__()
+        self._maxsize = maxsize
+
+    def set(self, key: str, value: Any) -> None:
+        if key in self:
+            del self[key]
+        elif len(self) >= self._maxsize:
+            del self[next(iter(self))]
+        self[key] = value
+
+
 ROOT = Path(__file__).resolve().parent
 UPLOAD_ROOT = ROOT / "data" / "uploads"
 MAX_BODY_BYTES = 1_500_000
@@ -113,7 +128,7 @@ DEFAULT_DAILY_COST_LIMIT_CENTS = {
 MAX_FREE_TEXT_CHARS = int(os.getenv("AI_SCORING_MAX_FREE_TEXT_CHARS", "12000"))
 MAX_TOTAL_ANSWER_CHARS = int(os.getenv("AI_SCORING_MAX_TOTAL_ANSWER_CHARS", "40000"))
 DEFAULT_PLAN = os.getenv("AI_SCORING_DEFAULT_PLAN", "free").strip().lower() or "free"
-EVALUATION_CACHE: dict[str, dict[str, Any]] = {}
+EVALUATION_CACHE: _LRUDict = _LRUDict(int(os.getenv("EVAL_CACHE_MAX_SIZE", "500")))
 EVALUATION_CACHE_LOCK = threading.Lock()
 QUOTA_USAGE: dict[str, dict[str, Any]] = {}
 QUOTA_USAGE_LOCK = threading.Lock()
@@ -275,7 +290,11 @@ def reserve_quota(
     request_limit = plan_request_limit(plan)
     cost_limit = plan_cost_limit_cents(plan)
 
+    _today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     with QUOTA_USAGE_LOCK:
+        _stale = [k for k in QUOTA_USAGE if not k.endswith(f":{_today}")]
+        for _k in _stale:
+            del QUOTA_USAGE[_k]
         usage = QUOTA_USAGE.setdefault(
             quota_key,
             {
@@ -3457,7 +3476,7 @@ def evaluate_submission(
                 },
             }
             with EVALUATION_CACHE_LOCK:
-                EVALUATION_CACHE[cache_key] = result_payload
+                EVALUATION_CACHE.set(cache_key, result_payload)
             record_audit_event(
                 {
                     "event": "evaluation.success",
