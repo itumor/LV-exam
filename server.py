@@ -4633,14 +4633,18 @@ class AppHandler(SimpleHTTPRequestHandler):
             learner_id = str(payload.get("learner_id", "")).strip()
             product_key = str(payload.get("product_key", "")).strip()
             email = str(payload.get("email", "")).strip() or None
+            _base = request_base_url(self)
             success_url = (
                 str(payload.get("success_url", "")).strip()
-                or f"{request_base_url(self)}/latvian-a2-exam-app/?view=billing&checkout=success"
+                or f"{_base}/latvian-a2-exam-app/?view=billing&checkout=success"
             )
             cancel_url = (
                 str(payload.get("cancel_url", "")).strip()
-                or f"{request_base_url(self)}/latvian-a2-exam-app/?view=billing&checkout=cancel"
+                or f"{_base}/latvian-a2-exam-app/?view=billing&checkout=cancel"
             )
+            for _url in (success_url, cancel_url):
+                if not _url.startswith(_base + "/") and _url != _base:
+                    raise ValueError("Redirect URL must be on this site.")
             if not learner_id:
                 raise ValueError("learner_id is required.")
             if not product_key:
