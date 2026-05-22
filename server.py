@@ -1175,9 +1175,17 @@ def init_auth_store() -> None:
         ensure_bootstrap_superadmin(conn)
 
 
+_ALLOWED_SCHEMA_TABLES = frozenset({"attempts", "accounts", "users", "profiles", "sessions", "exams"})
+_SAFE_IDENTIFIER_RE = re.compile(r"^[a-z_][a-z0-9_]{1,63}$")
+
+
 def ensure_column(
     conn: sqlite3.Connection, table_name: str, column_name: str, definition: str
 ) -> None:
+    if table_name not in _ALLOWED_SCHEMA_TABLES:
+        raise ValueError(f"ensure_column: disallowed table '{table_name}'")
+    if not _SAFE_IDENTIFIER_RE.match(column_name):
+        raise ValueError(f"ensure_column: unsafe column name '{column_name}'")
     columns = {
         row["name"]
         for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
