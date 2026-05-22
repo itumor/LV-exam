@@ -40,6 +40,7 @@ ROOT = Path(__file__).resolve().parent
 UPLOAD_ROOT = ROOT / "data" / "uploads"
 MAX_BODY_BYTES = 1_500_000
 MAX_AUDIO_BYTES = 20_000_000
+_ALLOWED_AUDIO_TYPES = frozenset({"audio/webm", "audio/ogg", "audio/wav", "audio/mp4", "audio/mpeg"})
 DEFAULT_BILLING_DB_PATH = ROOT / "data" / "billing.sqlite3"
 PUBLIC_APP_PREFIX = "/latvian-a2-exam-app/"
 PUBLIC_ATTACHMENT_PREFIX = "/codex/Attachments/"
@@ -4009,7 +4010,6 @@ class AppHandler(SimpleHTTPRequestHandler):
                         self, HTTPStatus.NOT_FOUND, {"error": "Audio file not found."}
                     )
                     return
-                _ALLOWED_AUDIO_TYPES = {"audio/webm", "audio/ogg", "audio/wav", "audio/mp4", "audio/mpeg"}
                 ct = metadata.get("content_type", "audio/webm")
                 safe_ct = ct if ct in _ALLOWED_AUDIO_TYPES else "audio/webm"
                 audio_bytes = audio_path.read_bytes()
@@ -4544,7 +4544,6 @@ class AppHandler(SimpleHTTPRequestHandler):
                     return
                 content = self.rfile.read(content_length) if content_length > 0 else b""
                 raw_ct = self.headers.get("Content-Type", "audio/webm")
-                _ALLOWED_AUDIO_TYPES = {"audio/webm", "audio/ogg", "audio/wav", "audio/mp4", "audio/mpeg"}
                 content_type = raw_ct if raw_ct in _ALLOWED_AUDIO_TYPES else "audio/webm"
                 query = urllib.parse.parse_qs(parsed_path.query)
                 result = store_speaking_upload(
