@@ -1,0 +1,114 @@
+name: Region health (multi-region warm standby)
+
+# T-028 — scheduled cross-region health probe.
+#
+# GETs /healthz from both the lhr (primary) and fra (warm-standby) Fly
+# machines every 5 minutes. On non-200, missing payload, or a missing
+# region field, posts an alert to Slack via the SLACK_WEBHOOK_URL repo
+# secret. Also triggerable manually for ad-hoc checks.
+#
+# The endpoints are addressed by Fly's per-region URL shape
+# (<region>.<app>.fly.dev), which routes the request to a machine in
+# that region without going through the anycast LB. This is how we
+# verify routing — the response body's region field must match the
+# region in the URL.
+
+on:
+  schedule:
+    # Every 5 minutes. Cron does not guarantee exactly-5-min cadence;
+    # GitHub may delay during high-load windows.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: region-health
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Probe healthz
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    strategy:
+      fail-fast: false
+      matrix:
+        region: [lhr, fra]
+    env:
+      APP_NAME: latvian-a2-exam
+      REGION: ${{ matrix.region }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    steps:
+      - name: GET /healthz
+        id: probe
+        # APP_NAME, REGION, and SLACK_WEBHOOK_URL inherit from the
+        # job-level env above. No untrusted input is interpolated into
+        # any shell command (matrix.region is a workflow-controlled
+        # literal value, not user-supplied data).
+        run: |
+          set -uo pipefail
+          URL="https://${REGION}.${APP_NAME}.fly.dev/healthz"
+          echo "Probing ${URL}"
+
+          # -m 10: hard 10 s timeout. -w writes the HTTP code on its
+          # own line after the body for easy split.
+          HTTP_CODE=$(curl -sS -m 10 -o /tmp/healthz.json -w "%{http_code}" "${URL}" || echo "000")
+          BODY=$(cat /tmp/healthz.json 2>/dev/null || echo "")
+
+          echo "http_code=${HTTP_CODE}"
+          echo "body=${BODY}"
+
+          {
+            echo "http_code=${HTTP_CODE}"
+            echo "body<<EOF"
+            echo "${BODY}"
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+          if [[ "${HTTP_CODE}" != "200" ]]; then
+            echo "::error::healthz non-200 for ${REGION}: code=${HTTP_CODE}"
+            exit 1
+          fi
+
+          # Verify ``region`` field matches the expected region.
+          # jq is preinstalled on ubuntu-latest.
+          ACTUAL_REGION=$(echo "${BODY}" | jq -r '.region // empty')
+          if [[ -z "${ACTUAL_REGION}" ]]; then
+            echo "::error::healthz response missing region field for ${REGION}: ${BODY}"
+            exit 1
+          fi
+          if [[ "${ACTUAL_REGION}" != "${REGION}" ]]; then
+            echo "::error::region mismatch for ${REGION}: response says ${ACTUAL_REGION}"
+            exit 1
+          fi
+          echo "OK: ${REGION} healthy, region=${ACTUAL_REGION}"
+
+      - name: Post Slack alert on failure
+        if: failure() && env.SLACK_WEBHOOK_URL != ''
+        env:
+          HTTP_CODE: ${{ steps.probe.outputs.http_code }}
+          BODY: ${{ steps.probe.outputs.body }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          PAYLOAD=$(jq -nc \
+            --arg region "${REGION}" \
+            --arg http_code "${HTTP_CODE:-000}" \
+            --arg body "${BODY:-<empty>}" \
+            --arg run_url "${RUN_URL}" \
+            '{
+               text: ":rotating_light: lvcodex region-health failure",
+               blocks: [
+                 {type:"section", text:{type:"mrkdwn",
+                   text: ("*Region health probe failed*\n*region:* `" + $region + "`\n*http_code:* `" + $http_code + "`\n*body:* ```" + $body + "```\n*run:* " + $run_url)}}
+               ]
+             }')
+          curl -sS -m 10 -X POST \
+            -H "Content-Type: application/json" \
+            --data "${PAYLOAD}" \
+            "${SLACK_WEBHOOK_URL}" || {
+              echo "::warning::Slack webhook POST failed; alert dropped."
+              exit 0
+            }
