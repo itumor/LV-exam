@@ -52,6 +52,7 @@ from server_app.models.ai import (
     AIProviderUnavailableDetails,
     AIScoreRequest,
 )
+from server_app.services import cost as cost_service
 
 
 logger = logging.getLogger("lvcodex.evaluator")
@@ -223,6 +224,54 @@ def validate_ai_response_with_pydantic(raw_payload: Any) -> AIEvaluationResponse
 
 
 # ---------------------------------------------------------------------------
+# Cost telemetry hook (T-027 — depends on T-014 + T-026)
+# ---------------------------------------------------------------------------
+
+
+def record_ai_cost_from_response(result_payload: dict[str, Any]) -> dict[str, int] | None:
+    """Record AI cost telemetry from a successful provider response.
+
+    Accepts the dict returned by :func:`evaluate_submission` (or any
+    ``{"provider": ..., "model": ..., "usage": ...}`` shape). Pulls the
+    token counts via :func:`server_app.services.cost.extract_usage`, looks
+    up the EUR-cents cost from the env-configured cost table, and
+    increments the in-process counters. Returns the increment snapshot,
+    or ``None`` if the payload was unusable.
+
+    The function is defensive — telemetry MUST NOT poison the success
+    path. Any unexpected exception is swallowed and logged; the legacy
+    inline hook in :func:`server_app.core.evaluate_submission` already
+    wraps this with the same contract for the historic dispatch path.
+    """
+
+    if not isinstance(result_payload, dict):
+        return None
+
+    provider = result_payload.get("provider")
+    model = result_payload.get("model")
+    usage = result_payload.get("usage")
+    if not provider or not model:
+        return None
+
+    try:
+        input_tokens, output_tokens = cost_service.extract_usage(usage)
+        return cost_service.record(
+            provider=provider,
+            model=model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+    except Exception as error:  # noqa: BLE001 - telemetry must not raise.
+        logger.warning(
+            "ai_cost_telemetry_failed provider=%s model=%s error=%s",
+            provider,
+            model,
+            error,
+        )
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Failure-mode helpers (T-026 — visible failure modes per roadmap A P3)
 # ---------------------------------------------------------------------------
 
@@ -277,6 +326,7 @@ __all__ = [
     "provider_call_once",
     "provider_config",
     "provider_error_message",
+    "record_ai_cost_from_response",
     "validate_ai_response_with_pydantic",
     "validate_and_normalize_evaluation_payload",
 ]

@@ -36,10 +36,34 @@ or a CDN allowlist — do not expose it on the public origin.
 | `http_requests_total` | counter | `route`, `status` | Total HTTP requests served. |
 | `http_request_errors_total` | counter | `route` | Subset of requests with status ≥ 500. Convenience series so SLO burn-rate queries don't need a status regex. |
 | `http_request_duration_seconds` | histogram | `route` | Request latency in seconds. Buckets: `0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10`. |
+| `lvcodex_ai_tokens_total` | counter | `provider`, `model`, `direction` | Cumulative AI provider tokens accounted by the lvcodex evaluator (T-027). `direction` is `input` or `output`. |
+| `lvcodex_ai_cost_cents_total` | counter | `provider`, `model` | Cumulative AI provider spend in EUR cents (T-027). |
 
 Route labels are pre-sanitized in `server/metrics.py` so opaque ids
 (UUIDs, long hex tokens, integer ids) collapse to `:id` and don't
 explode cardinality.
+
+### AI cost telemetry (T-027)
+
+The two `lvcodex_ai_*` families are populated by
+[`server_app/services/cost.py`](../server_app/services/cost.py) whenever
+the evaluator (`server_app/services/evaluator.py` →
+`server_app/core.py::evaluate_submission`) returns a successful provider
+response. The hook is wrapped in `try/except` so a telemetry failure
+never poisons the success path.
+
+Cost calculation reads the per-model rate table from
+`LVCODEX_AI_COST_TABLE_JSON`. Default entries (in USD per 1M tokens):
+
+| Provider | Model | USD / 1M tokens |
+| --- | --- | --- |
+| `groq` | `llama-3.3-70b` | 0.59 |
+| `openai` | `gpt-5.2` | 10.00 |
+| `openai` | `gpt-4o` | 5.00 |
+
+USD → EUR conversion uses `LVCODEX_AI_USD_TO_EUR_RATE` (default `0.92`).
+Operators can override either env var without redeploying code; the
+counters reflect the new rate on the next request.
 
 ## Dashboards
 
@@ -52,6 +76,7 @@ outage.
 | --- | --- | --- |
 | `api-overview.json` | SRE / on-call | RPS by route, 5xx ratio, p50/p95/p99 latency, 24h totals. |
 | `attempts-funnel.json` | Product / growth | Attempts started → submitted → scored, with scoring p95 and 5xx ratio. |
+| `ai-cost.json` | Finance / SRE | AI EUR/hour by model, tokens/min by direction, top models by 24h spend (T-027). |
 
 ### Importing into Grafana Cloud
 
@@ -79,6 +104,14 @@ They cover three SLO classes:
 | `ErrorBudgetBurn` | 5xx ratio > 1% for 5m | Availability |
 | `LatencyHigh` | p95 latency > 2s for 5m | Latency |
 | `SQLiteWriteStalled` | No 2xx on `/api/score` or `/api/attempts/submit` for 30m while serving traffic | Availability |
+| `AIDailySpendOverBudget` | `sum(increase(lvcodex_ai_cost_cents_total[24h])) > 500` (5 EUR) for 5m | Cost (T-027) |
+| `AIHourlySpendSurge` | Projected hourly burn rate exceeds 5 EUR for 15m | Cost (T-027) |
+
+`AIDailySpendOverBudget` and `AIHourlySpendSurge` live in
+[`monitoring/alerts/cost-budget.yml`](../monitoring/alerts/cost-budget.yml).
+Adjust the threshold cents (500 = 5 EUR by default, matching
+`LVCODEX_AI_DAILY_BUDGET_EUR`) and re-deploy the rules file when the
+operator changes the daily budget env var.
 
 ### Loading the rules
 
