@@ -1199,6 +1199,15 @@ def init_auth_store() -> None:
             _t037_versions_init.init_exam_versions_table(conn)
         except Exception:  # noqa: BLE001 - never block app startup
             pass
+        # T-025: ensure the A2 exam-schema tables (exam_levels, skills,
+        # task_types, exam_parts) exist on every boot. The helper guards
+        # each statement with IF NOT EXISTS so this is idempotent.
+        try:
+            from server_app.services import schema_a2 as _t025_schema_init
+
+            _t025_schema_init.init_a2_schema_tables(conn)
+        except Exception:  # noqa: BLE001 - never block app startup
+            pass
 
 
 _ALLOWED_SCHEMA_TABLES = frozenset({"attempts", "accounts", "users", "profiles", "sessions", "exams"})
@@ -6270,6 +6279,81 @@ def _t022_install_attempt_routes() -> None:
 _t022_install_attempt_routes()
 # ============================================================================
 # end T-022 server-side attempt persistence hook
+# ============================================================================
+
+
+# ============================================================================
+# T-025 A2 exam-schema admin route hook
+# ============================================================================
+# Exposes the level + skills + task_types catalogue maintained by
+# server_app.services.schema_a2 to the admin console via a single
+# read-only endpoint. Installed via the same end-of-file monkey-patch
+# pattern as T-010 / T-014 / T-015 / T-018 / T-022 / T-037 so the hook
+# ordering audited by HookOrderingTests is preserved. Installed BEFORE
+# the T-036 v2 SPA handler so the T-036 do_GET patcher remains the
+# outermost wrapper (audited by V2HookInstallationTests).
+#
+# Route added:
+#   GET /api/admin/schema?level=A2   (admin/superadmin only)
+#
+# Response shape (HTTP 200):
+#   {
+#     "level":  {"id": "...", "code": "A2", "name": "...",
+#                "total_points": 60, "min_per_skill": 9, ...},
+#     "skills": [
+#       {"id": "...", "code": "listening", "name": "...",
+#        "max_points": 15, "ordinal": 1,
+#        "task_types": [{"id": "...", "code": "multiple_choice", ...}]},
+#       ...
+#     ]
+#   }
+#
+# Returns ``{"level": null, "skills": []}`` if the level is unseeded; the
+# admin UI then prompts the operator to run scripts/seed_a2_schema.py.
+# ----------------------------------------------------------------------------
+
+from server_app.services import schema_a2 as _t025_schema  # noqa: E402
+
+
+_T025_ADMIN_SCHEMA_PATH = "/api/admin/schema"
+_T025_ORIGINAL_DO_GET = AppHandler.do_GET
+
+
+def _t025_resolve_path(handler: "AppHandler") -> tuple[str, dict[str, list[str]]]:
+    raw = getattr(handler, "path", "") or ""
+    parsed = urllib.parse.urlparse(raw)
+    return parsed.path or "", urllib.parse.parse_qs(parsed.query or "")
+
+
+def _t025_schema_handler(handler: "AppHandler", query: dict[str, list[str]]) -> None:
+    """Handle ``GET /api/admin/schema`` — admin-only."""
+
+    try:
+        require_admin_session(handler)
+        level_code = (query.get("level", [_t025_schema.A2_LEVEL_CODE]) or [
+            _t025_schema.A2_LEVEL_CODE
+        ])[0]
+        with db_connection() as conn:
+            payload = _t025_schema.build_schema_response(conn, level_code)
+        json_response(handler, HTTPStatus.OK, payload)
+    except ApiError as error:
+        api_error_response(handler, error)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+
+
+def _t025_patched_do_get(self: "AppHandler") -> None:
+    path, query = _t025_resolve_path(self)
+    if path == _T025_ADMIN_SCHEMA_PATH:
+        _t025_schema_handler(self, query)
+        return
+    _T025_ORIGINAL_DO_GET(self)
+
+
+AppHandler.do_GET = _t025_patched_do_get  # type: ignore[assignment]
+AppHandler._t025_installed = True  # type: ignore[attr-defined]
+# ============================================================================
+# end T-025 A2 exam-schema admin route hook
 # ============================================================================
 
 
