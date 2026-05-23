@@ -33,14 +33,16 @@ server_app/
 │   ├── legal.py                       # /legal/*        (T-011)
 │   ├── metrics.py                     # /metrics        (T-014)
 │   ├── rate_limit.py                  # MIDDLEWARE      (T-015)
-│   └── uploads.py                     # /api/uploads/speaking/*  (T-018)
+│   ├── uploads.py                     # /api/uploads/speaking/*  (T-018)
+│   └── voice.py                       # /api/voice/score         (T-046)
 ├── services/
 │   ├── __init__.py
 │   ├── attempts.py                    # attempt-lifecycle service layer
 │   ├── auth_store.py                  # SQLite auth-store helpers
 │   ├── evaluator.py                   # LLM evaluator pipeline
 │   ├── quota.py                       # per-IP / per-learner quota helpers
-│   └── sentry_init.py                 # observability bootstrap
+│   ├── sentry_init.py                 # observability bootstrap
+│   └── voice.py                       # STT + pronunciation scorer (T-046)
 └── models/
     └── __init__.py                    # row mappers + ApiError + redaction
 ```

@@ -7112,5 +7112,289 @@ AppHandler._t024_installed = True  # type: ignore[attr-defined]
 # ============================================================================
 
 
+# ============================================================================
+# T-046 voice scoring route hook
+# ============================================================================
+# Installs ``POST /api/voice/score`` — runs the audio captured by the T-018
+# speaking flow through Groq Whisper (or OpenAI Whisper as a fallback) and
+# scores the resulting transcript against the expected Latvian text. The
+# heavy lifting lives in :mod:`server_app.services.voice`; this hook is
+# intentionally thin glue so the route stays auditable.
+#
+# Quota: each successful scoring call costs one slot in the T-026 daily AI
+# quota ledger (the STT call is the rate-limited resource). Quota exhaustion
+# returns HTTP 429 with the standard QuotaExceededError body.
+#
+# Auth: learner-scoped — the audio URL must resolve inside the caller's own
+# speaking-upload tree (T-018 ``AudioUploadStore.load`` rejects cross-user
+# access). Admins use the existing /api/uploads/speaking/<a>/<t>?user_id=…
+# override if they need to score someone else's recording.
+#
+# Wire order: installed LAST so the T-018 / T-022 / T-024 / T-036 patches
+# stay below this one in the do_POST chain (same pattern as the other
+# end-of-file hooks). The hook ONLY intercepts /api/voice/score; all other
+# POSTs fall through to the upstream handler unchanged.
+# ----------------------------------------------------------------------------
+
+from server_app.services import voice as _t046_voice  # noqa: E402
+from server_app.services.quota import (  # noqa: E402
+    AIQuotaLedger as _T046AIQuotaLedger,
+    QuotaExceededError as _T046QuotaExceededError,
+    reserve_daily_ai_quota as _t046_reserve_daily_ai_quota,
+)
+
+
+_T046_VOICE_SCORE_PATH = "/api/voice/score"
+
+
+def _t046_resolve_path(handler: "AppHandler") -> str:
+    raw = getattr(handler, "path", "") or ""
+    return urllib.parse.urlparse(raw).path or ""
+
+
+def _t046_load_audio_for_request(
+    audio_url: str, user_id: str
+) -> tuple[bytes, str]:
+    """Look the audio bytes up by URL.
+
+    Tries the new T-018 store layout first, then falls back to the legacy
+    single-id metadata file path. Both lookups are scoped to ``user_id`` to
+    prevent cross-user access. Translates store-level exceptions into
+    :class:`ApiError` so the route handler can return a clean JSON error.
+    """
+
+    try:
+        return _t046_voice.load_audio_from_t018(
+            audio_url,
+            upload_store=T018_SPEAKING_UPLOAD_STORE,
+            user_id=user_id,
+            upload_root=UPLOAD_ROOT,
+        )
+    except ValueError as error:
+        raise ApiError(
+            HTTPStatus.BAD_REQUEST,
+            "invalid_audio_url",
+            str(error),
+        )
+    except PermissionError as error:
+        raise ApiError(
+            HTTPStatus.FORBIDDEN,
+            "forbidden",
+            str(error),
+        )
+    except FileNotFoundError as error:
+        raise ApiError(
+            HTTPStatus.NOT_FOUND,
+            "audio_not_found",
+            str(error),
+        )
+    except _T018UnsafeIdentifierError as error:
+        raise ApiError(
+            HTTPStatus.BAD_REQUEST,
+            "invalid_audio_url",
+            str(error),
+        )
+    except _T018UploadNotFoundError as error:
+        raise ApiError(
+            HTTPStatus.NOT_FOUND,
+            "audio_not_found",
+            str(error),
+        )
+
+
+def _t046_handle_voice_score(handler: "AppHandler") -> None:
+    """Handle ``POST /api/voice/score``.
+
+    Body schema::
+
+        {
+          "expected_text": str (required, non-empty),
+          "audio_url":     str (required, T-018 upload URL),
+          "language":      str (optional, defaults to "lv")
+        }
+    """
+
+    try:
+        session = require_session(handler)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+        return
+
+    learner_id = session["account"]["id"]
+
+    try:
+        payload = safe_read_json(handler)
+    except ValueError as error:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {"error": str(error) or "Invalid JSON body."},
+        )
+        return
+    except json.JSONDecodeError:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {"error": "Request body is not valid JSON."},
+        )
+        return
+
+    expected_text = (payload.get("expected_text") or "").strip()
+    audio_url = (
+        payload.get("audio_url")
+        or payload.get("audio_url_from_t018")
+        or ""
+    ).strip()
+    language = (payload.get("language") or "").strip() or None
+
+    if not expected_text:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {"error": "expected_text is required."},
+        )
+        return
+    if not audio_url:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {"error": "audio_url is required (use the T-018 upload URL)."},
+        )
+        return
+
+    # Quota: each scoring call consumes one slot from the T-026 daily
+    # ledger. We use the per-learner-per-day ledger so the AI scoring
+    # team's existing dashboards (Grafana panels from T-027) light up
+    # without code changes.
+    plan = session.get("profile", {}).get("exam_pack_status") or "free"
+    try:
+        quota_snapshot = _t046_reserve_daily_ai_quota(learner_id, plan)
+    except _T046QuotaExceededError as error:
+        json_response(
+            handler,
+            HTTPStatus.TOO_MANY_REQUESTS,
+            {"error": str(error)},
+        )
+        return
+
+    # Per-IP scoring rate limit (T-015) is enforced upstream by the global
+    # middleware; the per-identity scoring rate limit guards against a
+    # single learner pressing "score" 50 times.
+    try:
+        check_scoring_rate_limit(learner_id)
+    except ApiError as error:
+        # Refund the daily slot we just reserved — we never actually
+        # called the STT provider for this request.
+        _T046AIQuotaLedger().release(learner_id, plan)
+        api_error_response(handler, error)
+        return
+
+    try:
+        audio_bytes, audio_mime = _t046_load_audio_for_request(audio_url, learner_id)
+    except ApiError as error:
+        _T046AIQuotaLedger().release(learner_id, plan)
+        api_error_response(handler, error)
+        return
+
+    if not audio_bytes:
+        _T046AIQuotaLedger().release(learner_id, plan)
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {"error": "Audio is empty."},
+        )
+        return
+
+    if len(audio_bytes) > MAX_AUDIO_BYTES:
+        _T046AIQuotaLedger().release(learner_id, plan)
+        json_response(
+            handler,
+            HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+            {"error": "Audio file too large to transcribe."},
+        )
+        return
+
+    # Pick a filename + mime that Whisper-compatible providers accept.
+    ext = audio_mime.split("/", 1)[-1].split(";", 1)[0].strip() or "webm"
+    audio_filename = f"voice-{learner_id[:12]}.{ext}"
+
+    try:
+        body = _t046_voice.score_voice_submission(
+            expected_text=expected_text,
+            audio_bytes=audio_bytes,
+            audio_mime=audio_mime,
+            audio_filename=audio_filename,
+            language=language,
+        )
+    except _t046_voice.VoiceConfigError as error:
+        _T046AIQuotaLedger().release(learner_id, plan)
+        json_response(
+            handler,
+            HTTPStatus.SERVICE_UNAVAILABLE,
+            {
+                "error": (
+                    "Voice transcription is not configured on this deployment."
+                ),
+                "detail": str(error),
+            },
+        )
+        return
+    except _t046_voice.VoiceProviderError as error:
+        _T046AIQuotaLedger().release(learner_id, plan)
+        json_response(
+            handler,
+            HTTPStatus.BAD_GATEWAY,
+            {
+                "error": "Voice transcription provider failed.",
+                "detail": str(error),
+            },
+        )
+        return
+    except Exception as error:  # noqa: BLE001 - defence in depth
+        _T046AIQuotaLedger().release(learner_id, plan)
+        log_event(
+            "error",
+            "voice_score_unexpected_error",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "Unexpected voice scoring error."},
+        )
+        return
+
+    body["quota"] = {
+        "used": quota_snapshot["used"],
+        "limit": quota_snapshot["limit"],
+        "resets_at": quota_snapshot["resets_at"],
+    }
+    json_response(handler, HTTPStatus.OK, body)
+
+
+_T046_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t046_patched_do_post(self: "AppHandler") -> None:
+    path = _t046_resolve_path(self)
+    if path == _T046_VOICE_SCORE_PATH:
+        _t046_handle_voice_score(self)
+        return
+    _T046_ORIGINAL_DO_POST(self)
+
+
+def _t046_install_voice_score_route() -> None:
+    """Install the do_POST patch and a marker attribute (for audits)."""
+
+    AppHandler.do_POST = _t046_patched_do_post  # type: ignore[assignment]
+    AppHandler._t046_installed = True  # type: ignore[attr-defined]
+
+
+_t046_install_voice_score_route()
+# ============================================================================
+# end T-046 voice scoring route hook
+# ============================================================================
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
