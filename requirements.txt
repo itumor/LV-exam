@@ -1,4 +1,6 @@
 sentry-sdk>=2.0.0
 jsonschema>=4.0.0
+openapi-spec-validator>=0.7
 psycopg[binary]>=3.2
 pydantic>=2.5
+PyYAML>=6.0
