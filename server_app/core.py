@@ -3863,6 +3863,26 @@ class AppHandler(SimpleHTTPRequestHandler):
             except ApiError as error:
                 api_error_response(self, error)
             return
+        if parsed.path == "/api/listening-feed":
+            # T-035 — vertical scroll-feed of curated micro-clips. The
+            # service module owns cursor encoding and catalogue loading;
+            # the route just shuttles query params through.
+            try:
+                from server_app.services.listening_feed import (
+                    build_listening_feed as _build_listening_feed,
+                )
+                params = urllib.parse.parse_qs(parsed.query)
+                cursor = (params.get("cursor") or [None])[0]
+                limit_raw = (params.get("limit") or [None])[0]
+                try:
+                    limit_val = int(limit_raw) if limit_raw is not None else None
+                except ValueError:
+                    limit_val = None
+                payload = _build_listening_feed(cursor=cursor, limit=limit_val)
+                json_response(self, HTTPStatus.OK, payload)
+            except ApiError as error:
+                api_error_response(self, error)
+            return
         exam_content_match = re.fullmatch(r"/api/exams/([^/]+)/content", parsed.path)
         if exam_content_match:
             try:
@@ -4200,6 +4220,56 @@ class AppHandler(SimpleHTTPRequestHandler):
                 payload = safe_read_json(self)
                 session = require_session(self)
                 json_response(self, HTTPStatus.OK, update_profile(payload, session))
+                return
+            # T-035 — POST /api/listening-feed/<clip_id>/answer
+            # Records a single micro-quiz answer for a feed clip and
+            # returns correctness + XP delta. Anonymous learners are
+            # allowed (session is optional) so the feed remains usable
+            # before sign-up; authenticated learners get the row tied
+            # to their account_id so T-034 XP and T-030 readiness can
+            # aggregate later.
+            listening_feed_answer_match = re.fullmatch(
+                r"/api/listening-feed/([^/]+)/answer", parsed.path
+            )
+            if listening_feed_answer_match:
+                try:
+                    from server_app.services.listening_feed import (
+                        record_quiz_answer as _record_listening_feed_answer,
+                    )
+                    payload = safe_read_json(self)
+                    if not isinstance(payload, dict):
+                        raise ApiError(
+                            HTTPStatus.BAD_REQUEST,
+                            "listening_feed_bad_body",
+                            "Request body must be a JSON object.",
+                        )
+                    raw_index = payload.get("quiz_answer_index")
+                    if raw_index is None:
+                        raise ApiError(
+                            HTTPStatus.BAD_REQUEST,
+                            "listening_feed_bad_answer",
+                            "Field 'quiz_answer_index' is required.",
+                        )
+                    try:
+                        quiz_answer_index = int(raw_index)
+                    except (TypeError, ValueError) as error:
+                        raise ApiError(
+                            HTTPStatus.BAD_REQUEST,
+                            "listening_feed_bad_answer",
+                            "quiz_answer_index must be an integer.",
+                        ) from error
+                    session = current_session_record(self)
+                    account_id = (
+                        session["account"]["id"] if session else None
+                    )
+                    result = _record_listening_feed_answer(
+                        listening_feed_answer_match.group(1),
+                        quiz_answer_index,
+                        account_id=account_id,
+                    )
+                    json_response(self, HTTPStatus.OK, result)
+                except ApiError as error:
+                    api_error_response(self, error)
                 return
             if self.path == "/api/admin/exams":
                 payload = safe_read_json(self)
