@@ -6566,6 +6566,28 @@ _t044_init_table()
 
 
 # ============================================================================
+# T-045 — AI NPC roleplay route hook installer
+# ============================================================================
+# Importing :mod:`server_app.routes.npc` runs ``install_npc_routes()`` which
+# wraps ``AppHandler.do_GET`` / ``do_POST`` with the NPC dispatch (list,
+# detail, turn). The hook is idempotent via ``AppHandler._t045_installed``.
+# Installed BEFORE T-036 so the T-036 SPA static handler remains the
+# outermost ``do_GET`` wrapper — that invariant is enforced by
+# ``tests/server/test_v2_static_route.py::test_do_get_is_the_t036_patched_function``.
+# ----------------------------------------------------------------------------
+
+try:  # pragma: no cover - import-time side effect
+    from server_app.routes import npc as _t045_npc_routes  # noqa: F401
+except Exception:  # noqa: BLE001 - never break boot on a route-pkg bug
+    import logging as _t045_logging
+
+    _t045_logging.getLogger("lvcodex.npc").exception("npc_route_import_failed")
+# ============================================================================
+# end T-045 NPC route hook
+# ============================================================================
+
+
+# ============================================================================
 # T-036 Vue 3 + TypeScript SPA static handler (mounted at /v2/)
 # ============================================================================
 # Serves the built apps/web-v2/dist/ assets under /v2/ via a tail-of-file
