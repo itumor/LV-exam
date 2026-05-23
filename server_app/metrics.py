@@ -283,7 +283,50 @@ class RequestMetrics:
         return "\n".join(lines) + "\n"
 
 
+# ---------------------------------------------------------------------------
+# T-027 AI cost telemetry re-exports
+# ---------------------------------------------------------------------------
+#
+# The AI cost counters (``lvcodex_ai_tokens_total{provider,model,direction}``
+# and ``lvcodex_ai_cost_cents_total{provider,model}``) live in
+# :mod:`server_app.services.cost` because they reside in the service layer
+# (provider+model identifiers are produced by the evaluator). This module
+# re-exports the public surface so external consumers can write::
+#
+#     from server_app.metrics import CostMetrics, cost_registry, record_ai_cost
+#
+# without having to know the service-layer path. The re-exports are
+# guarded so failures in the cost module never break the HTTP metrics
+# registry — observability MUST degrade gracefully.
+
+try:  # pragma: no cover - import side path
+    from server_app.services.cost import (  # noqa: F401
+        CostMetrics,
+        cost_for,
+        cost_registry,
+        daily_budget_eur,
+        extract_usage,
+    )
+    from server_app.services.cost import record as record_ai_cost  # noqa: F401
+
+    _T027_COST_AVAILABLE = True
+except Exception:  # pragma: no cover - defensive
+    _T027_COST_AVAILABLE = False
+
+
 __all__ = [
     "DEFAULT_BUCKETS_SECONDS",
     "RequestMetrics",
 ]
+
+if _T027_COST_AVAILABLE:
+    __all__.extend(
+        [
+            "CostMetrics",
+            "cost_for",
+            "cost_registry",
+            "daily_budget_eur",
+            "extract_usage",
+            "record_ai_cost",
+        ]
+    )
