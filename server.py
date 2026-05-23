@@ -5442,5 +5442,248 @@ except Exception as _t014_exc:  # pragma: no cover - hook must never crash impor
         pass
 
 
+# ============================================================================
+# T-018 speaking-upload hook
+# ============================================================================
+# Wires the new AudioUploadStore (audio_uploads.py) into the AppHandler via a
+# single end-of-file monkey-patch block so that this addition does not collide
+# with the in-flight T-014/T-015 work that is also touching server.py routes.
+#
+# Routes added here:
+#   POST /api/uploads/speaking?attempt_id=<id>&task_id=<id>
+#   GET  /api/uploads/speaking/<attempt_id>/<task_id>
+#
+# All access checks happen server-side: the upload is keyed by the
+# authenticated user_id; retrieval is allowed only for the owning user or for
+# admin/superadmin roles. Path-traversal is blocked inside the store itself.
+# ----------------------------------------------------------------------------
+
+from audio_uploads import (  # noqa: E402 - intentional late import
+    AttemptUploadLimitError as _T018AttemptUploadLimitError,
+    AudioUploadError as _T018AudioUploadError,
+    AudioUploadStore as _T018AudioUploadStore,
+    OversizeUploadError as _T018OversizeUploadError,
+    UnsafeIdentifierError as _T018UnsafeIdentifierError,
+    UnsupportedMimeError as _T018UnsupportedMimeError,
+    UploadNotFoundError as _T018UploadNotFoundError,
+)
+
+T018_SPEAKING_UPLOAD_BASE_DIR = UPLOAD_ROOT / "speaking_v2"
+T018_SPEAKING_UPLOAD_STORE = _T018AudioUploadStore(
+    base_dir=T018_SPEAKING_UPLOAD_BASE_DIR,
+    max_bytes=MAX_AUDIO_BYTES,
+    allowed_mimes=("audio/webm", "audio/ogg", "audio/wav", "audio/mpeg"),
+)
+
+
+def _t018_first_query_value(query: dict[str, list[str]], key: str) -> str:
+    values = query.get(key) or []
+    return values[0].strip() if values else ""
+
+
+def _t018_handle_upload_post(handler: "AppHandler") -> bool:
+    """Return True if the request was handled here."""
+    parsed = urllib.parse.urlparse(handler.path)
+    if parsed.path != "/api/uploads/speaking":
+        return False
+    try:
+        session = require_session(handler)
+        user_id = session["account"]["id"]
+        query = urllib.parse.parse_qs(parsed.query)
+        attempt_id = _t018_first_query_value(query, "attempt_id")
+        task_id = _t018_first_query_value(query, "task_id")
+        if not attempt_id or not task_id:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "attempt_id and task_id query params are required."},
+            )
+            return True
+        content_length = int(handler.headers.get("Content-Length", 0) or 0)
+        if content_length > MAX_AUDIO_BYTES:
+            json_response(
+                handler,
+                HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                {"error": "Audio file too large."},
+            )
+            return True
+        raw_ct = handler.headers.get("Content-Type", "audio/webm")
+        body = handler.rfile.read(content_length) if content_length > 0 else b""
+        try:
+            rel_path = T018_SPEAKING_UPLOAD_STORE.save(
+                attempt_id=attempt_id,
+                task_id=task_id,
+                user_id=user_id,
+                content_type=raw_ct,
+                stream=body,
+            )
+        except _T018UnsafeIdentifierError as error:
+            json_response(handler, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+            return True
+        except _T018UnsupportedMimeError as error:
+            json_response(
+                handler,
+                HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+                {"error": str(error)},
+            )
+            return True
+        except _T018OversizeUploadError as error:
+            json_response(
+                handler,
+                HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                {"error": str(error)},
+            )
+            return True
+        except _T018AttemptUploadLimitError as error:
+            json_response(handler, HTTPStatus.CONFLICT, {"error": str(error)})
+            return True
+        except _T018AudioUploadError as error:
+            json_response(handler, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+            return True
+        mime = raw_ct.split(";", 1)[0].strip().lower()
+        json_response(
+            handler,
+            HTTPStatus.OK,
+            {
+                "path": rel_path,
+                "mime": mime,
+                "bytes": len(body),
+                "url": f"/api/uploads/speaking/{attempt_id}/{task_id}",
+            },
+        )
+        return True
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+        return True
+
+
+def _t018_handle_upload_get(handler: "AppHandler") -> bool:
+    """Return True if the request was handled here."""
+    parsed = urllib.parse.urlparse(handler.path)
+    prefix = "/api/uploads/speaking/"
+    if not parsed.path.startswith(prefix):
+        return False
+    remainder = parsed.path[len(prefix):]
+    if "/" not in remainder:
+        # Allow the legacy /api/uploads/speaking/<upload_id> route to fall
+        # through to the original handler.
+        return False
+    try:
+        session = require_session(handler)
+        actor_id = session["account"]["id"]
+        role = account_role(session)
+        parts = remainder.split("/")
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            json_response(handler, HTTPStatus.NOT_FOUND, {"error": "not found"})
+            return True
+        attempt_id, task_id = parts
+        target_user = actor_id
+        try:
+            mime, payload = T018_SPEAKING_UPLOAD_STORE.load(
+                attempt_id=attempt_id,
+                task_id=task_id,
+                user_id=target_user,
+            )
+        except _T018UnsafeIdentifierError:
+            json_response(handler, HTTPStatus.BAD_REQUEST, {"error": "bad id"})
+            return True
+        except _T018UploadNotFoundError:
+            # Admins may read other users' uploads if they pass ?user_id=...
+            if role in {"admin", "superadmin"}:
+                query = urllib.parse.parse_qs(parsed.query)
+                override = _t018_first_query_value(query, "user_id")
+                if override and override != actor_id:
+                    try:
+                        mime, payload = T018_SPEAKING_UPLOAD_STORE.load(
+                            attempt_id=attempt_id,
+                            task_id=task_id,
+                            user_id=override,
+                        )
+                    except (
+                        _T018UploadNotFoundError,
+                        _T018UnsafeIdentifierError,
+                    ):
+                        json_response(
+                            handler,
+                            HTTPStatus.NOT_FOUND,
+                            {"error": "not found"},
+                        )
+                        return True
+                else:
+                    json_response(
+                        handler,
+                        HTTPStatus.NOT_FOUND,
+                        {"error": "not found"},
+                    )
+                    return True
+            else:
+                json_response(
+                    handler, HTTPStatus.NOT_FOUND, {"error": "not found"}
+                )
+                return True
+        handler.send_response(HTTPStatus.OK)
+        handler.send_header("Content-Type", mime)
+        handler.send_header("Content-Length", str(len(payload)))
+        handler.send_header("Accept-Ranges", "bytes")
+        handler.send_header("Cache-Control", "private, max-age=0")
+        handler.end_headers()
+        handler.wfile.write(payload)
+        return True
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+        return True
+
+
+_T018_ORIGINAL_DO_GET = AppHandler.do_GET
+_T018_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t018_patched_do_get(self: "AppHandler") -> None:
+    if _t018_handle_upload_get(self):
+        return
+    _T018_ORIGINAL_DO_GET(self)
+
+
+def _t018_patched_do_post(self: "AppHandler") -> None:
+    if _t018_handle_upload_post(self):
+        return
+    _T018_ORIGINAL_DO_POST(self)
+
+
+AppHandler.do_GET = _t018_patched_do_get  # type: ignore[assignment]
+AppHandler.do_POST = _t018_patched_do_post  # type: ignore[assignment]
+
+
+# Hook into the attempt-expire flow so the audio dir is removed when the
+# learner abandons the attempt. This matches the T-018 cleanup requirement
+# without touching the existing expire_attempt body.
+_T018_ORIGINAL_EXPIRE_ATTEMPT = expire_attempt
+
+
+def _t018_expire_attempt(
+    attempt_id: str, session: dict[str, Any]
+) -> dict[str, Any]:
+    result = _T018_ORIGINAL_EXPIRE_ATTEMPT(attempt_id, session)
+    try:
+        user_id = session.get("account", {}).get("id")
+        if user_id:
+            T018_SPEAKING_UPLOAD_STORE.delete_attempt(
+                attempt_id=attempt_id, user_id=user_id
+            )
+    except Exception:  # noqa: BLE001 - cleanup must never block the API.
+        log_event(
+            "warning",
+            "t018_upload_cleanup_failed",
+            attempt_id=attempt_id,
+        )
+    return result
+
+
+expire_attempt = _t018_expire_attempt  # type: ignore[assignment]
+# ============================================================================
+# end T-018 speaking-upload hook
+# ============================================================================
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

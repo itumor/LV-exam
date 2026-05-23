@@ -91,6 +91,7 @@ const state = {
     chunks: {},
     audioUrls: {},
     uploadIds: {},
+    uploadPaths: {},
     recordingKey: null,
     transcripts: {},
     transcriptInterims: {},
@@ -3417,24 +3418,27 @@ function renderRecordingControls(key) {
   const isRecording = state.speaking.recordingKey === key;
   const audioUrl = state.speaking.audioUrls[key];
   const uploadId = state.speaking.uploadIds[key];
+  const uploadPath = state.speaking.uploadPaths[key];
+  const isUploaded = Boolean(uploadId || uploadPath);
   const statusText = isRecording
     ? "Recording..."
-    : uploadId
+    : isUploaded
       ? "Uploaded ✓"
       : audioUrl
-        ? "Recorded (not uploaded)"
+        ? "Recorded (not submitted)"
         : "";
   return `
     <div class="speaking-recorder" data-recorder-key="${escapeHtml(key)}">
       <div class="recorder-controls">
         ${isRecording
           ? `<button type="button" class="btn btn-danger btn-sm recorder-stop" data-action="stop-recording" data-key="${escapeHtml(key)}" aria-label="Stop recording">Stop</button>`
-          : `<button type="button" class="btn btn-primary btn-sm recorder-start" data-action="start-recording" data-key="${escapeHtml(key)}" aria-label="Start recording">Record</button>`
+          : `<button type="button" class="btn btn-primary btn-sm recorder-start" data-action="start-recording" data-key="${escapeHtml(key)}" aria-label="${audioUrl ? "Record again" : "Start recording"}">${audioUrl ? "Re-record" : "Record"}</button>`
         }
         ${audioUrl ? `
           <audio controls class="recorder-playback" src="${escapeHtml(audioUrl)}" aria-label="Playback recording for ${escapeHtml(key)}"></audio>
-          <button type="button" class="btn btn-outline-primary btn-sm recorder-upload" data-action="upload-recording" data-key="${escapeHtml(key)}" ${uploadId ? "disabled" : ""} aria-label="Upload recording">
-            ${uploadId ? "Uploaded" : "Upload"}
+          <button type="button" class="btn btn-outline-secondary btn-sm recorder-retry" data-action="retry-recording" data-key="${escapeHtml(key)}" aria-label="Discard and retry">Retry</button>
+          <button type="button" class="btn btn-outline-primary btn-sm recorder-upload" data-action="upload-recording" data-key="${escapeHtml(key)}" ${isUploaded ? "disabled" : ""} aria-label="Submit recording">
+            ${isUploaded ? "Submitted" : "Submit"}
           </button>
         ` : ""}
       </div>
@@ -3712,6 +3716,10 @@ function handleRunnerAction(dataset) {
   }
   if (action === "upload-recording") {
     uploadSpeakingAudio(dataset.key).catch(error => showToast("Upload failed: " + error.message));
+    return;
+  }
+  if (action === "retry-recording") {
+    retrySpeakingRecording(dataset.key);
     return;
   }
   if (action === "toggle-transcript") {
@@ -4023,24 +4031,60 @@ async function uploadSpeakingAudio(key) {
   const blob = new Blob(state.speaking.chunks[key] || [], { type: "audio/webm" });
   if (!blob.size) { showToast("No audio to upload."); return; }
   const submission = state.submission || {};
-  const [section, task] = key.split(".");
+  const [section, task, index] = key.split(".");
+  const attemptId = (state.attempt && state.attempt.id)
+    || submission.submission_id
+    || "draft";
+  // Build a task_id that is unique per item but safe for the server
+  // [A-Za-z0-9_.-] pattern.
+  const taskParts = [section, task, index].filter(part => part !== undefined && part !== "");
+  const taskId = taskParts.join("-").replace(/[^A-Za-z0-9_.\-]/g, "_") || "speaking";
   const params = new URLSearchParams({
-    submission_id: submission.submission_id || "draft",
-    task: task || key,
-    exam_id: state.exam.id
+    attempt_id: String(attemptId).replace(/[^A-Za-z0-9_.\-]/g, "_"),
+    task_id: taskId
   });
   const response = await fetch(`/api/uploads/speaking?${params.toString()}`, {
     method: "POST",
     headers: { "Content-Type": "audio/webm" },
-    body: blob
+    body: blob,
+    credentials: "same-origin"
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({ error: "Upload failed" }));
-    throw new Error(err.error || "Upload failed");
+    throw new Error(err.error || `Upload failed (HTTP ${response.status})`);
   }
   const result = await response.json();
-  state.speaking.uploadIds[key] = result.upload_id;
-  showToast("Audio uploaded successfully.");
+  state.speaking.uploadIds[key] = result.upload_id || result.path || `${params.get("attempt_id")}/${taskId}`;
+  state.speaking.uploadPaths[key] = result.path || null;
+  // Forward the upload metadata into a sidecar map so the existing
+  // attempt-submit payload can include a reference to the saved audio
+  // alongside the learner's text answers without mutating the answers array.
+  state.speaking.uploadMeta = state.speaking.uploadMeta || {};
+  state.speaking.uploadMeta[key] = {
+    path: result.path,
+    mime: result.mime,
+    bytes: result.bytes,
+    url: result.url
+  };
+  showToast("Audio submitted successfully.");
+  renderRunner();
+}
+
+function retrySpeakingRecording(key) {
+  // Discard the current buffer + blob URL so the learner can re-record.
+  if (state.speaking.recordingKey === key) {
+    stopMicRecording(key);
+  }
+  if (state.speaking.audioUrls[key]) {
+    try { URL.revokeObjectURL(state.speaking.audioUrls[key]); } catch (_) { /* ignore */ }
+  }
+  state.speaking.audioUrls[key] = null;
+  state.speaking.chunks[key] = [];
+  state.speaking.uploadIds[key] = null;
+  state.speaking.uploadPaths[key] = null;
+  state.speaking.transcripts[key] = "";
+  state.speaking.transcriptInterims[key] = "";
+  state.speaking.transcriptErrors[key] = "";
   renderRunner();
 }
 
@@ -4601,6 +4645,7 @@ function buildSubmission(status = "draft") {
     progress: getExamProgress(),
     timers: snapshotTimers(),
     answers: cloneJson(state.answers),
+    speaking_uploads: cloneJson(state.speaking.uploadMeta || {}),
     scoring,
     ai_evaluation: state.evaluation
   };
