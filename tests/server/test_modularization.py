@@ -132,8 +132,8 @@ class RouteAuditTests(unittest.TestCase):
         from server_app.routes import ROUTES
         known_owners = {
             "admin", "attempts", "auth", "billing", "debug",
-            "exams", "healthz", "legal", "metrics", "rate_limit",
-            "uploads",
+            "exams", "healthz", "legal", "listening_feed", "metrics",
+            "rate_limit", "uploads",
         }
         for _method, pattern, owner in ROUTES:
             self.assertIn(owner, known_owners, f"unknown owner for {pattern}")

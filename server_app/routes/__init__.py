@@ -23,6 +23,7 @@ from . import (  # noqa: F401  (re-exported for the audit list)
     exams,
     healthz,
     legal,
+    listening_feed,
     metrics,
     rate_limit,
     uploads,
@@ -43,6 +44,7 @@ for _module in (
     uploads,
     legal,
     debug,
+    listening_feed,
     rate_limit,
 ):
     for _method, _pattern in _module.ROUTES:
@@ -58,6 +60,7 @@ __all__ = [
     "exams",
     "healthz",
     "legal",
+    "listening_feed",
     "metrics",
     "rate_limit",
     "uploads",

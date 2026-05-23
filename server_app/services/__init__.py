@@ -16,6 +16,7 @@ from . import (  # noqa: F401
     auth_store,
     db,
     evaluator,
+    listening_feed,
     quota,
     sentry_init,
 )
@@ -25,6 +26,7 @@ __all__ = [
     "auth_store",
     "db",
     "evaluator",
+    "listening_feed",
     "quota",
     "sentry_init",
 ]
