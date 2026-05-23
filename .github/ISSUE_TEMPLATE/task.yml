@@ -1,0 +1,47 @@
+name: Delivery task (T-XXX)
+description: A concrete task tied to the 24-month delivery plan
+title: "[T-XXX]: "
+labels: ["task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for tasks defined in `/Users/eramadan/.claude/plans/create-a-detailed-delivery-robust-candle.md`.
+  - type: input
+    id: task_id
+    attributes:
+      label: Task ID
+      placeholder: T-014
+    validations:
+      required: true
+  - type: input
+    id: train
+    attributes:
+      label: Release train
+      placeholder: "Train 1 — Production Hardening"
+    validations:
+      required: true
+  - type: input
+    id: depends_on
+    attributes:
+      label: Depends on
+      description: Comma-separated task IDs.
+      placeholder: T-004, T-013
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Pulled verbatim from the delivery-plan task row.
+    validations:
+      required: true
+  - type: textarea
+    id: dod
+    attributes:
+      label: Definition of Done
+      description: Task-specific DoD beyond the global DoD in CONTRIBUTING.md.
+  - type: input
+    id: agent_owner
+    attributes:
+      label: Assigned agent
+      description: agent-α / agent-β / agent-γ / human
+      placeholder: agent-α

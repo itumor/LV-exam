@@ -1,0 +1,45 @@
+name: Feature request
+description: Propose a new feature, capability, or improvement for lvcodex
+title: "[feat]: "
+labels: ["feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a feature. Please align with the 24-month delivery plan when possible.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or operator pain are we solving? Include the persona.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Sketch the behavior. Note any open questions.
+    validations:
+      required: true
+  - type: input
+    id: roadmap_ref
+    attributes:
+      label: Related roadmap reference
+      description: A / B / C / D source roadmap section. Leave blank if net new.
+      placeholder: B Q3 Y1 daily mission
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 — blocker
+        - P1 — important, this release train
+        - P2 — desirable, next train
+        - P3 — nice to have
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Specific checks that prove this feature is done.
