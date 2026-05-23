@@ -4930,5 +4930,141 @@ def main() -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# T-014 metrics hook
+# ---------------------------------------------------------------------------
+# Wires server/metrics.py into the HTTP handler without modifying any of
+# the existing routing code above. Placed at the very end of server.py to
+# minimize merge conflicts with parallel T-015 (rate-limiting) and T-018
+# (structured logging) work also targeting this file.
+#
+# Behavior:
+#   * Exposes GET /metrics with ``Content-Type: text/plain; version=0.0.4``.
+#   * Wraps AppHandler.do_GET / do_POST so every response (including the
+#     /metrics scrape itself) records latency + status into the registry.
+#   * Uses importlib.util to load ``server/metrics.py`` by file path so the
+#     sibling directory does not shadow ``import server``.
+# ---------------------------------------------------------------------------
+def _t014_install_metrics_hook() -> None:
+    import importlib.util
+    import time as _t014_time
+    from http import HTTPStatus as _T014HTTPStatus
+    from pathlib import Path as _T014Path
+
+    metrics_path = _T014Path(__file__).resolve().parent / "server" / "metrics.py"
+    if not metrics_path.is_file():  # pragma: no cover - defensive
+        log_event(
+            "warning",
+            "t014_metrics_module_missing",
+            path=str(metrics_path),
+        )
+        return
+
+    spec = importlib.util.spec_from_file_location("lvcodex_metrics", metrics_path)
+    if spec is None or spec.loader is None:  # pragma: no cover - defensive
+        log_event("warning", "t014_metrics_spec_failed", path=str(metrics_path))
+        return
+    metrics_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(metrics_module)
+
+    registry = metrics_module.RequestMetrics()
+    globals()["METRICS_REGISTRY"] = registry
+    globals()["_t014_metrics_module"] = metrics_module
+
+    def _serve_metrics(handler) -> bool:
+        body = registry.render_text().encode("utf-8")
+        handler.send_response(_T014HTTPStatus.OK)
+        handler.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.end_headers()
+        handler.wfile.write(body)
+        return True
+
+    def _route_label(handler) -> str:
+        try:
+            import urllib.parse as _t014_urlparse
+
+            return _t014_urlparse.urlparse(handler.path or "/").path or "/"
+        except Exception:  # pragma: no cover - defensive
+            return "/"
+
+    def _captured_status(handler, default: int) -> int:
+        # ``send_response`` is monkey-patched below to stash the last code
+        # on the handler instance as ``_t014_last_status``. Fall back to
+        # ``default`` for handlers that bypass the wrapped helper.
+        candidate = getattr(handler, "_t014_last_status", None)
+        if isinstance(candidate, int) and candidate > 0:
+            return candidate
+        return default
+
+    original_send_response = AppHandler.send_response
+    original_send_response_only = AppHandler.send_response_only
+
+    def send_response(self, code, message=None):  # type: ignore[no-redef]
+        self._t014_last_status = int(code)
+        original_send_response(self, code, message)
+
+    def send_response_only(self, code, message=None):  # type: ignore[no-redef]
+        self._t014_last_status = int(code)
+        original_send_response_only(self, code, message)
+
+    AppHandler.send_response = send_response  # type: ignore[assignment]
+    AppHandler.send_response_only = send_response_only  # type: ignore[assignment]
+
+    original_do_get = AppHandler.do_GET
+    original_do_post = AppHandler.do_POST
+
+    def do_GET(self):  # type: ignore[no-redef]
+        if self.path and self.path.split("?", 1)[0] == "/metrics":
+            start = _t014_time.perf_counter()
+            try:
+                _serve_metrics(self)
+                status = 200
+            except Exception:
+                status = 500
+                raise
+            finally:
+                elapsed_ms = (_t014_time.perf_counter() - start) * 1000.0
+                registry.inc_request("/metrics", status, elapsed_ms)
+            return
+
+        start = _t014_time.perf_counter()
+        status = 200
+        try:
+            original_do_get(self)
+            status = _captured_status(self, 200)
+        except Exception:
+            status = _captured_status(self, 500)
+            raise
+        finally:
+            elapsed_ms = (_t014_time.perf_counter() - start) * 1000.0
+            registry.inc_request(_route_label(self), status, elapsed_ms)
+
+    def do_POST(self):  # type: ignore[no-redef]
+        start = _t014_time.perf_counter()
+        status = 200
+        try:
+            original_do_post(self)
+            status = _captured_status(self, 200)
+        except Exception:
+            status = _captured_status(self, 500)
+            raise
+        finally:
+            elapsed_ms = (_t014_time.perf_counter() - start) * 1000.0
+            registry.inc_request(_route_label(self), status, elapsed_ms)
+
+    AppHandler.do_GET = do_GET  # type: ignore[assignment]
+    AppHandler.do_POST = do_POST  # type: ignore[assignment]
+
+
+try:
+    _t014_install_metrics_hook()
+except Exception as _t014_exc:  # pragma: no cover - hook must never crash import
+    try:
+        log_event("error", "t014_metrics_hook_failed", error=type(_t014_exc).__name__)
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
