@@ -1191,6 +1191,14 @@ def init_auth_store() -> None:
         ensure_column(conn, "users", "role", "TEXT NOT NULL DEFAULT 'user'")
         ensure_builtin_exam_catalog(conn)
         ensure_bootstrap_superadmin(conn)
+        # T-037: ensure the exam_versions table exists on every boot. Safe to
+        # call repeatedly; the helper guards with IF NOT EXISTS.
+        try:
+            from server_app.services import exam_versions as _t037_versions_init
+
+            _t037_versions_init.init_exam_versions_table(conn)
+        except Exception:  # noqa: BLE001 - never block app startup
+            pass
 
 
 _ALLOWED_SCHEMA_TABLES = frozenset({"attempts", "accounts", "users", "profiles", "sessions", "exams"})
@@ -5839,6 +5847,208 @@ def _t018_expire_attempt(
 expire_attempt = _t018_expire_attempt  # type: ignore[assignment]
 # ============================================================================
 # end T-018 speaking-upload hook
+# ============================================================================
+
+
+# ============================================================================
+# T-037 content versioning hook
+# ============================================================================
+# Wires the exam_versions service (server_app/services/exam_versions.py) into
+# the AppHandler via a single end-of-file monkey-patch block, following the
+# same composition pattern as T-010 / T-014 / T-015 / T-018.
+#
+# Routes added here:
+#   POST /api/admin/exams/<exam_id>/publish      (admin/superadmin)
+#   GET  /api/admin/exams/<exam_id>/versions     (admin/superadmin)
+#
+# Existing routes augmented:
+#   GET  /api/exams/<exam_id>/content   — now emits an ``X-Exam-Version``
+#                                          response header reflecting the
+#                                          currently-published version. The
+#                                          body is unchanged so the existing
+#                                          client keeps working.
+#
+# Backward compatibility:
+#   Exams without an ``exam_versions`` row report ``X-Exam-Version: 1.0.0``
+#   (the grandfathered baseline) and continue to be served from the static
+#   catalog — no data migration required.
+# ----------------------------------------------------------------------------
+
+from server_app.services import exam_versions as _t037_versions  # noqa: E402
+
+
+_T037_ADMIN_PUBLISH_RE = re.compile(r"^/api/admin/exams/([^/]+)/publish$")
+_T037_ADMIN_VERSIONS_RE = re.compile(r"^/api/admin/exams/([^/]+)/versions$")
+_T037_LEARNER_CONTENT_RE = re.compile(r"^/api/exams/([^/]+)/content$")
+
+
+def _t037_init_table() -> None:
+    """Ensure the exam_versions table exists.
+
+    Called once at import time (best-effort) so the first request does not
+    pay the schema-creation cost. The init_auth_store path also creates the
+    table when it is invoked from main(), but the route handlers re-call
+    init_exam_versions_table defensively so test setups that mock AUTH_DB_PATH
+    after import still work.
+    """
+
+    try:
+        with db_connection() as conn:
+            _t037_versions.init_exam_versions_table(conn)
+    except Exception as exc:  # noqa: BLE001 - hook must never crash import
+        try:
+            log_event(
+                "warning",
+                "t037_init_failed",
+                error=type(exc).__name__,
+            )
+        except Exception:
+            pass
+
+
+def _t037_publish_handler(handler: "AppHandler", exam_id: str) -> None:
+    """Handle ``POST /api/admin/exams/<exam_id>/publish``.
+
+    Body shape: ``{"version": "YYYY.MM.N"}``. Returns the published row
+    serialized as JSON (matches the exam_versions service contract).
+    """
+
+    try:
+        require_admin_session(handler)
+        payload = safe_read_json(handler)
+        version = str(payload.get("version") or "").strip()
+        if not _t037_versions.is_valid_version(version):
+            raise ApiError(
+                HTTPStatus.BAD_REQUEST,
+                "invalid_exam_version",
+                "version must be in YYYY.MM.N format (e.g. 2026.05.0).",
+            )
+        with db_connection() as conn:
+            try:
+                row = _t037_versions.publish_version(conn, exam_id, version)
+            except _t037_versions.ExamVersionError as error:
+                status = (
+                    HTTPStatus.NOT_FOUND
+                    if error.not_found
+                    else HTTPStatus.BAD_REQUEST
+                )
+                code = (
+                    "exam_version_not_found"
+                    if error.not_found
+                    else "exam_version_transition_invalid"
+                )
+                raise ApiError(status, code, str(error)) from error
+        log_event(
+            "info",
+            "exam_version_published",
+            exam_id=exam_id,
+            version=version,
+        )
+        json_response(handler, HTTPStatus.OK, {"version": row})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+
+
+def _t037_list_versions_handler(handler: "AppHandler", exam_id: str) -> None:
+    """Handle ``GET /api/admin/exams/<exam_id>/versions`` — admin-only."""
+
+    try:
+        require_admin_session(handler)
+        with db_connection() as conn:
+            versions = _t037_versions.list_versions(conn, exam_id)
+            current = _t037_versions.get_current_version(conn, exam_id)
+        json_response(
+            handler,
+            HTTPStatus.OK,
+            {
+                "exam_id": exam_id,
+                "current_version": current,
+                "versions": versions,
+            },
+        )
+    except ApiError as error:
+        api_error_response(handler, error)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+
+
+def _t037_resolve_path(handler: "AppHandler") -> str:
+    raw = getattr(handler, "path", "") or ""
+    return urllib.parse.urlparse(raw).path or ""
+
+
+_T037_ORIGINAL_DO_GET = AppHandler.do_GET
+_T037_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t037_patched_do_post(self: "AppHandler") -> None:
+    path = _t037_resolve_path(self)
+    publish_match = _T037_ADMIN_PUBLISH_RE.match(path)
+    if publish_match:
+        _t037_publish_handler(self, publish_match.group(1))
+        return
+    _T037_ORIGINAL_DO_POST(self)
+
+
+def _t037_patched_do_get(self: "AppHandler") -> None:
+    path = _t037_resolve_path(self)
+    versions_match = _T037_ADMIN_VERSIONS_RE.match(path)
+    if versions_match:
+        _t037_list_versions_handler(self, versions_match.group(1))
+        return
+
+    # Augment the learner-facing /api/exams/<id>/content endpoint with an
+    # ``X-Exam-Version`` response header. We let the upstream handler do
+    # the actual content serving and only wrap ``send_header`` for the
+    # duration of the call so we can inject the extra header before
+    # ``end_headers`` runs. This keeps the body (markdown) identical and
+    # avoids re-implementing the upstream content lookup.
+    content_match = _T037_LEARNER_CONTENT_RE.match(path)
+    if not content_match:
+        _T037_ORIGINAL_DO_GET(self)
+        return
+
+    exam_id = content_match.group(1)
+    try:
+        with db_connection() as conn:
+            version = _t037_versions.get_current_version(conn, exam_id)
+    except Exception:  # noqa: BLE001 - never break content serving
+        version = _t037_versions.GRANDFATHERED_VERSION
+
+    original_send_header = self.send_header
+    original_end_headers = self.end_headers
+    injected = {"done": False}
+
+    def patched_send_header(keyword, value):  # type: ignore[override]
+        original_send_header(keyword, value)
+
+    def patched_end_headers():  # type: ignore[override]
+        if not injected["done"]:
+            injected["done"] = True
+            try:
+                original_send_header("X-Exam-Version", version)
+            except Exception:  # noqa: BLE001 - best-effort header injection
+                pass
+        original_end_headers()
+
+    self.send_header = patched_send_header  # type: ignore[assignment]
+    self.end_headers = patched_end_headers  # type: ignore[assignment]
+    try:
+        _T037_ORIGINAL_DO_GET(self)
+    finally:
+        self.send_header = original_send_header  # type: ignore[assignment]
+        self.end_headers = original_end_headers  # type: ignore[assignment]
+
+
+AppHandler.do_GET = _t037_patched_do_get  # type: ignore[assignment]
+AppHandler.do_POST = _t037_patched_do_post  # type: ignore[assignment]
+AppHandler._t037_installed = True  # type: ignore[attr-defined]
+
+_t037_init_table()
+# ============================================================================
+# end T-037 content versioning hook
 # ============================================================================
 
 
