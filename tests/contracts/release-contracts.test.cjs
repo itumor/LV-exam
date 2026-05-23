@@ -62,3 +62,40 @@ test("scoring fixtures cover success, quota, invalid payload, and media upload",
   assert.equal(media.stored, true);
   assert.match(media.mime_type, /^audio\//);
 });
+
+test("release script is shipped, executable, and references the three risk gates", () => {
+  const repoRoot = path.join(__dirname, "..", "..");
+  const scriptPath = path.join(repoRoot, "scripts", "release.sh");
+  assert.ok(fs.existsSync(scriptPath), "scripts/release.sh must exist");
+  const stat = fs.statSync(scriptPath);
+  // owner-execute bit (0o100) must be set.
+  assert.ok((stat.mode & 0o100) !== 0, "scripts/release.sh must be executable");
+  const body = fs.readFileSync(scriptPath, "utf8");
+  assert.match(body, /set -euo pipefail/);
+  for (const marker of ["T-011", "T-014", "T-016"]) {
+    assert.ok(body.includes(marker), `script must reference ${marker}`);
+  }
+  assert.match(body, /gh pr create/);
+});
+
+test("release-process doc documents the cut + rollback workflow", () => {
+  const doc = fs.readFileSync(
+    path.join(__dirname, "..", "..", "docs", "release-process.md"),
+    "utf8"
+  );
+  assert.match(doc, /scripts\/release\.sh/);
+  assert.match(doc, /release\/2026-Q1/);
+  assert.match(doc, /Hotfix Workflow/);
+  assert.match(doc, /Rollback Guidance/);
+});
+
+test("release PR template is present for manual cuts", () => {
+  const tmpl = fs.readFileSync(
+    path.join(__dirname, "..", "..", ".github", "PULL_REQUEST_TEMPLATE", "release.md"),
+    "utf8"
+  );
+  assert.match(tmpl, /Pre-merge gates/);
+  assert.match(tmpl, /T-011/);
+  assert.match(tmpl, /T-014/);
+  assert.match(tmpl, /T-016/);
+});
