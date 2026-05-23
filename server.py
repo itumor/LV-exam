@@ -5289,6 +5289,138 @@ def try_serve_legal_page(handler: SimpleHTTPRequestHandler, path: str) -> bool:
     return True
 
 
+# ---------------------------------------------------------------------------
+# T-015 rate limit hook
+# ---------------------------------------------------------------------------
+# Per-IP + per-session token-bucket limits applied to /api/* before request
+# dispatch. Implemented as a single end-of-file monkey-patch over AppHandler
+# so the body of the class stays untouched. The actual bucket logic lives in
+# rate_limit.py; this hook only resolves the client identity (respecting
+# X-Forwarded-For for Fly.io proxies), short-circuits with 429+Retry-After on
+# reject, and emits a structured log line.
+import rate_limit as _rate_limit  # noqa: E402  (intentional late import)
+
+
+def _t015_session_id_for(handler: SimpleHTTPRequestHandler) -> str:
+    """Best-effort session id extraction without forcing a DB hit.
+
+    Prefers the auth cookie value; falls back to an ``Authorization`` bearer
+    header. Returns an empty string when neither is present.
+    """
+
+    token = parse_cookie_value(handler, AUTH_SESSION_COOKIE)
+    if token:
+        return token
+    auth_header = handler.headers.get("Authorization", "") if handler.headers else ""
+    if auth_header.lower().startswith("bearer "):
+        return auth_header.split(" ", 1)[1].strip()
+    return ""
+
+
+def _t015_role_for(handler: SimpleHTTPRequestHandler) -> str:
+    """Resolve the requester role for admin bypass.
+
+    Uses ``get_session_user_role`` which is already defined in this module and
+    is cheap (single SQL lookup keyed by the cookie token). Returns ``"user"``
+    when the request is unauthenticated or the lookup fails.
+    """
+
+    try:
+        return get_session_user_role(handler) or "user"
+    except Exception:  # noqa: BLE001 - never crash request dispatch on lookup
+        return "user"
+
+
+def _t015_send_rate_limited(
+    handler: SimpleHTTPRequestHandler, retry_after_s: float, scope: str
+) -> None:
+    """Emit the 429 response with Retry-After header."""
+
+    retry_header = _rate_limit.retry_after_header_value(retry_after_s)
+    body = json.dumps(
+        {"error": "rate_limited", "retry_after": int(retry_header)},
+        ensure_ascii=False,
+    ).encode("utf-8")
+    handler.send_response(HTTPStatus.TOO_MANY_REQUESTS)
+    handler.send_header("Content-Type", "application/json; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("Retry-After", retry_header)
+    handler.end_headers()
+    handler.wfile.write(body)
+    log_event(
+        "warning",
+        "rate_limited",
+        scope=scope,
+        retry_after=retry_header,
+        remote_ip=client_ip(handler),
+        path=getattr(handler, "path", ""),
+    )
+
+
+def _t015_enforce(handler: SimpleHTTPRequestHandler) -> bool:
+    """Run the limiter for the current request. Returns True if rejected."""
+
+    raw_path = getattr(handler, "path", "") or ""
+    path = urllib.parse.urlparse(raw_path).path
+    if not _rate_limit.is_protected_api_path(path):
+        return False
+
+    role = _t015_role_for(handler)
+    # Admin bypass: do not consume tokens, but the caller still runs metrics
+    # and the normal handler path. This keeps observability intact.
+    if role in _rate_limit.LIMITER.bypass_roles:
+        return False
+
+    ip = client_ip(handler)
+    sid = _t015_session_id_for(handler)
+
+    if _rate_limit.is_auth_path(path):
+        allowed, retry_after = _rate_limit.LIMITER.check("ip_auth", ip, role=role)
+        if not allowed:
+            _t015_send_rate_limited(handler, retry_after, "ip_auth")
+            return True
+
+    allowed, retry_after = _rate_limit.LIMITER.check("ip", ip, role=role)
+    if not allowed:
+        _t015_send_rate_limited(handler, retry_after, "ip")
+        return True
+
+    if sid:
+        allowed, retry_after = _rate_limit.LIMITER.check("session", sid, role=role)
+        if not allowed:
+            _t015_send_rate_limited(handler, retry_after, "session")
+            return True
+
+    return False
+
+
+def _t015_install_middleware() -> None:
+    """Wrap AppHandler.do_GET / do_POST to enforce rate limits up-front."""
+
+    if getattr(AppHandler, "_t015_installed", False):
+        return
+
+    original_do_get = AppHandler.do_GET
+    original_do_post = AppHandler.do_POST
+
+    def do_GET(self: AppHandler) -> None:  # type: ignore[no-redef]
+        if _t015_enforce(self):
+            return
+        original_do_get(self)
+
+    def do_POST(self: AppHandler) -> None:  # type: ignore[no-redef]
+        if _t015_enforce(self):
+            return
+        original_do_post(self)
+
+    AppHandler.do_GET = do_GET  # type: ignore[assignment]
+    AppHandler.do_POST = do_POST  # type: ignore[assignment]
+    AppHandler._t015_installed = True  # type: ignore[attr-defined]
+
+
+_t015_install_middleware()
+
+
 def main() -> int:
     load_dotenv(ROOT / ".env")
     init_sentry()
