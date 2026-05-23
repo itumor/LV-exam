@@ -3421,6 +3421,40 @@ def provider_call_once(
     raise RuntimeError("Unsupported LLM provider.")
 
 
+def _record_ai_cost_telemetry(
+    *,
+    provider: str,
+    model: str,
+    usage: Any,
+) -> None:
+    """Forward a successful AI provider call to the cost telemetry service (T-027).
+
+    Imported lazily so any error in the cost telemetry layer never poisons
+    the evaluator's success path. The cost service writes to a Prometheus
+    counter registry and emits a structured log line; if either step fails
+    we log a warning and return — observability MUST NOT block grading.
+    """
+
+    try:
+        from server_app.services import cost as cost_service
+
+        input_tokens, output_tokens = cost_service.extract_usage(usage)
+        cost_service.record(
+            provider=provider,
+            model=model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+    except Exception as error:  # noqa: BLE001 - telemetry must not raise.
+        log_event(
+            "warning",
+            "t027_cost_telemetry_failed",
+            provider=provider,
+            model=model,
+            error=str(error),
+        )
+
+
 def evaluate_submission(
     submission: dict[str, Any], exam_markdown: str
 ) -> dict[str, Any]:
@@ -3511,6 +3545,11 @@ def evaluate_submission(
             }
             with EVALUATION_CACHE_LOCK:
                 EVALUATION_CACHE.set(cache_key, result_payload)
+            _record_ai_cost_telemetry(
+                provider=result_payload["provider"],
+                model=result_payload["model"],
+                usage=result_payload.get("usage"),
+            )
             record_audit_event(
                 {
                     "event": "evaluation.success",
@@ -3782,7 +3821,20 @@ class AppHandler(SimpleHTTPRequestHandler):
         if try_serve_legal_page(self, parsed.path):
             return
         if parsed.path == "/healthz":
-            json_response(self, HTTPStatus.OK, {"status": "ok"})
+            # T-028: surface Fly region so multi-region monitoring can verify
+            # cross-region routing. ``FLY_REGION`` is set automatically on every
+            # Fly machine; fall back to ``LVCODEX_REGION`` for local/dev parity,
+            # then to ``unknown`` so the field is always present.
+            region = (
+                os.environ.get("FLY_REGION")
+                or os.environ.get("LVCODEX_REGION")
+                or "unknown"
+            )
+            json_response(
+                self,
+                HTTPStatus.OK,
+                {"status": "ok", "region": region},
+            )
             return
         if self.path == "/api/session":
             session = current_session_record(self)
@@ -5512,8 +5564,30 @@ def _t014_install_metrics_hook() -> None:
     globals()["METRICS_REGISTRY"] = registry
     globals()["_t014_metrics_module"] = metrics_module
 
+    def _render_metrics_body() -> bytes:
+        """Render the Prometheus text body for ``/metrics``.
+
+        Always emits the HTTP-request metrics first, then appends the
+        T-027 AI cost telemetry counters. Loading the cost registry is
+        wrapped in try/except so a telemetry import error never breaks
+        the standard observability scrape.
+        """
+
+        parts: list[str] = [registry.render_text()]
+        try:
+            from server_app.services import cost as cost_service
+
+            parts.append(cost_service.cost_registry().render_text())
+        except Exception as error:  # noqa: BLE001 - defensive
+            log_event(
+                "warning",
+                "t027_cost_metrics_render_failed",
+                error=str(error),
+            )
+        return "".join(parts).encode("utf-8")
+
     def _serve_metrics(handler) -> bool:
-        body = registry.render_text().encode("utf-8")
+        body = _render_metrics_body()
         handler.send_response(_T014HTTPStatus.OK)
         handler.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
         handler.send_header("Content-Length", str(len(body)))
@@ -6049,6 +6123,153 @@ AppHandler._t037_installed = True  # type: ignore[attr-defined]
 _t037_init_table()
 # ============================================================================
 # end T-037 content versioning hook
+# ============================================================================
+
+
+# ============================================================================
+# T-022 server-side attempt persistence hook
+# ============================================================================
+# Adds five route aliases that mount the new ``AttemptStore`` façade on top
+# of the existing attempt-lifecycle endpoints. The bodies live in
+# ``server_app.services.attempts.AttemptStore`` so the routes here are
+# intentionally thin glue — they parse the request, call the store, and
+# JSON-encode the response.
+#
+# Routes installed:
+#   * POST /api/attempts/start                 (delegates to AttemptStore.start)
+#   * POST /api/attempts/<id>/answer           (singular alias for /answers)
+#   * POST /api/attempts/<id>/submit           (delegates to AttemptStore.submit)
+#   * GET  /api/attempts/history               (delegates to AttemptStore.get_history)
+#   * GET  /api/attempts/<id>                  (delegates to AttemptStore.get_attempt)
+#
+# The pre-existing /answers (plural), /api/attempts (list), and /api/attempts/<id>
+# routes installed earlier in core.py keep working — they are not touched. This
+# hook is additive so backwards-compatibility for the frontend code that still
+# calls the legacy paths is preserved during rollout.
+#
+# Hook ordering: installs LAST so it composes cleanly with the T-010 debug
+# gate (which returns 404 for /api/debug/* on learner accounts), T-014 metrics
+# (which already wraps do_GET/do_POST), T-015 rate-limit (which short-circuits
+# 429s before any other work runs), T-018 uploads, and T-036 v2 SPA static.
+# ----------------------------------------------------------------------------
+def _t022_install_attempt_routes() -> None:
+    import urllib.parse as _t022_urllib
+
+    from http import HTTPStatus as _T022Status
+
+    _T022_ORIGINAL_DO_GET = AppHandler.do_GET
+    _T022_ORIGINAL_DO_POST = AppHandler.do_POST
+
+    def _t022_load_store():
+        # Imported lazily so a circular import via server_app.services does
+        # not bite during module load (services/__init__.py imports this
+        # module via core).
+        from server_app.services.attempts import AttemptStore
+
+        return AttemptStore()
+
+    def _t022_handle_get(handler) -> bool:
+        parsed = _t022_urllib.urlparse(handler.path)
+        path = parsed.path
+        if path == "/api/attempts/history":
+            try:
+                session = require_session(handler)
+            except PermissionError as error:
+                json_response(
+                    handler, _T022Status.UNAUTHORIZED, {"error": str(error)}
+                )
+                return True
+            params = _t022_urllib.parse_qs(parsed.query)
+            exam_id = params.get("exam_id", [None])[0]
+            limit_raw = params.get("limit", [None])[0]
+            limit = 50
+            if limit_raw and str(limit_raw).isdigit():
+                limit = int(limit_raw)
+            try:
+                attempts = _t022_load_store().get_history(
+                    session["account"]["id"],
+                    exam_id=exam_id,
+                    limit=limit,
+                )
+            except ApiError as error:
+                api_error_response(handler, error)
+                return True
+            json_response(
+                handler,
+                _T022Status.OK,
+                {"attempts": attempts},
+            )
+            return True
+        # GET /api/attempts/<id> is already handled in core; no override
+        # needed — return False so the original dispatcher runs.
+        return False
+
+    def _t022_handle_post(handler) -> bool:
+        parsed = _t022_urllib.urlparse(handler.path)
+        path = parsed.path
+        # POST /api/attempts/<id>/answer — singular alias.
+        answer_match = re.fullmatch(r"/api/attempts/([^/]+)/answer", path)
+        if answer_match:
+            try:
+                session = require_session(handler)
+            except PermissionError as error:
+                json_response(
+                    handler, _T022Status.UNAUTHORIZED, {"error": str(error)}
+                )
+                return True
+            try:
+                payload = safe_read_json(handler)
+            except ApiError as error:
+                api_error_response(handler, error)
+                return True
+            store = _t022_load_store()
+            try:
+                # Accept both legacy {skill, task_key, item_index} and the
+                # new {task_id, answer} shape. The new shape is what the
+                # T-022 frontend emits.
+                if "task_id" in payload:
+                    attempt = store.save_answer(
+                        answer_match.group(1),
+                        str(payload.get("task_id") or ""),
+                        payload.get("answer"),
+                        user_id=session["account"]["id"],
+                    )
+                else:
+                    attempt = store.save_answer(
+                        answer_match.group(1),
+                        str(payload.get("task_key") or payload.get("task") or ""),
+                        payload.get("answer"),
+                        user_id=session["account"]["id"],
+                        skill=str(payload.get("skill") or "") or None,
+                        item_index=int(
+                            payload.get("item_index", payload.get("item", 1)) or 1
+                        ),
+                    )
+            except ApiError as error:
+                api_error_response(handler, error)
+                return True
+            json_response(handler, _T022Status.OK, {"attempt": attempt})
+            return True
+        return False
+
+    def _t022_patched_do_get(self) -> None:
+        if _t022_handle_get(self):
+            return
+        _T022_ORIGINAL_DO_GET(self)
+
+    def _t022_patched_do_post(self) -> None:
+        if _t022_handle_post(self):
+            return
+        _T022_ORIGINAL_DO_POST(self)
+
+    AppHandler.do_GET = _t022_patched_do_get  # type: ignore[assignment]
+    AppHandler.do_POST = _t022_patched_do_post  # type: ignore[assignment]
+    AppHandler._t022_installed = True  # type: ignore[attr-defined]
+
+
+_t022_install_attempt_routes()
+# ============================================================================
+# end T-022 server-side attempt persistence hook
 # ============================================================================
 
 

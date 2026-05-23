@@ -59,9 +59,11 @@ paths:
       tags: [health]
       summary: Liveness probe
       description: |
-        Returns `200` with `{"status":"ok"}` once the server's HTTP listener is
-        accepting connections. Consumed by Fly.io's TCP and HTTP health
-        checks. **No authentication required.**
+        Returns `200` with `{"status":"ok","region":"<fly-region>"}` once the
+        server's HTTP listener is accepting connections. Consumed by Fly.io's
+        TCP and HTTP health checks and by the multi-region monitor (T-028)
+        which verifies that the `region` field matches the per-region URL it
+        probed. **No authentication required.**
       security: []
       responses:
         "200":
@@ -1210,7 +1212,17 @@ components:
         status:
           type: string
           enum: [ok]
-      required: [status]
+        region:
+          type: string
+          description: |
+            Fly region of the responding machine, sourced from the `FLY_REGION`
+            env var (set automatically by Fly). Falls back to `LVCODEX_REGION`
+            for local/dev parity, or the literal `"unknown"` when neither is
+            set. Used by the multi-region monitor
+            (`.github/workflows/region-health.yml`, T-028) to verify
+            cross-region routing.
+          example: lhr
+      required: [status, region]
     RegisterRequest:
       type: object
       required: [email, password]
