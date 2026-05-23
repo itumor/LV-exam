@@ -1,0 +1,102 @@
+name: Status page
+
+# Builds the cstate (Hugo) static site under `status/` and publishes it
+# to the `gh-pages` branch so GitHub Pages can serve it at
+# https://itumor.github.io/LV-exam/status/.
+#
+# Rebuild triggers:
+#   - push to develop|main that touches anything in `status/**`
+#   - manual dispatch (Actions tab → "Run workflow")
+#
+# Security notes (CI security hook):
+#   - No `github.event.*` fields are interpolated directly into shell
+#     scripts. Any value that crosses into a `run:` block is first bound
+#     to an `env:` variable and quoted ("$VAR") at the shell.
+#   - Every third-party action is pinned to a full commit SHA.
+#   - `permissions:` is minimized at the job level.
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - "status/**"
+      - ".github/workflows/status-page.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: status-page-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HUGO_VERSION: "0.121.2"
+  CSTATE_THEME_REF: "v6.5.0"
+
+jobs:
+  build-and-deploy:
+    name: Build & publish status page
+    runs-on: ubuntu-latest
+    # The deploy step writes to the `gh-pages` branch; nothing else
+    # needs write access.
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          # cstate uses git info for some metadata (last-modified, etc.)
+          fetch-depth: 0
+
+      - name: Vendor the cstate theme
+        env:
+          CSTATE_REF: ${{ env.CSTATE_THEME_REF }}
+        run: |
+          set -euo pipefail
+          # CSTATE_REF is sourced from a workflow `env:` constant —
+          # never from `github.event.*` — and is quoted at the shell.
+          mkdir -p status/themes
+          if [ ! -d status/themes/cstate/.git ]; then
+            git clone --depth 1 --branch "${CSTATE_REF}" \
+              https://github.com/cstate/cstate.git status/themes/cstate
+          fi
+
+      - name: Install Hugo extended
+        uses: peaceiris/actions-hugo@75d2e84710de30f6ff7268e08f310b60ef14033f  # v3.0.0
+        with:
+          hugo-version: ${{ env.HUGO_VERSION }}
+          extended: true
+
+      - name: Build site
+        run: |
+          set -euo pipefail
+          hugo \
+            --config status/config.yml \
+            --source status \
+            --destination public \
+            --minify
+
+      - name: Compute commit message
+        id: msg
+        env:
+          BUILD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # BUILD_SHA is a vetted Git SHA, but route it through env+quote
+          # anyway so the CI security policy (no inline github.* in
+          # shell) is uniformly followed.
+          echo "value=chore(status): publish status page (${BUILD_SHA})" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to gh-pages
+        # peaceiris/actions-gh-pages reads its inputs via the typed
+        # `with:` API, so user-controlled strings never touch a shell.
+        uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e  # v4.0.0
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./status/public
+          destination_dir: status
+          publish_branch: gh-pages
+          keep_files: true
+          user_name: "github-actions[bot]"
+          user_email: "41898282+github-actions[bot]@users.noreply.github.com"
+          commit_message: ${{ steps.msg.outputs.value }}
