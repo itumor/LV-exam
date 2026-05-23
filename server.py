@@ -3755,6 +3755,8 @@ class AppHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
+        if try_serve_legal_page(self, parsed.path):
+            return
         if parsed.path == "/healthz":
             json_response(self, HTTPStatus.OK, {"status": "ok"})
             return
@@ -4911,6 +4913,244 @@ def _t010_do_GET(self: AppHandler) -> None:  # noqa: N802 - mirrors stdlib name
 
 
 AppHandler.do_GET = _t010_do_GET  # type: ignore[assignment]
+
+
+# ---------------------------------------------------------------------------
+# T-011 — Legal pages (Terms, Privacy, Cookies, Refund, DPA)
+#
+# Routes are kept at the end of server.py to minimise collisions with parallel
+# edits. The helper below renders the markdown stored in `legal/<slug>.md` as
+# an HTML page. Markdown is rendered with a minimal converter so we do not add
+# a runtime dependency.
+# ---------------------------------------------------------------------------
+
+LEGAL_ROOT = ROOT / "legal"
+
+LEGAL_PAGES: dict[str, dict[str, str]] = {
+    "/legal/terms": {
+        "file": "terms.md",
+        "title": "Terms of Service",
+    },
+    "/legal/privacy": {
+        "file": "privacy.md",
+        "title": "Privacy Policy",
+    },
+    "/legal/cookies": {
+        "file": "cookie-policy.md",
+        "title": "Cookie Policy",
+    },
+    "/legal/refund": {
+        "file": "refund-policy.md",
+        "title": "Refund Policy",
+    },
+    "/legal/dpa": {
+        "file": "dpa.md",
+        "title": "Data Processing Agreement",
+    },
+}
+
+
+def _render_legal_markdown(markdown: str) -> str:
+    """Render a tiny subset of Markdown (headings, paragraphs, lists, tables)
+    as HTML. Output is HTML-escaped at the source-text level."""
+    lines = markdown.splitlines()
+    html_lines: list[str] = []
+    in_list = False
+    in_blockquote = False
+    in_table = False
+    table_header_emitted = False
+
+    def close_list() -> None:
+        nonlocal in_list
+        if in_list:
+            html_lines.append("</ul>")
+            in_list = False
+
+    def close_blockquote() -> None:
+        nonlocal in_blockquote
+        if in_blockquote:
+            html_lines.append("</blockquote>")
+            in_blockquote = False
+
+    def close_table() -> None:
+        nonlocal in_table, table_header_emitted
+        if in_table:
+            html_lines.append("</tbody></table>")
+            in_table = False
+            table_header_emitted = False
+
+    def inline(text: str) -> str:
+        escaped = html.escape(text)
+        # **bold**
+        escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
+        # `code`
+        escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
+        # [label](url) — only http(s) and relative paths are linkified.
+        def _link(match: "re.Match[str]") -> str:
+            label, url = match.group(1), match.group(2)
+            if not re.match(r"^(https?://|/|mailto:|#)", url):
+                return match.group(0)
+            return f'<a href="{url}">{label}</a>'
+
+        escaped = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", _link, escaped)
+        return escaped
+
+    for raw in lines:
+        line = raw.rstrip()
+        if not line.strip():
+            close_list()
+            close_blockquote()
+            close_table()
+            continue
+        if line.startswith("> "):
+            close_list()
+            close_table()
+            if not in_blockquote:
+                html_lines.append("<blockquote>")
+                in_blockquote = True
+            html_lines.append(f"<p>{inline(line[2:])}</p>")
+            continue
+        if line.startswith("# "):
+            close_list()
+            close_blockquote()
+            close_table()
+            html_lines.append(f"<h1>{inline(line[2:])}</h1>")
+            continue
+        if line.startswith("## "):
+            close_list()
+            close_blockquote()
+            close_table()
+            html_lines.append(f"<h2>{inline(line[3:])}</h2>")
+            continue
+        if line.startswith("### "):
+            close_list()
+            close_blockquote()
+            close_table()
+            html_lines.append(f"<h3>{inline(line[4:])}</h3>")
+            continue
+        if line.startswith("- "):
+            close_blockquote()
+            close_table()
+            if not in_list:
+                html_lines.append("<ul>")
+                in_list = True
+            html_lines.append(f"<li>{inline(line[2:])}</li>")
+            continue
+        if line.startswith("|") and line.endswith("|"):
+            close_list()
+            close_blockquote()
+            cells = [cell.strip() for cell in line.strip("|").split("|")]
+            # Separator row (---) marks header boundary.
+            if all(set(cell) <= set("-: ") and "-" in cell for cell in cells if cell):
+                continue
+            if not in_table:
+                html_lines.append("<table><thead><tr>")
+                for cell in cells:
+                    html_lines.append(f"<th>{inline(cell)}</th>")
+                html_lines.append("</tr></thead><tbody>")
+                in_table = True
+                table_header_emitted = True
+                continue
+            html_lines.append("<tr>")
+            for cell in cells:
+                html_lines.append(f"<td>{inline(cell)}</td>")
+            html_lines.append("</tr>")
+            continue
+        if line.strip() == "---":
+            close_list()
+            close_blockquote()
+            close_table()
+            html_lines.append("<hr/>")
+            continue
+        # Default paragraph.
+        close_list()
+        close_table()
+        if in_blockquote:
+            html_lines.append(f"<p>{inline(line)}</p>")
+        else:
+            html_lines.append(f"<p>{inline(line)}</p>")
+
+    close_list()
+    close_blockquote()
+    close_table()
+    return "\n".join(html_lines)
+
+
+def _legal_page_html(title: str, body_html: str) -> str:
+    return (
+        "<!DOCTYPE html>\n"
+        '<html lang="en">\n'
+        "<head>\n"
+        '<meta charset="utf-8"/>\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1"/>\n'
+        '<meta name="robots" content="index,follow"/>\n'
+        f"<title>{html.escape(title)} — Latvian A2 Exam Studio</title>\n"
+        "<style>\n"
+        "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;"
+        "max-width:48rem;margin:2rem auto;padding:0 1rem;line-height:1.55;"
+        "color:#1f2937;}\n"
+        "h1,h2,h3{color:#111827;}\n"
+        "blockquote{border-left:4px solid #f59e0b;background:#fffbeb;"
+        "padding:.5rem 1rem;margin:1rem 0;color:#92400e;}\n"
+        "table{border-collapse:collapse;width:100%;margin:1rem 0;}\n"
+        "th,td{border:1px solid #d1d5db;padding:.4rem .6rem;text-align:left;"
+        "vertical-align:top;}\n"
+        "th{background:#f3f4f6;}\n"
+        "code{background:#f3f4f6;padding:.1rem .3rem;border-radius:.25rem;"
+        "font-size:.95em;}\n"
+        "hr{border:0;border-top:1px solid #e5e7eb;margin:2rem 0;}\n"
+        "nav.legal-nav{margin-bottom:1.5rem;font-size:.9rem;}\n"
+        "nav.legal-nav a{margin-right:.75rem;}\n"
+        "footer.legal-footer{margin-top:3rem;padding-top:1rem;"
+        "border-top:1px solid #e5e7eb;font-size:.85rem;color:#6b7280;}\n"
+        "</style>\n"
+        "</head>\n"
+        "<body>\n"
+        '<nav class="legal-nav">\n'
+        '<a href="/latvian-a2-exam-app/">Home</a>'
+        '<a href="/legal/terms">Terms</a>'
+        '<a href="/legal/privacy">Privacy</a>'
+        '<a href="/legal/cookies">Cookies</a>'
+        '<a href="/legal/refund">Refund</a>'
+        '<a href="/legal/dpa">DPA</a>\n'
+        "</nav>\n"
+        f"<main>\n{body_html}\n</main>\n"
+        '<footer class="legal-footer">\n'
+        f"<p>Latvian A2 Exam Studio · {html.escape(title)}</p>\n"
+        "</footer>\n"
+        "</body>\n"
+        "</html>\n"
+    )
+
+
+def try_serve_legal_page(handler: SimpleHTTPRequestHandler, path: str) -> bool:
+    """If `path` is a registered legal route, render and serve it.
+
+    Returns True if the request was handled, False otherwise so that the
+    caller can continue normal dispatch.
+    """
+    page = LEGAL_PAGES.get(path)
+    if page is None:
+        return False
+    source_path = LEGAL_ROOT / page["file"]
+    try:
+        markdown = source_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        json_response(
+            handler,
+            HTTPStatus.NOT_FOUND,
+            {"error": "Legal document not found."},
+        )
+        return True
+    body_html = _render_legal_markdown(markdown)
+    document = _legal_page_html(page["title"], body_html)
+    text_response(
+        handler,
+        HTTPStatus.OK,
+        document,
+        "text/html; charset=utf-8",
+    )
+    return True
 
 
 def main() -> int:

@@ -284,19 +284,56 @@
 
     <div id="toast" class="toast shadow-sm" role="status" aria-live="polite"></div>
 
-    <footer class="exam-footer text-center text-muted small py-3" role="contentinfo">
-      <!--
-        System Status link — points at the cstate-generated public
-        status page. URL is a placeholder until GitHub Pages is enabled
-        for this repo (see docs/status-page.md).
-      -->
-      <a
-        id="footer-status-link"
-        href="https://itumor.github.io/LV-exam/status/"
-        target="_blank"
-        rel="noopener noreferrer"
-      >System Status</a>
+    <!-- T-011 legal footer + T-012 system status link -->
+    <footer class="legal-footer" role="contentinfo">
+      <nav aria-label="Legal">
+        <a href="/legal/terms">Terms</a>
+        <a href="/legal/privacy">Privacy</a>
+        <a href="/legal/cookies">Cookies</a>
+        <a href="/legal/refund">Refund</a>
+        <a href="/legal/dpa">DPA</a>
+        <a
+          id="footer-status-link"
+          href="https://itumor.github.io/LV-exam/status/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >System Status</a>
+      </nav>
+      <p class="legal-footer-note">© Latvian A2 Exam Studio. Practice service, not an official certification.</p>
     </footer>
+
+    <!-- T-011 cookie consent banner -->
+    <div id="cookie-banner" class="cookie-banner" role="dialog" aria-live="polite" aria-label="Cookie notice" hidden>
+      <p class="cookie-banner-text">
+        We use strictly necessary cookies to keep you signed in and to remember
+        exam progress. See our <a href="/legal/cookies">Cookie Policy</a> and
+        <a href="/legal/privacy">Privacy Policy</a>.
+      </p>
+      <button id="cookie-banner-accept" type="button" class="btn btn-primary btn-sm">Got it</button>
+    </div>
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem('cookies_acknowledged') === '1') {
+            return;
+          }
+        } catch (err) {
+          // localStorage unavailable (private mode); show banner anyway.
+        }
+        var banner = document.getElementById('cookie-banner');
+        var accept = document.getElementById('cookie-banner-accept');
+        if (!banner || !accept) return;
+        banner.hidden = false;
+        accept.addEventListener('click', function () {
+          try {
+            localStorage.setItem('cookies_acknowledged', '1');
+          } catch (err) {
+            // ignore — banner will reappear next load
+          }
+          banner.hidden = true;
+        });
+      })();
+    </script>
 
     <script src="flow-core.js"></script>
     <script src="app.js"></script>
