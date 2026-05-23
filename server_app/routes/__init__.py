@@ -26,6 +26,7 @@ from . import (  # noqa: F401  (re-exported for the audit list)
     listening_feed,
     metrics,
     rate_limit,
+    tenant,
     uploads,
 )
 
@@ -46,6 +47,7 @@ for _module in (
     debug,
     listening_feed,
     rate_limit,
+    tenant,
 ):
     for _method, _pattern in _module.ROUTES:
         ROUTES.append((_method, _pattern, _module.__name__.rsplit(".", 1)[-1]))
@@ -63,5 +65,6 @@ __all__ = [
     "listening_feed",
     "metrics",
     "rate_limit",
+    "tenant",
     "uploads",
 ]

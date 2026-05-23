@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/tenant.schema.json",
+  "id": "default",
+  "name": "lvcodex",
+  "primary_color": "#38bdf8",
+  "secondary_color": "#0ea5e9",
+  "background_color": "#0f172a",
+  "text_color": "#f1f5f9",
+  "logo_url": "/assets/logo-lvcodex.svg",
+  "favicon_url": "/favicon.ico",
+  "support_email": "support@lvcodex.com",
+  "custom_domain": null,
+  "host_aliases": [
+    "lvcodex.com",
+    "www.lvcodex.com",
+    "localhost",
+    "127.0.0.1"
+  ],
+  "_comment": "Default tenant config served when no custom-domain mapping matches. T-044 white-label theme."
+}

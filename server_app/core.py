@@ -6428,6 +6428,144 @@ AppHandler._t025_installed = True  # type: ignore[attr-defined]
 
 
 # ============================================================================
+# T-044 white-label tenant route hook
+# ============================================================================
+# Adds ``GET /api/tenant`` — the v2 SPA (T-036) calls this on boot to
+# resolve its brand palette, logo, support email, and CSS variable block
+# based on the inbound ``Host:`` header. Resolution rules live in
+# ``server_app/services/tenant.py``:
+#
+#   1. ``LVCODEX_FORCE_TENANT`` env override (preview / smoke tests).
+#   2. Exact ``Host:`` match in the ``custom_domains`` SQL table.
+#   3. ``host_aliases`` field in any ``tenants/*.json`` config.
+#   4. Fallback: ``tenants/example.json`` (the default tenant).
+#
+# Response shape (HTTP 200, application/json):
+#   {
+#     "id":               "<tenant-id>",
+#     "name":             "<display name>",
+#     "primary_color":    "#rrggbb",
+#     "secondary_color":  "#rrggbb",
+#     "background_color": "#rrggbb",
+#     "text_color":       "#rrggbb",
+#     "logo_url":         "<url-or-null>",
+#     "favicon_url":      "<url-or-null>",
+#     "support_email":    "<email-or-null>",
+#     "custom_domain":    "<host-or-null>",
+#     "host_aliases":     [<host>...],
+#     "css_variables":    {"--color-accent": "#...", ...}
+#   }
+#
+# Installed BEFORE the T-036 block so the T-036 SPA static handler stays
+# the outermost ``do_GET`` wrapper (audited by V2HookInstallationTests).
+# The /api/tenant route does NOT collide with the T-036 prefix check
+# (which short-circuits only when the path begins with ``/v2/``).
+# ----------------------------------------------------------------------------
+
+from server_app.services import tenant as _t044_tenant  # noqa: E402
+
+
+_T044_API_TENANT_PATH = "/api/tenant"
+
+
+def _t044_init_table() -> None:
+    """Ensure the ``custom_domains`` table exists.
+
+    Mirrors the T-037 init pattern: best-effort at import time, with a
+    defensive re-create on every request so test setups that mock
+    ``AUTH_DB_PATH`` after import still work.
+    """
+
+    try:
+        with db_connection() as conn:
+            _t044_tenant.init_custom_domains_table(conn)
+    except Exception as exc:  # noqa: BLE001 - hook must never crash import
+        try:
+            log_event(
+                "warning",
+                "t044_init_failed",
+                error=type(exc).__name__,
+            )
+        except Exception:
+            pass
+
+
+def _t044_host_header(handler: "AppHandler") -> str:
+    """Read the inbound ``Host:`` header off the request.
+
+    Returns ``""`` when the header is missing — ``resolve_tenant`` then
+    falls straight through to the default tenant.
+    """
+
+    headers = getattr(handler, "headers", None)
+    if headers is None:
+        return ""
+    try:
+        host = headers.get("Host") or headers.get("host") or ""
+    except Exception:  # noqa: BLE001 - exotic header containers must not crash
+        host = ""
+    return host or ""
+
+
+def _t044_tenant_handler(handler: "AppHandler") -> None:
+    """Handle ``GET /api/tenant`` — public, unauthenticated.
+
+    The endpoint is intentionally public: the v2 SPA loads its theme
+    before the learner is asked to sign in. No PII is returned; the
+    response only contains the brand palette and assets that are
+    already part of the on-disk ``tenants/*.json`` files (checked into
+    git, reviewable in a PR).
+    """
+
+    try:
+        host = _t044_host_header(handler)
+        try:
+            with db_connection() as conn:
+                _t044_tenant.init_custom_domains_table(conn)
+                config = _t044_tenant.resolve_tenant(host, conn=conn)
+        except Exception:  # noqa: BLE001 - degrade to alias-only lookup
+            config = _t044_tenant.resolve_tenant(host)
+        payload = _t044_tenant.tenant_to_dict(config)
+        json_response(handler, HTTPStatus.OK, payload)
+    except Exception as exc:  # noqa: BLE001 - branding must not 500
+        try:
+            log_event(
+                "error",
+                "t044_tenant_resolve_failed",
+                error=type(exc).__name__,
+            )
+        except Exception:
+            pass
+        # Final safety net: synthesise a minimal default-tenant response so
+        # the SPA always boots even if the disk read failed.
+        fallback = _t044_tenant.tenant_to_dict(
+            _t044_tenant.get_tenant(_t044_tenant.DEFAULT_TENANT_ID)
+        )
+        json_response(handler, HTTPStatus.OK, fallback)
+
+
+_T044_ORIGINAL_DO_GET = AppHandler.do_GET
+
+
+def _t044_patched_do_get(self: "AppHandler") -> None:
+    raw = getattr(self, "path", "") or ""
+    path = urllib.parse.urlparse(raw).path or ""
+    if path == _T044_API_TENANT_PATH:
+        _t044_tenant_handler(self)
+        return
+    _T044_ORIGINAL_DO_GET(self)
+
+
+AppHandler.do_GET = _t044_patched_do_get  # type: ignore[assignment]
+AppHandler._t044_installed = True  # type: ignore[attr-defined]
+
+_t044_init_table()
+# ============================================================================
+# end T-044 white-label tenant route hook
+# ============================================================================
+
+
+# ============================================================================
 # T-036 Vue 3 + TypeScript SPA static handler (mounted at /v2/)
 # ============================================================================
 # Serves the built apps/web-v2/dist/ assets under /v2/ via a tail-of-file
