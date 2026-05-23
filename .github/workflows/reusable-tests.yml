@@ -36,7 +36,14 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - name: Install dependencies
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+
+      - name: Install Node dependencies
         run: npm ci
 
       - name: Install Playwright Chromium
@@ -55,10 +62,24 @@ jobs:
       - name: Run E2E subset
         if: ${{ !inputs.full_regression }}
         run: |
+          # Playwright exits 1 when --grep matches zero tests. During the
+          # bootstrap phase no tests carry the @smoke tag yet, so we treat
+          # a clean "no tests found" exit as a pass.
+          set +e
           if [ -n "$E2E_GREP" ]; then
-            npx playwright test --grep "$E2E_GREP"
+            OUTPUT=$(npx playwright test --grep "$E2E_GREP" 2>&1)
+            STATUS=$?
           else
-            npx playwright test
+            OUTPUT=$(npx playwright test 2>&1)
+            STATUS=$?
+          fi
+          echo "$OUTPUT"
+          if [ $STATUS -ne 0 ]; then
+            if echo "$OUTPUT" | grep -q "No tests found"; then
+              echo "::notice::Playwright found no tests matching '$E2E_GREP' — treating as pass during bootstrap."
+              exit 0
+            fi
+            exit $STATUS
           fi
 
       - name: Upload Playwright report
