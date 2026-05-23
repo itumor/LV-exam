@@ -6588,5 +6588,114 @@ AppHandler._t036_installed = True  # type: ignore[attr-defined]
 # ============================================================================
 
 
+# ============================================================================
+# T-024 server-enforced entitlement gates
+# ============================================================================
+# Audits every protected POST route and forces a server-side entitlement
+# check via :mod:`server_app.services.entitlements` BEFORE the route does
+# any work. Mirrors the T-010/T-015/T-018/T-036 end-of-file monkey-patch
+# pattern so HookOrderingTests can audit the install order.
+#
+# Routes gated:
+#   POST /api/attempts/start       -> kind="exam_unlock"
+#   POST /api/evaluate             -> kind="ai_credit"
+#   POST /api/uploads/speaking     -> kind="exam_unlock" (speaking is part
+#                                      of an attempt, so it inherits the
+#                                      attempt's exam_unlock entitlement)
+#
+# Rules:
+#   * Unauthenticated request -> defer to existing 401 path (the route's
+#     own require_session emits the canonical envelope).
+#   * Admin / superadmin -> bypass (matches consume_*).
+#   * Frozen account -> 402 with reason="frozen".
+#   * Missing entitlement -> 402 with the safe billing-state snapshot.
+#   * Original handler runs only on success — consumption stays inside
+#     the original handler (the gate is read-only).
+#
+# Why a hook + a decorator?
+#   The decorator (services.entitlements.entitled) is the public API for
+#   any future routes that live inside their own method (e.g. a future
+#   refactor of handle_evaluate into a method). For the current monolith
+#   dispatch in do_POST we instead intercept by path here, so we don't
+#   have to disturb the giant do_POST body. Both paths converge on
+#   require_entitlement() so behaviour is identical.
+# ----------------------------------------------------------------------------
+
+from server_app.services.entitlements import (  # noqa: E402
+    EntitlementError,
+    require_entitlement,
+)
+
+
+_T024_GATES: dict[str, str] = {
+    "/api/attempts/start": "exam_unlock",
+    "/api/evaluate": "ai_credit",
+    "/api/uploads/speaking": "exam_unlock",
+}
+
+
+def _t024_resolve_path(handler: "AppHandler") -> str:
+    raw = getattr(handler, "path", "") or ""
+    parsed = urllib.parse.urlparse(raw)
+    return parsed.path or ""
+
+
+def _t024_enforce(handler: "AppHandler", kind: str) -> bool:
+    """Return True if the request was blocked (a 4xx was emitted)."""
+
+    session = current_session_record(handler)
+    if session is None:
+        # Defer to the route's own auth check — most of these routes
+        # already require_session and emit a uniform 401. Returning False
+        # here keeps the existing error envelope.
+        return False
+    role = account_role(session)
+    if role in {"admin", "superadmin"}:
+        return False
+    account_id = str((session.get("account") or {}).get("id") or "")
+    try:
+        require_entitlement(account_id, kind, user_role=role)  # type: ignore[arg-type]
+    except EntitlementError as error:
+        log_event(
+            "warning",
+            "entitlement_blocked",
+            kind=error.kind,
+            reason=error.reason,
+            account_id=account_id,
+            path=getattr(handler, "path", ""),
+        )
+        json_response(
+            handler,
+            error.status_code,
+            {
+                "error": str(error),
+                "kind": error.kind,
+                "reason": error.reason,
+                "billing_state": error.state,
+            },
+        )
+        return True
+    return False
+
+
+_T024_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t024_patched_do_post(self: "AppHandler") -> None:
+    path = _t024_resolve_path(self)
+    kind = _T024_GATES.get(path)
+    if kind is not None:
+        if _t024_enforce(self, kind):
+            return
+    _T024_ORIGINAL_DO_POST(self)
+
+
+AppHandler.do_POST = _t024_patched_do_post  # type: ignore[assignment]
+AppHandler._t024_installed = True  # type: ignore[attr-defined]
+# ============================================================================
+# end T-024 server-enforced entitlement gates
+# ============================================================================
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

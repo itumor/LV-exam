@@ -2013,6 +2013,42 @@ function canRunAiScoring() {
   return !billing.frozen && (billing.subscription_active || (billing.ai_credits_remaining || 0) > 0);
 }
 
+// T-024 — UI affordance only. The server enforces the same checks via
+// server_app.services.entitlements.require_entitlement() and will return
+// HTTP 402 if a user manually bypasses these helpers.
+function canStartExam() {
+  if (!state.billing.config?.stripe_enabled) return true;
+  if (state.auth.status !== "authenticated") return true;
+  const billing = getBillingSnapshot();
+  if (billing.frozen) return false;
+  return (
+    billing.subscription_active ||
+    (billing.paid_attempts_remaining || 0) > 0 ||
+    billing.free_exam_available
+  );
+}
+
+function canUploadSpeakingAudio() {
+  // Same entitlement as exam_unlock — see services/entitlements.py.
+  return canStartExam();
+}
+
+function entitlementLockTooltip(kind) {
+  // Short, deterministic copy used as a `title=…` on disabled buttons so
+  // sighted + keyboard users see why the affordance is locked. Keep this
+  // in sync with the EntitlementError messages on the server.
+  switch (kind) {
+    case "exam_unlock":
+      return "No exam attempts available. Buy a pack or subscription to continue.";
+    case "ai_credit":
+      return "AI scoring needs an available credit or an active subscription.";
+    case "subscription":
+      return "This feature requires an active subscription.";
+    default:
+      return "Locked. Open billing to upgrade.";
+  }
+}
+
 function renderAccessSummaryCard() {
   const billing = getBillingSnapshot();
   const status = billing.frozen
