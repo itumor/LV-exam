@@ -4491,6 +4491,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             if self.path == "/api/billing/consume-ai-credit":
                 self.handle_consume_ai_credit()
                 return
+            if self.path == "/api/billing/refund":
+                self.handle_billing_refund()
+                return
             if self.path == "/api/stripe/webhook":
                 self.handle_stripe_webhook()
                 return
@@ -4662,6 +4665,17 @@ class AppHandler(SimpleHTTPRequestHandler):
             learner_id = str(payload.get("learner_id", "")).strip()
             product_key = str(payload.get("product_key", "")).strip()
             email = str(payload.get("email", "")).strip() or None
+            # T-016: B2B invoicing flag.
+            b2b = bool(payload.get("b2b"))
+            business_address_raw = payload.get("business_address") or {}
+            business_address: dict[str, str] = {}
+            if isinstance(business_address_raw, dict):
+                for key in ("line1", "line2", "city", "postal_code", "country", "company"):
+                    value = business_address_raw.get(key)
+                    if value:
+                        business_address[key] = str(value).strip()
+            vat_id_raw = payload.get("vat_id")
+            vat_id = str(vat_id_raw).strip() if vat_id_raw else None
             _base = request_base_url(self)
             success_url = (
                 str(payload.get("success_url", "")).strip()
@@ -4678,6 +4692,8 @@ class AppHandler(SimpleHTTPRequestHandler):
                 raise ValueError("learner_id is required.")
             if not product_key:
                 raise ValueError("product_key is required.")
+            if b2b and not business_address:
+                raise ValueError("business_address is required for B2B checkouts.")
             store = get_billing_store()
             learner = store.ensure_learner(learner_id, email=email)
             product = next(
@@ -4686,6 +4702,12 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not product:
                 raise ValueError("Unknown product_key.")
             price_id = get_product_price_id(product_key)
+            extra_metadata: dict[str, str] = {
+                "learner_id": learner_id,
+                "product_key": product_key,
+            }
+            if b2b:
+                extra_metadata["b2b"] = "true"
             client = get_stripe_client()
             if client.enabled():
                 if not price_id:
@@ -4697,7 +4719,10 @@ class AppHandler(SimpleHTTPRequestHandler):
                     email=email,
                     success_url=success_url,
                     cancel_url=cancel_url,
-                    metadata={"learner_id": learner_id, "product_key": product_key},
+                    metadata=extra_metadata,
+                    b2b=b2b,
+                    business_address=business_address or None,
+                    vat_id=vat_id,
                 )
                 json_response(
                     self,
@@ -4706,6 +4731,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "mode": "stripe",
                         "learner": learner,
                         "product": product.key,
+                        "b2b": b2b,
                         "checkout_url": session.get("url"),
                         "session": session,
                     },
@@ -4718,6 +4744,9 @@ class AppHandler(SimpleHTTPRequestHandler):
                 email=email,
                 success_url=success_url,
                 cancel_url=cancel_url,
+                b2b=b2b,
+                business_address=business_address or None,
+                vat_id=vat_id,
             )
             json_response(
                 self,
@@ -4726,6 +4755,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "mode": "mock",
                     "learner": learner,
                     "product": product.key,
+                    "b2b": b2b,
                     "checkout_url": session.get("url"),
                     "session": session,
                 },
@@ -4798,6 +4828,112 @@ class AppHandler(SimpleHTTPRequestHandler):
         except Exception as error:  # noqa: BLE001 - keep API responses JSON.
             capture_exception(error)
             log_event("error", "stripe_webhook_error", error=type(error).__name__)
+            json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "Internal error."})
+
+    def handle_billing_refund(self) -> None:
+        """T-016: self-serve 7-day refund.
+
+        Authenticated POST: validates ownership, window, and unused-credits
+        server-side, then issues a Stripe refund and revokes the linked
+        entitlement grants. UI affordances are convenience-only; the source
+        of truth is this endpoint.
+        """
+        try:
+            session = require_session(self)
+        except PermissionError:
+            json_response(self, HTTPStatus.UNAUTHORIZED, {"error": "Authentication required."})
+            return
+        try:
+            payload = safe_read_json(self)
+            checkout_session_id = str(payload.get("checkout_session_id", "")).strip()
+            if not checkout_session_id:
+                raise ValueError("checkout_session_id is required.")
+            learner_id = session["account"]["id"]
+            window_days = int(os.getenv("BILLING_REFUND_WINDOW_DAYS", "7"))
+            store = get_billing_store()
+            eligibility = store.refund_eligibility(
+                learner_id,
+                checkout_session_id=checkout_session_id,
+                window_days=window_days,
+            )
+            if not eligibility["eligible"]:
+                if eligibility["reason"] == "wrong_user":
+                    json_response(self, HTTPStatus.FORBIDDEN, eligibility)
+                elif eligibility["reason"] == "session_not_found":
+                    json_response(self, HTTPStatus.NOT_FOUND, eligibility)
+                elif eligibility["reason"] in {"window_expired", "credits_consumed", "already_refunded"}:
+                    json_response(self, HTTPStatus.CONFLICT, eligibility)
+                else:
+                    json_response(self, HTTPStatus.CONFLICT, eligibility)
+                log_event(
+                    "warning",
+                    "billing_refund_rejected",
+                    reason=eligibility["reason"],
+                    learner_id=learner_id,
+                )
+                return
+
+            client = get_stripe_client()
+            payment_reference = eligibility.get("payment_reference")
+            refund_payload: dict[str, Any] = {}
+            if client.enabled() and payment_reference:
+                try:
+                    refund_payload = client.create_refund(
+                        payment_intent=payment_reference,
+                        metadata={"checkout_session_id": checkout_session_id, "learner_id": learner_id},
+                    )
+                except Exception as stripe_error:  # noqa: BLE001 - surface as 502.
+                    capture_exception(stripe_error)
+                    log_event(
+                        "error",
+                        "billing_refund_stripe_error",
+                        error=type(stripe_error).__name__,
+                        learner_id=learner_id,
+                    )
+                    json_response(
+                        self,
+                        HTTPStatus.BAD_GATEWAY,
+                        {"error": "Stripe refund failed. No entitlements changed."},
+                    )
+                    return
+            else:
+                # Mock/test mode: still revoke entitlements so the DoD holds.
+                refund_payload = {
+                    "id": f"re_mock_{checkout_session_id}",
+                    "status": "mock_succeeded",
+                    "amount_refunded": None,
+                }
+
+            affected = store.mark_grants_refunded(
+                learner_id,
+                checkout_session_id=checkout_session_id,
+                refund_id=refund_payload.get("id"),
+                refund_reason="self_serve_7_day",
+            )
+            log_event(
+                "info",
+                "billing_refund_issued",
+                learner_id=learner_id,
+                checkout_session_id=checkout_session_id,
+                grants_refunded=affected,
+                stripe_refund_id=refund_payload.get("id"),
+            )
+            json_response(
+                self,
+                HTTPStatus.OK,
+                {
+                    "status": "refunded",
+                    "checkout_session_id": checkout_session_id,
+                    "grants_refunded": affected,
+                    "refund": refund_payload,
+                    "billing_state": store.get_state(learner_id),
+                },
+            )
+        except ValueError as error:
+            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
+            capture_exception(error)
+            log_event("error", "billing_refund_error", error=type(error).__name__)
             json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "Internal error."})
 
 

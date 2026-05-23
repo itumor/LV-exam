@@ -4863,6 +4863,7 @@ function renderBilling() {
           </ul>
         ` : "<p>No billing events recorded yet.</p>"}
       </article>
+      ${renderRefundAffordance(billing)}
     </section>
     ${state.billing.error ? `<p class="billing-error">${escapeHtml(state.billing.error)}</p>` : ""}
   `;
@@ -5099,6 +5100,93 @@ async function handleBillingAction(action, productKey) {
   }
   if (action === "checkout" && productKey) {
     await startCheckout(productKey);
+  }
+  // T-016: self-serve refund affordance. The server re-validates every check.
+  if (action === "request-refund") {
+    await requestRefund();
+  }
+}
+
+// --- T-016: self-serve 7-day refund (UI is convenience; server enforces) --- //
+const REFUND_WINDOW_DAYS = 7;
+
+function getMostRecentPurchase(billing) {
+  const activity = Array.isArray(billing?.recent_activity) ? billing.recent_activity : [];
+  for (const item of activity) {
+    if (item?.kind !== "grant") continue;
+    if (item.type === "free_exam") continue;
+    if (item.revoked_at) continue;
+    if (!item.metadata?.checkout_session_id) continue;
+    return item;
+  }
+  return null;
+}
+
+function isWithinRefundWindow(createdAt) {
+  if (!createdAt) return false;
+  const created = new Date(createdAt).getTime();
+  if (Number.isNaN(created)) return false;
+  const ageMs = Date.now() - created;
+  return ageMs >= 0 && ageMs <= REFUND_WINDOW_DAYS * 86400 * 1000;
+}
+
+function renderRefundAffordance(billing) {
+  const purchase = getMostRecentPurchase(billing);
+  if (!purchase) return "";
+  if (!isWithinRefundWindow(purchase.created_at)) return "";
+  const unused = (billing?.paid_attempts_remaining || 0) > 0
+    || (billing?.ai_credits_remaining || 0) > 0;
+  if (!unused) return "";
+  const sessionId = purchase.metadata?.checkout_session_id || "";
+  return `
+    <article class="billing-card billing-card-refund">
+      <h3>Refund this purchase</h3>
+      <p>EU consumer law gives you ${REFUND_WINDOW_DAYS} days to request a refund as long as no credits have been used.</p>
+      <p><small>Purchase date: ${escapeHtml(purchase.created_at || "")}</small></p>
+      <button type="button" class="btn btn-outline-danger"
+              data-billing-action="request-refund"
+              data-checkout-session="${escapeHtml(sessionId)}">
+        Request refund
+      </button>
+    </article>
+  `;
+}
+
+async function requestRefund() {
+  const billing = getBillingSnapshot();
+  const purchase = getMostRecentPurchase(billing);
+  const sessionId = purchase?.metadata?.checkout_session_id;
+  if (!sessionId) {
+    showToast("No refundable purchase found.");
+    return;
+  }
+  const confirmed = typeof window.confirm === "function"
+    ? window.confirm("Refund this purchase? Your remaining credits will be revoked.")
+    : true;
+  if (!confirmed) return;
+  try {
+    const response = await fetch("/api/billing/refund", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ checkout_session_id: sessionId })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const msg = result.message || result.error || `Refund failed (HTTP ${response.status}).`;
+      state.billing.error = msg;
+      renderBilling();
+      showToast(msg);
+      return;
+    }
+    state.billing.error = "";
+    if (result.billing_state) state.billing.state = result.billing_state;
+    showToast("Refund issued. Remaining credits revoked.");
+    await loadBillingContext();
+  } catch (error) {
+    state.billing.error = error.message;
+    renderBilling();
+    showToast("Could not request refund.");
   }
 }
 
