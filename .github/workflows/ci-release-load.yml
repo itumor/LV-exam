@@ -1,0 +1,73 @@
+name: CI — release load smoke
+
+on:
+  push:
+    branches:
+      - "release/**"
+  pull_request:
+    branches:
+      - "release/**"
+
+concurrency:
+  group: ci-release-load-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  k6-smoke:
+    name: k6 load smoke
+    runs-on: ubuntu-latest
+    services:
+      app:
+        # The release branch is exercised against a locally-launched server
+        # so the smoke does not depend on a Fly preview being live yet.
+        # When T-005 PR previews are wired into the release flow, switch
+        # this to target the preview URL via env BASE_URL.
+        image: python:3.12-slim
+        ports:
+          - 4173:4173
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38  # v5.4.0
+        with:
+          python-version: "3.12"
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Boot lvcodex server
+        env:
+          PORT: "4173"
+        run: |
+          python3 server.py &
+          echo $! > /tmp/server.pid
+          # Wait up to 30s for the server to respond on /healthz.
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:4173/healthz >/dev/null 2>&1; then
+              echo "server up after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Run k6 smoke
+        env:
+          BASE_URL: http://localhost:4173
+        run: k6 run tests/load/smoke.js
+
+      - name: Stop lvcodex server
+        if: always()
+        run: |
+          if [ -f /tmp/server.pid ]; then
+            kill "$(cat /tmp/server.pid)" 2>/dev/null || true
+          fi
