@@ -22,6 +22,11 @@
       "description": "Manifest schema version. Currently '1.0'.",
       "pattern": "^[0-9]+\\.[0-9]+$"
     },
+    "version": {
+      "type": "string",
+      "description": "T-037 semantic content version in calendar-versioned YYYY.MM.N format (e.g. '2026.05.0'). Optional for backward compatibility — exams that omit this field are grandfathered to the legacy '1.0.0' baseline and continue to ship from the static catalog. New or updated exams MUST set this field so the exam_versions pipeline can drive draft/published transitions.",
+      "pattern": "^[0-9]{4}\\.(0[1-9]|1[0-2])\\.[0-9]+$"
+    },
     "exam_id": {
       "type": "string",
       "minLength": 1,

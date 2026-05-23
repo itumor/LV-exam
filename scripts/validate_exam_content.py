@@ -56,6 +56,29 @@ SCHEMA_PATH = ROOT / "schemas" / "exam.schema.json"
 # exams must NOT be added here — they should be authored schema-clean.
 GRANDFATHERED_EXAM_IDS: set[str] = set()
 
+# T-037: legacy `version` placeholder used for exams authored before content
+# versioning landed. The schema validator treats missing `version` as a
+# grandfathered case (warning, not error) and the runtime services serve this
+# constant as the "current published version" for those exams.
+GRANDFATHERED_VERSION = "1.0.0"
+
+# Calendar-versioned semantic version: YYYY.MM.N (matches schemas/exam.schema.json).
+import re as _re
+
+VERSION_PATTERN = _re.compile(r"^[0-9]{4}\.(0[1-9]|1[0-2])\.[0-9]+$")
+
+
+def is_valid_version(value: str | None) -> bool:
+    """Return True if ``value`` is a well-formed T-037 exam version string.
+
+    The grandfathered legacy version ``1.0.0`` is intentionally NOT considered
+    valid by this helper — callers that need to accept it must do so explicitly.
+    """
+
+    if not value or not isinstance(value, str):
+        return False
+    return bool(VERSION_PATTERN.match(value))
+
 
 @dataclass(frozen=True)
 class ExamSource:
@@ -202,6 +225,14 @@ def validate_source(source: ExamSource, validator: Any) -> tuple[list[str], str 
             messages.append(
                 f"/sections/{skill}/tasks: per-task points sum to {total}, expected 15 (9/15 rule)"
             )
+
+    # T-037: enforce semantic version format when present. Missing `version`
+    # is allowed (grandfathered to 1.0.0); malformed `version` is rejected.
+    raw_version = manifest.get("version")
+    if raw_version is not None and not is_valid_version(str(raw_version)):
+        messages.append(
+            f"/version: '{raw_version}' is not a valid YYYY.MM.N exam version (T-037)"
+        )
 
     return (messages, exam_id or None)
 

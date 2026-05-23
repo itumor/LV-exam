@@ -33,6 +33,9 @@ ROUTES: list[tuple[str, str]] = [
     ("POST", "/api/admin/exams/<exam_id>"),
     ("POST", "/api/admin/exams/<exam_id>/status"),
     ("POST", "/api/admin/exams/<exam_id>/delete"),
+    # T-037 — content versioning pipeline (admin-only).
+    ("POST", "/api/admin/exams/<exam_id>/publish"),
+    ("GET", "/api/admin/exams/<exam_id>/versions"),
     ("GET", "/api/admin/attempts"),
     ("GET", "/api/admin/settings"),
     ("POST", "/api/admin/settings"),
