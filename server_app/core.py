@@ -1191,6 +1191,16 @@ def init_auth_store() -> None:
         ensure_column(conn, "users", "role", "TEXT NOT NULL DEFAULT 'user'")
         ensure_builtin_exam_catalog(conn)
         ensure_bootstrap_superadmin(conn)
+        # T-040: ensure the SSO provider + nonce ledger tables exist on
+        # every boot. Safe to call repeatedly; the helper guards with
+        # IF NOT EXISTS. Wrapped to never block startup if cryptography
+        # is missing or the schema is somehow incompatible.
+        try:
+            from server_app.services import sso as _t040_sso_init
+
+            _t040_sso_init.init_sso_tables(conn)
+        except Exception:  # noqa: BLE001 - never block app startup
+            pass
         # T-037: ensure the exam_versions table exists on every boot. Safe to
         # call repeatedly; the helper guards with IF NOT EXISTS.
         try:
@@ -6584,6 +6594,251 @@ except Exception:  # noqa: BLE001 - never break boot on a route-pkg bug
     _t045_logging.getLogger("lvcodex.npc").exception("npc_route_import_failed")
 # ============================================================================
 # end T-045 NPC route hook
+# ============================================================================
+
+
+# ============================================================================
+# T-040 SSO (OIDC) hook
+# ============================================================================
+# Wires the OIDC client service (server_app/services/sso.py) into the
+# AppHandler via an end-of-file monkey-patch block, same composition
+# pattern as T-010 / T-014 / T-015 / T-018 / T-022 / T-036 / T-037.
+#
+# Routes installed:
+#   GET  /sso/oidc/login?org=<org_id>     -> 302 to IdP
+#   GET  /sso/oidc/callback?code=&state=  -> exchange + link + a2_session cookie
+#   GET  /api/admin/sso/providers         -> admin: list providers
+#   POST /api/admin/sso/providers         -> admin: register / update a provider
+#
+# The OIDC client is hand-rolled (no authlib dep) and depends only on the
+# stdlib + ``cryptography`` (pinned in requirements.txt by this PR).
+# ----------------------------------------------------------------------------
+
+from server_app.services import sso as _t040_sso  # noqa: E402
+
+
+_T040_SSO_LOGIN_PATH = "/sso/oidc/login"
+_T040_SSO_CALLBACK_PATH = "/sso/oidc/callback"
+_T040_ADMIN_PROVIDERS_PATH = "/api/admin/sso/providers"
+
+
+def _t040_set_state_cookie(handler: "AppHandler", value: str) -> str:
+    secure = "; Secure" if is_production() else ""
+    # Path=/sso so the cookie is only sent on SSO callbacks. SameSite=Lax
+    # is required so the cookie survives the IdP redirect (Strict would
+    # be dropped on the cross-site GET back to /sso/oidc/callback).
+    return (
+        f"{_t040_sso.SSO_STATE_COOKIE}={value}; Path=/sso; HttpOnly; "
+        f"SameSite=Lax{secure}; Max-Age={_t040_sso.SSO_NONCE_TTL_SECONDS}"
+    )
+
+
+def _t040_expire_state_cookie() -> str:
+    secure = "; Secure" if is_production() else ""
+    return (
+        f"{_t040_sso.SSO_STATE_COOKIE}=; Path=/sso; HttpOnly; "
+        f"SameSite=Lax{secure}; Max-Age=0"
+    )
+
+
+def _t040_handle_login(handler: "AppHandler", query: dict[str, list[str]]) -> None:
+    org_id = (query.get("org") or [""])[0].strip().lower()
+    return_to = (query.get("return_to") or ["/"])[0]
+    if not org_id:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {
+                "error": {
+                    "code": "sso_org_missing",
+                    "message": "Missing 'org' query parameter.",
+                }
+            },
+        )
+        return
+    try:
+        authorize_url, signed_state = _t040_sso.build_login_redirect(
+            org_id, base_url=request_base_url(handler), return_to=return_to
+        )
+    except _t040_sso.SsoError as error:
+        log_event("warning", "sso_login_rejected", org_id=org_id, code=error.code)
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {"error": {"code": error.code, "message": error.message}},
+        )
+        return
+    handler.send_response(HTTPStatus.FOUND)
+    handler.send_header("Location", authorize_url)
+    handler.send_header("Set-Cookie", _t040_set_state_cookie(handler, signed_state))
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Content-Length", "0")
+    handler.end_headers()
+
+
+def _t040_handle_callback(
+    handler: "AppHandler", query: dict[str, list[str]]
+) -> None:
+    state = (query.get("state") or [""])[0]
+    code = (query.get("code") or [""])[0]
+    state_cookie = parse_cookie_value(handler, _t040_sso.SSO_STATE_COOKIE)
+    try:
+        result = _t040_sso.complete_callback(
+            state=state,
+            code=code,
+            state_cookie_value=state_cookie,
+            base_url=request_base_url(handler),
+        )
+    except _t040_sso.SsoError as error:
+        log_event("warning", "sso_callback_rejected", code=error.code)
+        body = json.dumps(
+            {"error": {"code": error.code, "message": error.message}},
+            ensure_ascii=False,
+        ).encode("utf-8")
+        handler.send_response(HTTPStatus.BAD_REQUEST)
+        handler.send_header("Content-Type", "application/json; charset=utf-8")
+        handler.send_header("Content-Length", str(len(body)))
+        # Always clear the stale state cookie so a reload of the callback
+        # URL does not re-fail with the same stored value.
+        handler.send_header("Set-Cookie", _t040_expire_state_cookie())
+        handler.send_header("Cache-Control", "no-store")
+        handler.end_headers()
+        handler.wfile.write(body)
+        return
+    # Success: issue the standard a2_session cookie and bounce the user
+    # back to ``return_to`` (defaults to '/').
+    handler.send_response(HTTPStatus.FOUND)
+    handler.send_header("Location", result["return_to"] or "/")
+    handler.send_header(
+        "Set-Cookie", session_cookie_header(result["session_token"])
+    )
+    # Best-effort: append a second Set-Cookie to clear the now-unused
+    # state cookie. Per RFC 6265 multiple Set-Cookie headers are allowed.
+    handler.send_header("Set-Cookie", _t040_expire_state_cookie())
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Content-Length", "0")
+    handler.end_headers()
+
+
+def _t040_handle_admin_list(handler: "AppHandler") -> None:
+    try:
+        require_admin_session(handler)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+        return
+    except ApiError as error:
+        api_error_response(handler, error)
+        return
+    json_response(
+        handler,
+        HTTPStatus.OK,
+        {"providers": _t040_sso.list_providers()},
+    )
+
+
+def _t040_handle_admin_register(handler: "AppHandler") -> None:
+    try:
+        require_admin_session(handler)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+        return
+    except ApiError as error:
+        api_error_response(handler, error)
+        return
+    try:
+        payload = safe_read_json(handler)
+    except (ValueError, json.JSONDecodeError) as error:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {"error": {"code": "sso_admin_body_invalid", "message": str(error)}},
+        )
+        return
+    try:
+        record = _t040_sso.register_provider(
+            org_id=str(payload.get("org_id") or ""),
+            client_id=str(payload.get("client_id") or ""),
+            client_secret_env=str(payload.get("client_secret_env") or ""),
+            issuer_url=str(payload.get("issuer_url") or ""),
+            scopes=payload.get("scopes"),
+            redirect_path=payload.get("redirect_path"),
+            auto_provision=bool(
+                payload.get("auto_provision", True)
+                if "auto_provision" in payload
+                else True
+            ),
+        )
+    except ValueError as error:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {"error": {"code": "sso_admin_validation", "message": str(error)}},
+        )
+        return
+    except _t040_sso.SsoError as error:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {"error": {"code": error.code, "message": error.message}},
+        )
+        return
+    log_event(
+        "info",
+        "sso_provider_registered",
+        org_id=record["org_id"],
+        provider_id=record["id"],
+    )
+    json_response(handler, HTTPStatus.OK, {"provider": record})
+
+
+_T040_ORIGINAL_DO_GET = AppHandler.do_GET
+_T040_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t040_patched_do_get(self: "AppHandler") -> None:
+    parsed = urllib.parse.urlparse(self.path)
+    path = parsed.path
+    if path == _T040_SSO_LOGIN_PATH:
+        _t040_handle_login(self, urllib.parse.parse_qs(parsed.query))
+        return
+    if path == _T040_SSO_CALLBACK_PATH:
+        _t040_handle_callback(self, urllib.parse.parse_qs(parsed.query))
+        return
+    if path == _T040_ADMIN_PROVIDERS_PATH:
+        _t040_handle_admin_list(self)
+        return
+    _T040_ORIGINAL_DO_GET(self)
+
+
+def _t040_patched_do_post(self: "AppHandler") -> None:
+    parsed = urllib.parse.urlparse(self.path)
+    if parsed.path == _T040_ADMIN_PROVIDERS_PATH:
+        _t040_handle_admin_register(self)
+        return
+    _T040_ORIGINAL_DO_POST(self)
+
+
+AppHandler.do_GET = _t040_patched_do_get  # type: ignore[assignment]
+AppHandler.do_POST = _t040_patched_do_post  # type: ignore[assignment]
+AppHandler._t040_installed = True  # type: ignore[attr-defined]
+
+# Best-effort schema init at import time so the first request does not
+# pay the create-table cost. Wrapped because the DB may not be writable
+# in some test fixtures that override AUTH_DB_PATH after import.
+try:
+    with db_connection() as _t040_init_conn:
+        _t040_sso.init_sso_tables(_t040_init_conn)
+except Exception as _t040_init_exc:  # noqa: BLE001 - hook must never crash import
+    try:
+        log_event(
+            "warning",
+            "t040_init_failed",
+            error=type(_t040_init_exc).__name__,
+        )
+    except Exception:
+        pass
+# ============================================================================
+# end T-040 SSO hook
 # ============================================================================
 
 

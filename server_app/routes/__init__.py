@@ -27,6 +27,7 @@ from . import (  # noqa: F401  (re-exported for the audit list)
     metrics,
     npc,
     rate_limit,
+    sso,
     tenant,
     uploads,
 )
@@ -48,6 +49,7 @@ for _module in (
     debug,
     listening_feed,
     rate_limit,
+    sso,
     tenant,
     npc,
 ):
@@ -68,6 +70,7 @@ __all__ = [
     "metrics",
     "npc",
     "rate_limit",
+    "sso",
     "tenant",
     "uploads",
 ]
