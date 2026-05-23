@@ -1,8 +1,13 @@
-"""Unit tests for ``server/metrics.py`` (T-014).
+"""Unit tests for ``server_app/metrics.py`` (T-014, modularised by T-020).
 
 These tests load the module by file path with ``importlib.util`` so the
-sibling ``server/`` directory does not shadow the canonical ``server.py``
-module used elsewhere in the test suite.
+import does not depend on the package being importable (e.g. when the
+test runner is invoked from a directory that does not include the repo
+root in ``sys.path``). T-020 moved the metrics implementation from
+``server/metrics.py`` to ``server_app/metrics.py`` — the loader below
+prefers the new location and falls back to the legacy path so the
+contract is forward-compatible if either file is missing during a
+cherry-pick.
 """
 
 from __future__ import annotations
@@ -14,7 +19,13 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-METRICS_PATH = REPO_ROOT / "server" / "metrics.py"
+# Prefer the modularised location introduced by T-020; fall back to the
+# legacy top-level ``server/metrics.py`` path for any commit that has
+# not yet picked up the modularisation (e.g. cherry-picks to a hotfix
+# branch that still sees the old layout).
+METRICS_PATH = REPO_ROOT / "server_app" / "metrics.py"
+if not METRICS_PATH.is_file():  # pragma: no cover - defensive
+    METRICS_PATH = REPO_ROOT / "server" / "metrics.py"
 
 
 def _load_metrics_module():
