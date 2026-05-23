@@ -246,8 +246,16 @@ class RateLimiter:
         Empty/None ``key`` is treated as "no client to bill" and allowed
         through — callers should only invoke ``check`` with a meaningful key
         (e.g. don't call the ``session`` scope for anonymous traffic).
+
+        Short-circuits to ``(True, 0.0)`` when the env var
+        ``LVCODEX_RATE_LIMIT_DISABLE`` is set to a truthy value (``1``,
+        ``true``, ``yes``, ``on``). This is intended for E2E test suites
+        that share a single client IP — production deployments must leave
+        the variable unset (the default).
         """
 
+        if is_disabled_via_env():
+            return True, 0.0
         if role and role in self.bypass_roles:
             return True, 0.0
         if not key:
@@ -272,6 +280,32 @@ class RateLimiter:
 # Module-level singleton used by the server.py middleware. Tests can replace
 # this with their own instance via ``rate_limit.LIMITER = ...``.
 LIMITER: RateLimiter = RateLimiter.from_env()
+
+
+# Env values treated as "true" for the disable knob. Anything else (including
+# unset, "0", "false", "no", etc.) leaves the limiter ENABLED — that is the
+# safe production default and MUST NOT be relaxed.
+_TRUTHY_DISABLE_VALUES: frozenset[str] = frozenset({"1", "true", "yes", "on"})
+
+# Name of the env variable that disables the limiter. Documented in
+# ``docs/rate-limits.md``; set in ``playwright.config.js`` for the E2E run.
+DISABLE_ENV_VAR: str = "LVCODEX_RATE_LIMIT_DISABLE"
+
+
+def is_disabled_via_env(env: Optional[Dict[str, str]] = None) -> bool:
+    """Return True when the rate limiter should short-circuit to allow-all.
+
+    Reads the env on every call so test fixtures that mutate
+    :data:`os.environ` (or pass an explicit mapping) take effect immediately
+    without re-instantiating :data:`LIMITER`. The default (variable unset)
+    keeps the limiter ENABLED.
+    """
+
+    source = os.environ if env is None else env
+    raw = source.get(DISABLE_ENV_VAR)
+    if raw is None:
+        return False
+    return raw.strip().lower() in _TRUTHY_DISABLE_VALUES
 
 
 def is_auth_path(path: str) -> bool:

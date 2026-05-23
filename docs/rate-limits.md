@@ -51,6 +51,27 @@ Any non-positive or unparseable value falls back to the default. Refill is
 specified as "requests per minute" for human readability; internally the
 limiter converts to tokens-per-second.
 
+## Test-only disable knob
+
+| Variable                       | Default | Effect                                |
+| ------------------------------ | ------- | ------------------------------------- |
+| `LVCODEX_RATE_LIMIT_DISABLE`   | unset   | When set to `1` / `true` / `yes` / `on`, `RateLimiter.check` short-circuits to `(True, 0.0)` for every call. |
+
+Why it exists: the Playwright regression suite runs every test from
+`127.0.0.1`. The production-default per-IP cap (60 req/min, burst 30) is
+trivially exhausted by the cumulative `/api/*` traffic across the ~10 tests
+in `tests/playwright/release-regression.spec.js`, producing spurious 429s
+that flake the admin test.
+
+The variable is set automatically in `playwright.config.js`
+(`webServer.env.LVCODEX_RATE_LIMIT_DISABLE = "1"`) so it only takes effect
+for the E2E run. **Production deployments must leave the variable unset**;
+the limiter defaults to enabled. The env var is read on every
+`RateLimiter.check` call, so flipping it (or its absence) takes effect
+without restarting the process — this also means tests do not need to
+re-instantiate `LIMITER`. See `tests/server/test_rate_limit_disable.py` for
+the contract.
+
 ## Admin bypass / whitelisting
 
 Accounts with role `admin` or `superadmin` skip the bucket check entirely
