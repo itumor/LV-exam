@@ -1,0 +1,36 @@
+# lvcodex CODEOWNERS
+# Reviewers required for each path. Falls back to the repo owner when a path
+# is not explicitly listed. See CONTRIBUTING.md §"File Ownership Matrix" for
+# the per-train collision-avoidance assignments.
+
+# Default: any change requires owner review.
+*                                 @itumor
+
+# Backend monolith and modularized server package
+/server.py                        @itumor
+/server/                          @itumor
+/billing.py                       @itumor
+/exam_bank.py                     @itumor
+
+# Frontend (vanilla + Vue3 migration scaffold)
+/latvian-a2-exam-app/             @itumor
+/latvian-listening-library/       @itumor
+
+# CI / release infrastructure
+/.github/workflows/               @itumor
+/Dockerfile                       @itumor
+/fly.toml                         @itumor
+/docker/                          @itumor
+/scripts/                         @itumor
+
+# Tests
+/tests/                           @itumor
+/playwright.config.js             @itumor
+
+# Docs and conventions
+/CONTRIBUTING.md                  @itumor
+/AGENTS.md                        @itumor
+/CODEOWNERS                       @itumor
+/.github/PULL_REQUEST_TEMPLATE.md  @itumor
+/.github/ISSUE_TEMPLATE/          @itumor
+/docs/                            @itumor

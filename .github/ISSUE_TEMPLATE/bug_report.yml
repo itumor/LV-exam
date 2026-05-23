@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a defect in lvcodex
+title: "[bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please fill in as much as you can so we can reproduce it quickly.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One sentence describing the bug.
+      placeholder: Stripe webhook returns 500 when subscription is canceled mid-trial.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps. Include the route, the payload, and the expected vs actual outcome.
+      value: |
+        1.
+        2.
+        3.
+
+        Expected:
+        Actual:
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser / OS / Fly app / Git commit SHA.
+      placeholder: Chromium 140 on macOS 14.5, lvcodex commit abc1234
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Sentry link
+      description: Paste the relevant log lines or link to the Sentry issue.
+      render: shell
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - low (cosmetic, workaround exists)
+        - medium (degraded but usable)
+        - high (blocks core flow)
+        - critical (data loss, billing error, security)
+    validations:
+      required: true
+  - type: input
+    id: task_ref
+    attributes:
+      label: Related task ID
+      description: If this maps to a T-XXX delivery-plan task, list it here.
+      placeholder: T-016
