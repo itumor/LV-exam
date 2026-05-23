@@ -21,6 +21,7 @@ from . import (  # noqa: F401
     listening_feed,
     quota,
     sentry_init,
+    tenant,
 )
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     "listening_feed",
     "quota",
     "sentry_init",
+    "tenant",
 ]

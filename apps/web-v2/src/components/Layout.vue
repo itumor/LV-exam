@@ -1,12 +1,25 @@
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
+import { useTenant } from "../composables/useTenant";
+
+// T-044: read the resolved tenant from the shared reactive composable
+// state. The composable boots in main.ts before app mount so by the time
+// this component renders the tenant is either resolved or the bundled
+// fallback is in place.
+const tenant = useTenant();
 </script>
 
 <template>
   <div class="layout">
     <header class="layout__header">
       <div class="layout__brand">
-        <strong>lvcodex</strong>
+        <img
+          v-if="tenant.tenant?.logo_url"
+          :src="tenant.tenant.logo_url"
+          :alt="`${tenant.tenant.name} logo`"
+          class="layout__brand-logo"
+        />
+        <strong>{{ tenant.tenant?.name || "lvcodex" }}</strong>
         <span class="layout__brand-suffix">v2</span>
       </div>
       <nav class="layout__nav" aria-label="Primary">
@@ -23,8 +36,17 @@ import { RouterLink } from "vue-router";
     </main>
     <footer class="layout__footer">
       <small>
-        lvcodex v2 scaffold (T-036) &middot; vanilla app remains at
+        lvcodex v2 scaffold (T-036) &middot;
+        <span v-if="tenant.tenant && tenant.tenant.id !== 'default'">
+          white-labelled for <strong>{{ tenant.tenant.name }}</strong>
+          (T-044) &middot;
+        </span>
+        vanilla app remains at
         <a href="/latvian-a2-exam-app/">/latvian-a2-exam-app/</a>.
+        <template v-if="tenant.tenant?.support_email">
+          &middot; Support:
+          <a :href="`mailto:${tenant.tenant.support_email}`">{{ tenant.tenant.support_email }}</a>
+        </template>
       </small>
     </footer>
   </div>
@@ -50,8 +72,13 @@ import { RouterLink } from "vue-router";
 .layout__brand {
   font-size: 1.125rem;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2, 8px);
+}
+
+.layout__brand-logo {
+  height: 24px;
+  width: auto;
 }
 
 .layout__brand-suffix {
