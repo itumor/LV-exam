@@ -1,0 +1,59 @@
+# cstate configuration for the public lvcodex status page.
+#
+# cstate is a Hugo theme/site generator that renders a status page
+# entirely from this config and the markdown files under content/.
+# Docs: https://github.com/cstate/cstate
+#
+# This file is consumed by Hugo (`hugo --config status/config.yml`)
+# via the GitHub Actions workflow at .github/workflows/status-page.yml.
+
+baseURL: "https://itumor.github.io/LV-exam/status/"
+languageCode: "en-us"
+title: "lvcodex status"
+theme: "cstate"
+
+# cstate-specific parameters
+params:
+  # Visible header / branding
+  description: "Real-time status of the lvcodex Latvian A2 exam platform."
+  brand: "lvcodex"
+  # 24-hour incident retention window shown on the index
+  expectedIncidentRetention: 24
+  # Timezone used for incident timestamps in the rendered page.
+  # Operators in Riga (UTC+2/UTC+3) — keep server-side timestamps in UTC,
+  # the theme converts to the visitor's local time in the browser.
+  timezone: "UTC"
+  dateFormat: "January 2, 2006"
+  # Atom/RSS feed exposed at /index.xml. Email subscriptions are NOT
+  # supported by cstate (see status/README.md "Subscriptions").
+  rss: true
+  # GitHub edit links on each incident card (optional, points readers
+  # at the source markdown so they can propose corrections)
+  githubRepo: "itumor/LV-exam"
+  githubBranch: "develop"
+  githubDir: "status/content/issues"
+
+  # Systems we report on. Order is rendering order on the page.
+  # `name` must match the `affected` array used by each incident
+  # markdown front-matter under content/issues/.
+  systems:
+    - name: "API"
+      description: "REST endpoints served by server.py on Fly.io."
+    - name: "Database"
+      description: "SQLite primary store (Postgres post T-021)."
+    - name: "AI Scoring (Groq)"
+      description: "LLM-backed scoring for writing & speaking tasks."
+    - name: "Stripe Webhooks"
+      description: "Billing event delivery & subscription lifecycle."
+    - name: "Frontend"
+      description: "Static exam app served from /latvian-a2-exam-app."
+
+  # Category labels available to incident authors. Keep the set small;
+  # cstate renders one badge per category.
+  categories:
+    - name: "incident"
+      description: "Unplanned service degradation."
+    - name: "maintenance"
+      description: "Planned maintenance window."
+    - name: "notice"
+      description: "Informational notice (no impact)."
