@@ -39,6 +39,8 @@ ROUTES: list[tuple[str, str]] = [
     ("GET", "/api/admin/attempts"),
     ("GET", "/api/admin/settings"),
     ("POST", "/api/admin/settings"),
+    # T-025 — A2 exam schema (level + skills + task_types).
+    ("GET", "/api/admin/schema"),
 ]
 
 __all__ = [
