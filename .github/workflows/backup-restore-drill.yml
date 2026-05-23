@@ -1,0 +1,74 @@
+name: Backup restore drill
+
+# T-013: weekly drill that downloads the latest R2 snapshot, restores it into
+# a tmp SQLite database, runs PRAGMA integrity_check, and fails if not "ok".
+# Source: BUSINESS_REPORT.md sec 9.2 #2 + App.A #8.
+
+on:
+  schedule:
+    # Mondays 03:00 UTC.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-restore-drill
+  cancel-in-progress: false
+
+jobs:
+  restore-drill:
+    name: Restore latest R2 backup and verify integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Install sqlite3 + awscli
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends sqlite3 awscli
+
+      - name: Fetch latest backup from R2 and restore
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          PREFIX: backups
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/restore"
+          chmod +x scripts/restore_sqlite.sh
+          scripts/restore_sqlite.sh --latest "${RUNNER_TEMP}/restore/lvcodex.db"
+
+      - name: Run PRAGMA integrity_check
+        env:
+          RESTORED_DB: ${{ runner.temp }}/restore/lvcodex.db
+        run: |
+          set -euo pipefail
+          if [[ ! -s "${RESTORED_DB}" ]]; then
+            echo "::error::restored DB missing or empty: ${RESTORED_DB}"
+            exit 1
+          fi
+          result="$(sqlite3 "${RESTORED_DB}" 'PRAGMA integrity_check;' | head -n 1)"
+          echo "integrity_check=${result}"
+          if [[ "${result}" != "ok" ]]; then
+            echo "::error::integrity_check FAILED: ${result}"
+            exit 1
+          fi
+
+      - name: Smoke query schema
+        env:
+          RESTORED_DB: ${{ runner.temp }}/restore/lvcodex.db
+        run: |
+          set -euo pipefail
+          tables="$(sqlite3 "${RESTORED_DB}" "SELECT count(*) FROM sqlite_master WHERE type='table';")"
+          echo "table_count=${tables}"
+          if [[ "${tables}" -lt 1 ]]; then
+            echo "::error::restored DB has no tables"
+            exit 1
+          fi
