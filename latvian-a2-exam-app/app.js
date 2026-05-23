@@ -95,7 +95,14 @@ const state = {
     recordingKey: null,
     transcripts: {},
     transcriptInterims: {},
-    transcriptErrors: {}
+    transcriptErrors: {},
+    // T-046: pronunciation-scoring side-channel. One entry per
+    // speaking key — populated after the learner submits the
+    // recording and the /api/voice/score endpoint returns. Cleared on
+    // re-record so stale scores don't leak between takes.
+    pronunciationScores: {},
+    pronunciationLoading: {},
+    pronunciationErrors: {}
   },
   listenPlayCount: {},
 learning: {
@@ -3480,7 +3487,54 @@ function renderRecordingControls(key) {
       </div>
       ${statusText ? `<span class="recorder-status">${escapeHtml(statusText)}</span>` : ""}
       ${renderSpeechTranscript(key)}
+      ${renderPronunciationScore(key)}
       <span class="recorder-mic-error" data-mic-error="${escapeHtml(key)}" hidden></span>
+    </div>
+  `;
+}
+
+function renderPronunciationScore(key) {
+  // T-046: render the inline pronunciation score returned by
+  // /api/voice/score. Three states: loading / error / scored. When
+  // nothing has been submitted yet for this key, render nothing.
+  const loading = state.speaking.pronunciationLoading?.[key];
+  const error = state.speaking.pronunciationErrors?.[key];
+  const score = state.speaking.pronunciationScores?.[key];
+  if (!loading && !error && !score) return "";
+  if (loading) {
+    return `
+      <div class="pronunciation-score loading" data-pronunciation-key="${escapeHtml(key)}" aria-live="polite">
+        <span class="pronunciation-label">Pronunciation score</span>
+        <span class="pronunciation-status">Scoring your audio…</span>
+      </div>
+    `;
+  }
+  if (error) {
+    return `
+      <div class="pronunciation-score error" data-pronunciation-key="${escapeHtml(key)}" aria-live="polite">
+        <span class="pronunciation-label">Pronunciation score</span>
+        <span class="pronunciation-status">Could not score audio: ${escapeHtml(error)}</span>
+      </div>
+    `;
+  }
+  const accuracy = typeof score.accuracy_percent === "number" ? score.accuracy_percent : 0;
+  const phoneme = typeof score.phoneme_score === "number" ? score.phoneme_score : null;
+  const transcript = score.transcript || "";
+  const suggestions = Array.isArray(score.suggestions) ? score.suggestions : [];
+  const accuracyClass = accuracy >= 80 ? "good" : accuracy >= 50 ? "medium" : "poor";
+  return `
+    <div class="pronunciation-score ${accuracyClass}" data-pronunciation-key="${escapeHtml(key)}" aria-live="polite">
+      <span class="pronunciation-label">Pronunciation score</span>
+      <span class="pronunciation-accuracy" data-pronunciation-accuracy="${escapeHtml(key)}">
+        <strong>${accuracy.toFixed(1)}%</strong>
+        ${phoneme !== null ? `<span class="pronunciation-phoneme">phoneme: ${phoneme.toFixed(1)}%</span>` : ""}
+      </span>
+      ${transcript ? `<span class="pronunciation-transcript">Heard: <em>${escapeHtml(transcript)}</em></span>` : ""}
+      ${suggestions.length ? `
+        <ul class="pronunciation-suggestions">
+          ${suggestions.map(s => `<li>${escapeHtml(s)}</li>`).join("")}
+        </ul>
+      ` : ""}
     </div>
   `;
 }
@@ -4104,6 +4158,85 @@ async function uploadSpeakingAudio(key) {
   };
   showToast("Audio submitted successfully.");
   renderRunner();
+  // T-046: kick off pronunciation scoring in the background. The
+  // request is fire-and-forget from the upload's point of view —
+  // surfacing the score (or an error) is handled by the dedicated
+  // renderer below.
+  requestPronunciationScore(key).catch(error => {
+    // Logged at debug level; the renderer also shows the error inline.
+    console.warn("pronunciation scoring failed:", error);
+  });
+}
+
+async function requestPronunciationScore(key) {
+  // Resolve the expected text for this speaking task. We try the
+  // exam payload's teacher_notes / model_answer first (typical
+  // A2 schema) and fall back to the prompt question text. If
+  // nothing reasonable is available we skip the request entirely
+  // because the scorer would just return 100 % against an empty
+  // reference, which is misleading.
+  const expectedText = resolveExpectedSpeakingText(key);
+  if (!expectedText) {
+    return;
+  }
+  const audioUrl =
+    state.speaking.uploadMeta?.[key]?.url
+    || state.speaking.uploadPaths?.[key]
+    || null;
+  if (!audioUrl) {
+    return;
+  }
+  state.speaking.pronunciationLoading[key] = true;
+  state.speaking.pronunciationErrors[key] = "";
+  state.speaking.pronunciationScores[key] = null;
+  renderRunner();
+  try {
+    const response = await fetch("/api/voice/score", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        expected_text: expectedText,
+        audio_url: audioUrl
+      })
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: "Score failed" }));
+      throw new Error(err.error || `Score failed (HTTP ${response.status})`);
+    }
+    const result = await response.json();
+    state.speaking.pronunciationScores[key] = result;
+  } catch (error) {
+    state.speaking.pronunciationErrors[key] = String(error.message || error);
+  } finally {
+    state.speaking.pronunciationLoading[key] = false;
+    renderRunner();
+  }
+}
+
+function resolveExpectedSpeakingText(key) {
+  // ``key`` is "speaking.taskN.index". Walk the exam payload to find
+  // the question text for that slot. Falls back to the placeholder /
+  // any cached prompt the runner has for this key.
+  const parts = key.split(".");
+  if (parts[0] !== "speaking") return "";
+  const taskKey = parts[1] || "";
+  const index = Number(parts[2] || 0);
+  const exam = state.exam || {};
+  const speaking = exam.sections?.speaking || exam.speaking || {};
+  const task = speaking[taskKey] || (Array.isArray(speaking.tasks) ? speaking.tasks.find(t => t.taskKey === taskKey) : null);
+  if (task) {
+    const questions = task.questions || task.items || [];
+    const question = questions[index];
+    if (question) {
+      if (typeof question === "string") return question;
+      if (question.lines) return question.lines.join(" ");
+      if (question.text) return question.text;
+      if (question.prompt) return question.prompt;
+    }
+    if (task.prompt) return task.prompt;
+  }
+  return "";
 }
 
 function retrySpeakingRecording(key) {
@@ -4121,6 +4254,17 @@ function retrySpeakingRecording(key) {
   state.speaking.transcripts[key] = "";
   state.speaking.transcriptInterims[key] = "";
   state.speaking.transcriptErrors[key] = "";
+  // T-046: drop any stale pronunciation score for this key so the
+  // learner isn't shown last attempt's accuracy under the new audio.
+  if (state.speaking.pronunciationScores) {
+    state.speaking.pronunciationScores[key] = null;
+  }
+  if (state.speaking.pronunciationLoading) {
+    state.speaking.pronunciationLoading[key] = false;
+  }
+  if (state.speaking.pronunciationErrors) {
+    state.speaking.pronunciationErrors[key] = "";
+  }
   renderRunner();
 }
 

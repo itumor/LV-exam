@@ -30,6 +30,7 @@ from . import (  # noqa: F401  (re-exported for the audit list)
     sso,
     tenant,
     uploads,
+    voice,
 )
 
 # Assemble a registry of (method, route_pattern, owner_module) tuples so
@@ -52,6 +53,7 @@ for _module in (
     sso,
     tenant,
     npc,
+    voice,
 ):
     for _method, _pattern in _module.ROUTES:
         ROUTES.append((_method, _pattern, _module.__name__.rsplit(".", 1)[-1]))
@@ -73,4 +75,5 @@ __all__ = [
     "sso",
     "tenant",
     "uploads",
+    "voice",
 ]

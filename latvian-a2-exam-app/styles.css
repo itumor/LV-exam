@@ -5121,6 +5121,106 @@ textarea:focus {
   color: #dc2626;
 }
 
+/* T-046 pronunciation score panel */
+.pronunciation-score {
+  margin-top: 0.55rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.pronunciation-label {
+  display: block;
+  color: #475569;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.pronunciation-status {
+  color: #475569;
+  font-size: 0.85rem;
+}
+
+.pronunciation-score.loading {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
+.pronunciation-score.error .pronunciation-status {
+  color: #b45309;
+}
+
+.pronunciation-accuracy {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pronunciation-accuracy strong {
+  font-size: 1.25rem;
+  color: #0f172a;
+}
+
+.pronunciation-phoneme {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.pronunciation-score.good {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.pronunciation-score.good .pronunciation-accuracy strong {
+  color: #15803d;
+}
+
+.pronunciation-score.medium {
+  border-color: #d97706;
+  background: #fffbeb;
+}
+
+.pronunciation-score.medium .pronunciation-accuracy strong {
+  color: #b45309;
+}
+
+.pronunciation-score.poor {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.pronunciation-score.poor .pronunciation-accuracy strong {
+  color: #b91c1c;
+}
+
+.pronunciation-transcript {
+  color: #334155;
+  font-size: 0.86rem;
+}
+
+.pronunciation-transcript em {
+  font-style: italic;
+  color: #0f172a;
+}
+
+.pronunciation-suggestions {
+  margin: 0.1rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  color: #334155;
+}
+
+.pronunciation-suggestions li {
+  margin-bottom: 0.15rem;
+}
+
 /* Play count badge for listening */
 .stitch-audio-card {
   display: flex;
