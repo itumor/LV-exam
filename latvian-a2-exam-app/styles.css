@@ -6231,3 +6231,40 @@ body[data-flow-screen="candidate"] .workspace {
     min-width: auto;
   }
 }
+
+/* T-011 cookie banner + legal footer */
+.cookie-banner {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1080;
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+.cookie-banner[hidden] { display: none !important; }
+.cookie-banner-text { margin: 0; flex: 1 1 auto; }
+.cookie-banner a { color: #fcd34d; text-decoration: underline; }
+.legal-footer {
+  padding: 1.25rem 1rem;
+  margin-top: 2rem;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.85rem;
+  color: #6b7280;
+  text-align: center;
+}
+.legal-footer nav a {
+  color: inherit;
+  margin: 0 0.5rem;
+  text-decoration: none;
+}
+.legal-footer nav a:hover { text-decoration: underline; }
+.legal-footer-note { margin: 0.5rem 0 0; }
