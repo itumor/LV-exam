@@ -14,6 +14,7 @@ from __future__ import annotations
 from . import (  # noqa: F401
     attempts,
     auth_store,
+    db,
     evaluator,
     quota,
     sentry_init,
@@ -22,6 +23,7 @@ from . import (  # noqa: F401
 __all__ = [
     "attempts",
     "auth_store",
+    "db",
     "evaluator",
     "quota",
     "sentry_init",

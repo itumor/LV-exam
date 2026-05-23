@@ -9,6 +9,15 @@ primary_region = 'lhr'
   APP_ENV = 'production'
   AUTH_DB_PATH = '/app/data/auth.sqlite3'
   BILLING_DB_PATH = '/app/data/billing.sqlite3'
+  # T-021 Postgres migration toggles. Defaults below keep production on
+  # SQLite. To start the cutover, attach a Fly Postgres cluster and set
+  # these via `fly secrets set` (see docs/postgres-migration.md):
+  #   fly secrets set DATABASE_URL='postgres://…' LVCODEX_DB_DUAL_WRITE=1
+  # Then, after backfill + verification:
+  #   fly secrets set LVCODEX_DB_READ_FROM=postgres
+  # DATABASE_URL is intentionally unset here — it must be a secret.
+  LVCODEX_DB_DUAL_WRITE = '0'
+  LVCODEX_DB_READ_FROM = 'sqlite'
 
 [[mounts]]
   source = 'data'
