@@ -4809,6 +4809,110 @@ class DualStackServer(ThreadingHTTPServer):
         super().server_bind()
 
 
+# ---------------------------------------------------------------------------
+# T-010: Hide debug views behind ?debug=1 + admin role check.
+#
+# Any developer/diagnostic surface routed under /api/debug/ must require BOTH
+# the ?debug=1 query parameter AND an authenticated admin (or superadmin)
+# session. Failing either check returns a 404 (we deliberately do not leak the
+# existence of the debug endpoint to anonymous or unprivileged callers, which
+# would otherwise act as reconnaissance leakage for learner accounts).
+# ---------------------------------------------------------------------------
+
+
+DEBUG_API_PREFIX = "/api/debug/"
+
+
+class DebugAccessDenied(Exception):
+    """Raised when a request fails the ?debug=1 + admin role gate."""
+
+
+def _debug_query_flag_enabled(handler: SimpleHTTPRequestHandler) -> bool:
+    """Return True when the request URL contains ?debug=1 (or debug=true)."""
+
+    try:
+        parsed = urllib.parse.urlparse(getattr(handler, "path", "") or "")
+    except (TypeError, ValueError):
+        return False
+    params = urllib.parse.parse_qs(parsed.query)
+    raw_values = params.get("debug") or []
+    return any(value in {"1", "true", "TRUE", "True"} for value in raw_values)
+
+
+def require_debug_access(
+    handler: SimpleHTTPRequestHandler,
+) -> dict[str, Any]:
+    """Gate a debug endpoint behind ?debug=1 + admin role.
+
+    Returns the resolved session dict on success. Raises DebugAccessDenied
+    when either gate fails so the caller can render a 404 (rather than a
+    distinguishable 401/403) and avoid leaking the route's existence.
+    """
+
+    if not _debug_query_flag_enabled(handler):
+        raise DebugAccessDenied("debug flag missing")
+    session = current_session_record(handler)
+    if not session:
+        raise DebugAccessDenied("no session")
+    if account_role(session) not in {"admin", "superadmin"}:
+        raise DebugAccessDenied("role not permitted")
+    return session
+
+
+def _debug_session_payload(session: dict[str, Any]) -> dict[str, Any]:
+    account = session.get("account") or {}
+    profile = session.get("profile") or {}
+    return {
+        "session": {
+            "account_id": account.get("id"),
+            "email": account.get("email"),
+            "role": account.get("role"),
+            "status": account.get("status"),
+            "profile_exam_pack_status": profile.get("exam_pack_status"),
+        },
+        "server": {
+            "app_env": os.getenv("APP_ENV", "development"),
+            "release": os.getenv("APP_RELEASE", ""),
+            "production": is_production(),
+        },
+    }
+
+
+def handle_debug_request(handler: SimpleHTTPRequestHandler) -> bool:
+    """Dispatch /api/debug/* requests. Returns True when handled."""
+
+    try:
+        parsed = urllib.parse.urlparse(getattr(handler, "path", "") or "")
+    except (TypeError, ValueError):
+        return False
+    if not parsed.path.startswith(DEBUG_API_PREFIX):
+        return False
+    try:
+        session = require_debug_access(handler)
+    except DebugAccessDenied:
+        json_response(handler, HTTPStatus.NOT_FOUND, {"error": "Not found."})
+        return True
+    if parsed.path == "/api/debug/session":
+        json_response(handler, HTTPStatus.OK, _debug_session_payload(session))
+        return True
+    # Any other /api/debug/* path is reserved but unrouted: return 404 so
+    # callers cannot enumerate which debug endpoints exist.
+    json_response(handler, HTTPStatus.NOT_FOUND, {"error": "Not found."})
+    return True
+
+
+_T010_ORIGINAL_DO_GET = AppHandler.do_GET
+
+
+def _t010_do_GET(self: AppHandler) -> None:  # noqa: N802 - mirrors stdlib name
+    if handle_debug_request(self):
+        return
+    _T010_ORIGINAL_DO_GET(self)
+
+
+AppHandler.do_GET = _t010_do_GET  # type: ignore[assignment]
+
+
 def main() -> int:
     load_dotenv(ROOT / ".env")
     init_sentry()
