@@ -1,0 +1,82 @@
+---
+# Prometheus alert rules for lvcodex SLOs (T-014).
+#
+# Source: BUSINESS_REPORT.md §9.2 #3 + Appendix A #3.
+#
+# Wire-up (see docs/observability.md for full operator runbook):
+#   * Load this file into Grafana Cloud Alerting OR a self-managed
+#     Prometheus by mounting it under `/etc/prometheus/rules/`.
+#   * The default route notifies the `lvcodex-oncall` Slack channel; a
+#     PagerDuty escalation hooks on labels `severity=page`.
+
+groups:
+  - name: lvcodex-api-slo
+    interval: 30s
+    rules:
+      - alert: ErrorBudgetBurn
+        expr: |
+          (
+            sum(rate(http_request_errors_total[5m]))
+            /
+            clamp_min(sum(rate(http_requests_total[5m])), 0.0001)
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: page
+          service: lvcodex-api
+          slo: availability
+        annotations:
+          summary: "lvcodex 5xx error rate above 1% for 5m"
+          description: |
+            The fraction of HTTP responses with status >= 500 has been above
+            1% for the last 5 minutes. Check the API overview dashboard,
+            recent deploys, and the Sentry feed for the failing route.
+          dashboard: "https://grafana/lvcodex-api-overview"
+          runbook: "https://github.com/itumor/LV-exam/blob/develop/docs/observability.md#errorbudgetburn"
+
+      - alert: LatencyHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: page
+          service: lvcodex-api
+          slo: latency
+        annotations:
+          summary: "lvcodex p95 latency above 2s for 5m"
+          description: |
+            The aggregate p95 request latency has been above 2 seconds for
+            5 minutes. Likely culprits: LLM provider degradation, SQLite
+            write contention, or a slow route regression. Check per-route
+            p95 panels and rate-limit dashboards.
+          dashboard: "https://grafana/lvcodex-api-overview"
+          runbook: "https://github.com/itumor/LV-exam/blob/develop/docs/observability.md#latencyhigh"
+
+      - alert: SQLiteWriteStalled
+        expr: |
+          (
+            sum(increase(http_requests_total{route="/api/score",status=~"2.."}[30m]))
+            +
+            sum(increase(http_requests_total{route="/api/attempts/submit",status=~"2.."}[30m]))
+          ) == 0
+          and
+          sum(increase(http_requests_total[30m])) > 0
+        for: 10m
+        labels:
+          severity: page
+          service: lvcodex-api
+          slo: availability
+        annotations:
+          summary: "No successful attempt submission for 30 minutes"
+          description: |
+            The lvcodex API has served traffic in the last 30 minutes, but
+            no /api/score or /api/attempts/submit response with a 2xx
+            status was recorded. This usually means SQLite writes are
+            stalled (lock contention, full volume) or the worker thread
+            is wedged. Check fly.io volume usage, sentry errors, and
+            recently mutated migrations.
+          dashboard: "https://grafana/lvcodex-attempts-funnel"
+          runbook: "https://github.com/itumor/LV-exam/blob/develop/docs/observability.md#sqlitewritestalled"
