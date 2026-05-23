@@ -8,7 +8,7 @@
 
 # Backend monolith and modularized server package
 /server.py                        @itumor
-/server/                          @itumor
+/server_app/                      @itumor
 /billing.py                       @itumor
 /exam_bank.py                     @itumor
 
