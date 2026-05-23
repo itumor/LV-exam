@@ -1,0 +1,62 @@
+name: OpenAPI spec validation
+
+# T-029 — External pen-test prep: OpenAPI spec + scope-of-work doc.
+# Runs the OpenAPI 3.1 validator (scripts/validate_openapi.py) against
+# schemas/openapi.yaml on every PR that touches the spec, the validator,
+# the dependency manifest, or this workflow file itself.
+#
+# Security note: this workflow does NOT interpolate any untrusted
+# github.event.* fields (issue/PR titles, comment bodies, commit
+# messages, head refs, etc.) into run: steps. The only contexts read
+# are github.ref (a controlled branch identifier) and pinned action
+# SHAs. All actions are SHA-pinned per the repo convention.
+
+on:
+  pull_request:
+    paths:
+      - "schemas/openapi.yaml"
+      - "scripts/validate_openapi.py"
+      - "tests/server/test_openapi_spec.py"
+      - ".github/workflows/ci-openapi.yml"
+      - "requirements.txt"
+  push:
+    branches: [develop, main]
+    paths:
+      - "schemas/openapi.yaml"
+      - "scripts/validate_openapi.py"
+      - "tests/server/test_openapi_spec.py"
+      - "requirements.txt"
+
+concurrency:
+  group: ci-openapi-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate-openapi:
+    name: Validate OpenAPI 3.1 spec
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PYTHON_VERSION: "3.12"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38  # v5.4.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install validator dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate OpenAPI spec
+        run: python scripts/validate_openapi.py
+
+      - name: Run OpenAPI spec unit tests
+        run: python -m unittest tests.server.test_openapi_spec -v
