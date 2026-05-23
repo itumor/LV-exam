@@ -51,6 +51,8 @@ tags:
     description: Static legal page bundle (Terms / Privacy / Cookies / Refund / DPA)
   - name: debug
     description: Internal debug-tunnel routes (gated by `?debug=1` + admin role, T-010)
+  - name: sso
+    description: Single sign-on (OIDC) for institutional accounts (T-040)
 security:
   - sessionCookie: []
 paths:
@@ -906,6 +908,152 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OkResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /sso/oidc/login:
+    get:
+      tags: [sso]
+      summary: Begin OIDC SSO sign-in for an institutional org (T-040)
+      description: |
+        Looks up the provider record for `org`, fetches the IdP's discovery
+        document (cached), generates `state` + `nonce`, persists both in the
+        `sso_nonces` ledger, sets a signed HttpOnly cookie (`sso_state`,
+        Path=/sso), and `302`-redirects the browser to the IdP's
+        `authorization_endpoint`. On callback the cookie and ledger together
+        provide CSRF + replay protection.
+      security: []
+      parameters:
+        - name: org
+          in: query
+          required: true
+          schema: { type: string }
+          description: Institutional org slug previously registered via the admin route.
+        - name: return_to
+          in: query
+          required: false
+          schema: { type: string, default: "/" }
+      responses:
+        "302":
+          description: Redirect to the IdP's authorization endpoint.
+        "400":
+          description: Unknown org, invalid discovery document, or missing parameter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /sso/oidc/callback:
+    get:
+      tags: [sso]
+      summary: Complete OIDC SSO sign-in (T-040)
+      description: |
+        Validates the `state` + `sso_state` cookie pair, exchanges the
+        `code` at the IdP's `token_endpoint`, verifies the `id_token`
+        (RS256 against JWKS; `iss`, `aud`, `exp`, `nonce` checks), then
+        links the email claim to an existing account or — if
+        `auto_provision=true` for the org — creates a new account. On
+        success, sets the standard `a2_session` cookie and `302`-redirects
+        to the `return_to` value remembered from `/sso/oidc/login`.
+      security: []
+      parameters:
+        - name: state
+          in: query
+          required: true
+          schema: { type: string }
+        - name: code
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "302":
+          description: Sign-in succeeded; `a2_session` cookie set.
+        "400":
+          description: |
+            State mismatch, nonce replay, expired token, wrong issuer,
+            token-endpoint failure, or any other OIDC verification error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/admin/sso/providers:
+    get:
+      tags: [admin, sso]
+      summary: List registered OIDC providers (T-040)
+      security:
+        - sessionCookie: [admin]
+      responses:
+        "200":
+          description: Provider list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [providers]
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, org_id, type, client_id, issuer_url, scopes]
+                      properties:
+                        id: { type: string }
+                        org_id: { type: string }
+                        type: { type: string, enum: [oidc] }
+                        client_id: { type: string }
+                        client_secret_env: { type: string }
+                        issuer_url: { type: string, format: uri }
+                        scopes: { type: string }
+                        redirect_path: { type: string }
+                        auto_provision: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [admin, sso]
+      summary: Register or update an OIDC provider (T-040)
+      description: |
+        Idempotent on `org_id`. The `client_secret_env` field is the
+        *name* of an environment variable that holds the actual OIDC
+        client secret — the value itself never enters the database.
+        The named env var MUST be set on the host at registration time
+        (override with `SSO_ALLOW_UNSET_SECRET_ENV=1` only during
+        bootstrap). `client_id` and `issuer_url` are Fernet-encrypted
+        at rest using `SSO_ENCRYPTION_KEY`.
+      security:
+        - sessionCookie: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [org_id, client_id, client_secret_env, issuer_url]
+              properties:
+                org_id: { type: string }
+                client_id: { type: string }
+                client_secret_env: { type: string }
+                issuer_url: { type: string, format: uri }
+                scopes: { type: string, default: "openid email profile" }
+                redirect_path: { type: string, default: "/sso/oidc/callback" }
+                auto_provision: { type: boolean, default: true }
+      responses:
+        "200":
+          description: Provider persisted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [provider]
+                properties:
+                  provider: { type: object }
+        "400":
+          description: Validation failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":

@@ -4,3 +4,8 @@ openapi-spec-validator>=0.7
 psycopg[binary]>=3.2
 pydantic>=2.5
 PyYAML>=6.0
+# T-040 (SSO): RS256 id_token verification + Fernet encryption-at-rest
+# for sso_providers rows. authlib is intentionally NOT pulled in — the
+# OIDC client in server_app/services/sso.py is hand-rolled on top of
+# the stdlib + cryptography to keep the pip-audit surface small.
+cryptography>=42.0
