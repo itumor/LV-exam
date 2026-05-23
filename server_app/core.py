@@ -6273,5 +6273,166 @@ _t022_install_attempt_routes()
 # ============================================================================
 
 
+# ============================================================================
+# T-036 Vue 3 + TypeScript SPA static handler (mounted at /v2/)
+# ============================================================================
+# Serves the built apps/web-v2/dist/ assets under /v2/ via a tail-of-file
+# monkey-patch on AppHandler.do_GET. Placed last so it composes cleanly with
+# the existing T-010/T-014/T-015/T-018 hook chain without re-running their
+# patches against a new class object.
+#
+# Behaviour:
+#   * /v2          -> 301 -> /v2/
+#   * /v2/         -> serves dist/index.html
+#   * /v2/<asset>  -> serves dist/<asset> when the file exists
+#   * /v2/<route>  -> SPA fallback -> dist/index.html (so vue-router deep
+#                     links survive a hard refresh)
+#   * If dist/index.html is missing, returns 503 with a friendly hint
+#     (run `npm run build:v2`) so the vanilla app at /latvian-a2-exam-app/
+#     stays unaffected.
+#
+# Security:
+#   * Resolved paths must stay inside WEB_V2_DIST_DIR (anti-traversal).
+#   * Unknown extensions are served as application/octet-stream.
+# ----------------------------------------------------------------------------
+
+WEB_V2_URL_PREFIX = "/v2/"
+WEB_V2_DIST_DIR = ROOT / "apps" / "web-v2" / "dist"
+_T036_CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".mjs": "application/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".map": "application/json; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".ico": "image/x-icon",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+    ".otf": "font/otf",
+    ".txt": "text/plain; charset=utf-8",
+    ".webmanifest": "application/manifest+json",
+}
+
+
+def _t036_content_type(file_path: Path) -> str:
+    return _T036_CONTENT_TYPES.get(
+        file_path.suffix.lower(), "application/octet-stream"
+    )
+
+
+def _t036_safe_resolve(rel_path: str) -> Path | None:
+    """Resolve `rel_path` inside WEB_V2_DIST_DIR or return None on traversal."""
+    try:
+        candidate = (WEB_V2_DIST_DIR / rel_path).resolve()
+        candidate.relative_to(WEB_V2_DIST_DIR.resolve())
+    except (ValueError, OSError):
+        return None
+    return candidate
+
+
+def _t036_send_file(
+    handler: "AppHandler", file_path: Path, status: int
+) -> None:
+    payload = file_path.read_bytes()
+    handler.send_response(status)
+    handler.send_header("Content-Type", _t036_content_type(file_path))
+    handler.send_header("Content-Length", str(len(payload)))
+    # Hashed Vite assets live under /v2/assets/ - they are content-addressed
+    # so cache aggressively. The HTML shell must NOT be cached so a redeploy
+    # is picked up immediately by browsers. (The AppHandler.end_headers chain
+    # may append a second Cache-Control header for static GETs; per RFC 7234
+    # the first directive wins for clients that do not concatenate values.)
+    if file_path.name == "index.html":
+        handler.send_header("Cache-Control", "no-store")
+    else:
+        handler.send_header(
+            "Cache-Control", "public, max-age=31536000, immutable"
+        )
+    handler.end_headers()
+    handler.wfile.write(payload)
+
+
+def _t036_send_not_built(handler: "AppHandler") -> None:
+    message = (
+        "lvcodex v2 SPA has not been built yet. "
+        "From the repo root run `npm run build:v2` "
+        "(or `cd apps/web-v2 && npm install && npm run build`)."
+    )
+    body = message.encode("utf-8")
+    handler.send_response(HTTPStatus.SERVICE_UNAVAILABLE)
+    handler.send_header("Content-Type", "text/plain; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("Cache-Control", "no-store")
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _t036_handle_v2(handler: "AppHandler") -> bool:
+    """Return True if the request was handled here."""
+    try:
+        path = normalize_request_path(handler.path)
+    except Exception:  # noqa: BLE001 - defensive: never raise from the hook.
+        return False
+
+    if path == "/v2":
+        handler.send_response(HTTPStatus.MOVED_PERMANENTLY)
+        handler.send_header("Location", WEB_V2_URL_PREFIX)
+        handler.send_header("Content-Length", "0")
+        handler.end_headers()
+        return True
+
+    if not path.startswith(WEB_V2_URL_PREFIX):
+        return False
+
+    index_file = WEB_V2_DIST_DIR / "index.html"
+    if not index_file.is_file():
+        _t036_send_not_built(handler)
+        log_event(
+            "warning",
+            "t036_v2_dist_missing",
+            path=path,
+            dist_dir=str(WEB_V2_DIST_DIR),
+        )
+        return True
+
+    rel = path[len(WEB_V2_URL_PREFIX):]
+    if not rel or rel.endswith("/"):
+        _t036_send_file(handler, index_file, HTTPStatus.OK)
+        return True
+
+    target = _t036_safe_resolve(rel)
+    if target is not None and target.is_file():
+        _t036_send_file(handler, target, HTTPStatus.OK)
+        return True
+
+    # SPA fallback: any unmatched path under /v2/ serves the shell so
+    # vue-router can resolve it client-side.
+    _t036_send_file(handler, index_file, HTTPStatus.OK)
+    return True
+
+
+_T036_ORIGINAL_DO_GET = AppHandler.do_GET
+
+
+def _t036_patched_do_get(self: "AppHandler") -> None:
+    if _t036_handle_v2(self):
+        return
+    _T036_ORIGINAL_DO_GET(self)
+
+
+AppHandler.do_GET = _t036_patched_do_get  # type: ignore[assignment]
+AppHandler._t036_installed = True  # type: ignore[attr-defined]
+# ============================================================================
+# end T-036 Vue 3 SPA static handler
+# ============================================================================
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

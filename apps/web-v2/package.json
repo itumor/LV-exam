@@ -1,0 +1,23 @@
+{
+  "name": "lvcodex-web-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vue 3 + TypeScript SPA scaffold for lvcodex (T-036). Mounted at /v2/, runs alongside the vanilla latvian-a2-exam-app.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "~5.6.3",
+    "vite": "^6.0.7",
+    "vue-tsc": "^2.2.0"
+  }
+}
