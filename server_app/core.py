@@ -8333,6 +8333,163 @@ except Exception as _t042_init_exc:  # noqa: BLE001 - hook must never crash impo
 
 
 # ============================================================================
+# T-053 — AI companion route hook installer
+# ============================================================================
+# Wires two routes onto AppHandler:
+#   POST /api/companion/chat   -> tutor reply w/ persistent memory
+#   GET  /api/companion/nudge  -> daily nudge (rules-based, no LLM)
+#
+# Installed BEFORE the T-036 v2 SPA static handler so T-036 remains the
+# outermost ``do_GET`` wrapper (a structural invariant enforced by
+# ``tests/server/test_v2_static_route.py``).
+#
+# The hook is inlined here (same reason as T-031 / T-034 / T-046) — at
+# import time the ``server_app.routes`` package eagerly pulls in modules
+# that reference symbols defined later in this file, so the actual
+# dispatch wiring must live alongside ``AppHandler`` itself. The
+# :mod:`server_app.routes.companion` module remains the canonical
+# re-export + audit owner.
+# ----------------------------------------------------------------------------
+
+from server_app.services import companion as _t053_companion_service  # noqa: E402
+
+
+_T053_CHAT_PATH = "/api/companion/chat"
+_T053_NUDGE_PATH = "/api/companion/nudge"
+
+
+def _t053_resolve_path(handler: "AppHandler") -> str:
+    raw = getattr(handler, "path", "") or ""
+    return urllib.parse.urlparse(raw).path or ""
+
+
+def _t053_account_id(session: dict) -> str:
+    return (session.get("account") or {}).get("id") or ""
+
+
+def _t053_handle_chat(handler: "AppHandler") -> None:
+    """``POST /api/companion/chat`` — generate a companion reply."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t053_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        plan = (session.get("profile") or {}).get("exam_pack_status") or "free"
+        raw_body = safe_read_json(handler)
+        try:
+            response = _t053_companion_service.generate_chat_reply(
+                account_id=account_id,
+                plan=plan,
+                raw_body=raw_body,
+            )
+        except _t053_companion_service.CompanionInvalidRequest as error:
+            raise ApiError(
+                HTTPStatus.BAD_REQUEST,
+                "companion_invalid_request",
+                str(error),
+            ) from error
+        except QuotaExceededError as error:
+            raise ApiError(
+                HTTPStatus.TOO_MANY_REQUESTS,
+                "ai_quota_exceeded",
+                str(error),
+            ) from error
+        except _t053_companion_service.CompanionProviderError as error:
+            raise ApiError(
+                HTTPStatus.BAD_GATEWAY,
+                "companion_provider_unavailable",
+                str(error),
+            ) from error
+        json_response(handler, HTTPStatus.OK, json.loads(response.model_dump_json()))
+    except ApiError as error:
+        api_error_response(handler, error)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except Exception as error:  # noqa: BLE001 - defence in depth
+        log_event(
+            "error",
+            "companion_chat_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "companion_unavailable"},
+        )
+
+
+def _t053_handle_nudge(handler: "AppHandler") -> None:
+    """``GET /api/companion/nudge`` — return the daily nudge for this learner."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t053_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        nudge = _t053_companion_service.nudge_for_account(account_id)
+        json_response(handler, HTTPStatus.OK, json.loads(nudge.model_dump_json()))
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001 - defence in depth
+        log_event(
+            "error",
+            "companion_nudge_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "companion_unavailable"},
+        )
+
+
+_T053_ORIGINAL_DO_GET = AppHandler.do_GET
+_T053_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t053_patched_do_get(self: "AppHandler") -> None:
+    path = _t053_resolve_path(self)
+    if path == _T053_NUDGE_PATH or path.rstrip("/") == _T053_NUDGE_PATH:
+        _t053_handle_nudge(self)
+        return
+    _T053_ORIGINAL_DO_GET(self)
+
+
+def _t053_patched_do_post(self: "AppHandler") -> None:
+    path = _t053_resolve_path(self)
+    if path == _T053_CHAT_PATH or path.rstrip("/") == _T053_CHAT_PATH:
+        _t053_handle_chat(self)
+        return
+    _T053_ORIGINAL_DO_POST(self)
+
+
+AppHandler.do_GET = _t053_patched_do_get  # type: ignore[assignment]
+AppHandler.do_POST = _t053_patched_do_post  # type: ignore[assignment]
+AppHandler._t053_installed = True  # type: ignore[attr-defined]
+
+try:
+    _t053_companion_service.ensure_companion_tables_ready()
+except Exception:  # noqa: BLE001 — never crash import if DB is unavailable
+    pass
+# ============================================================================
+# end T-053 companion route hook
+# ============================================================================
+
+
+# ============================================================================
 # T-036 Vue 3 + TypeScript SPA static handler (mounted at /v2/)
 # ============================================================================
 # Serves the built apps/web-v2/dist/ assets under /v2/ via a tail-of-file
