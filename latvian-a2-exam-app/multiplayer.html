@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Multiplayer Roleplay — Latvian A2</title>
+  <meta name="description" content="Pair up with another learner and roleplay short Latvian scenarios — cafe, airport, shop, doctor, neighbour." />
+  <link rel="stylesheet" href="./styles.css" />
+  <style>
+    .mp-shell {
+      max-width: 980px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      display: grid;
+      gap: 1rem;
+    }
+    .mp-section {
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 1rem;
+    }
+    .mp-section h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+    .mp-scenarios {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.6rem;
+    }
+    .mp-scenario {
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 0.6rem 0.75rem;
+      cursor: pointer;
+      background: #f6f8fa;
+      transition: border-color 120ms ease, background 120ms ease;
+    }
+    .mp-scenario:hover { border-color: #0969da; }
+    .mp-scenario.is-active { border-color: #0969da; background: #ddf4ff; }
+    .mp-scenario .title { font-weight: 600; }
+    .mp-scenario .meta { font-size: 0.8rem; color: #57606a; }
+    .mp-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .mp-actions button {
+      padding: 0.55rem 1rem;
+      border: 0;
+      border-radius: 6px;
+      background: #1f883d;
+      color: #ffffff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .mp-actions button.secondary { background: #6e7781; }
+    .mp-actions button[disabled] { opacity: 0.6; cursor: not-allowed; }
+    .mp-status { font-size: 0.9rem; color: #57606a; }
+    .mp-history {
+      max-height: 360px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      background: #f6f8fa;
+      border-radius: 6px;
+    }
+    .mp-bubble {
+      max-width: 78%;
+      padding: 0.55rem 0.75rem;
+      border-radius: 12px;
+      line-height: 1.4;
+      font-size: 0.95rem;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background: #ffffff;
+      border: 1px solid #d0d7de;
+    }
+    .mp-bubble.me {
+      align-self: flex-end;
+      background: #0969da;
+      color: #ffffff;
+      border-color: #0969da;
+      border-bottom-right-radius: 2px;
+    }
+    .mp-bubble.peer { align-self: flex-start; border-bottom-left-radius: 2px; }
+    .mp-bubble.system {
+      align-self: center;
+      background: transparent;
+      border: none;
+      color: #6e7781;
+      font-size: 0.85rem;
+      font-style: italic;
+    }
+    .mp-bubble audio { display: block; margin-top: 0.35rem; max-width: 220px; }
+    .mp-bubble .author {
+      display: block;
+      font-size: 0.75rem;
+      opacity: 0.75;
+      margin-bottom: 0.2rem;
+    }
+    .mp-form { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .mp-form input[type="text"] {
+      flex: 1;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+    .mp-error { color: #cf222e; font-size: 0.85rem; margin: 0.25rem 0; }
+    .skip-link { position: absolute; left: -9999px; top: auto; }
+    .skip-link:focus { left: 1rem; top: 1rem; background: #ffffff; padding: 0.5rem; }
+  </style>
+</head>
+<body>
+  <a href="#mp-input" class="skip-link">Skip to chat input</a>
+  <header class="exam-appbar" role="banner">
+    <div class="exam-appbar-inner container-xxl">
+      <a href="./index.html" class="exam-brand-title" style="color: inherit; text-decoration: none;">A2 State Language Exam Simulator</a>
+      <nav aria-label="Multiplayer roleplay">
+        <strong>Multiplayer Roleplay (T-064)</strong>
+      </nav>
+    </div>
+  </header>
+
+  <main class="mp-shell" id="main">
+    <section class="mp-section" aria-labelledby="mp-scenarios-title">
+      <h2 id="mp-scenarios-title">Choose a scenario</h2>
+      <ul class="mp-scenarios" id="mp-scenarios" role="listbox" aria-label="Available scenarios">
+        <li class="mp-status" id="mp-scenarios-empty">Loading scenarios…</li>
+      </ul>
+    </section>
+
+    <section class="mp-section" aria-labelledby="mp-match-title">
+      <h2 id="mp-match-title">Matchmaking</h2>
+      <div class="mp-actions">
+        <button type="button" id="mp-find" disabled>Find a partner</button>
+        <button type="button" id="mp-leave" class="secondary" disabled>Leave room</button>
+      </div>
+      <div class="mp-status" id="mp-status" role="status" aria-live="polite">
+        Pick a scenario to start.
+      </div>
+      <div class="mp-error" id="mp-error" role="alert" hidden></div>
+    </section>
+
+    <section class="mp-section" aria-labelledby="mp-room-title">
+      <h2 id="mp-room-title">Conversation</h2>
+      <div class="mp-history" id="mp-history" aria-live="polite" aria-label="Conversation history">
+        <div class="mp-bubble system" id="mp-history-empty">
+          You will land here once you are paired with a partner.
+        </div>
+      </div>
+      <form class="mp-form" id="mp-form" autocomplete="off">
+        <label for="mp-input" class="sr-only" style="position: absolute; left: -9999px;">Your message</label>
+        <input
+          id="mp-input"
+          name="message"
+          type="text"
+          placeholder="Rakstiet ziņojumu (write in Latvian)…"
+          maxlength="800"
+          disabled
+        />
+        <button type="submit" id="mp-send" disabled>Send</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="./multiplayer.js" defer></script>
+</body>
+</html>
