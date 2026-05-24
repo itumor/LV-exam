@@ -216,14 +216,20 @@ def validate_source(source: ExamSource, validator: Any) -> tuple[list[str], str 
     messages = [_format_error(e) for e in errors]
 
     # Cross-field invariant the JSON Schema cannot express cleanly: each
-    # skill's per-task points must sum to that skill's allotted 15.
+    # section's per-task points must sum to that section's allotted points_max.
+    # CEFR exams (A2/B1/B2) use 15 per skill. CITIZENSHIP (T-071) uses 10 for
+    # history+constitution and 15 for language, so the expected sum is taken
+    # from the section's own ``points_max`` rather than a global constant.
+    level = str(manifest.get("level") or "")
     for section in manifest.get("sections") or []:
         skill = section.get("skill", "?")
         tasks = section.get("tasks") or []
         total = sum(int(t.get("points_max") or 0) for t in tasks)
-        if total != 15:
+        expected = int(section.get("points_max") or 15)
+        if total != expected:
+            rule = "9/15" if level in {"A2", "B1", "B2", ""} else "T-071 citizenship"
             messages.append(
-                f"/sections/{skill}/tasks: per-task points sum to {total}, expected 15 (9/15 rule)"
+                f"/sections/{skill}/tasks: per-task points sum to {total}, expected {expected} ({rule} rule)"
             )
 
     # T-037: enforce semantic version format when present. Missing `version`
