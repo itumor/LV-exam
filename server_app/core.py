@@ -8097,6 +8097,242 @@ except Exception as _t041_init_exc:  # noqa: BLE001 - hook must never crash impo
 
 
 # ============================================================================
+# T-042 tutor dashboard route hook
+# ============================================================================
+# Wires the tutor service (server_app/services/tutor.py) onto AppHandler.
+# Same composition pattern as T-024 / T-030 / T-040 / T-041 — a thin
+# end-of-file monkey-patch installed BEFORE the T-036 v2 SPA static
+# handler so T-036 remains the outermost ``do_GET`` wrapper.
+#
+# Routes installed:
+#   GET /api/tutor/students                          -> roster + readiness
+#   GET /api/tutor/students/<account_id>/report      -> HTML student report
+#
+# Authorisation:
+#   * Caller must hold a session.
+#   * The org is resolved from the ``org_id`` query parameter when
+#     supplied; otherwise the hook auto-discovers the tutor's single
+#     tutor-plan org (and returns ``tutor_org_ambiguous`` 400 when the
+#     caller is a tutor in more than one org).
+#   * :func:`tutor.assert_tutor` enforces the role + plan_tier check.
+#
+# PII boundary:
+#   * The roster includes only ``account_id``, ``role``, ``joined_at``
+#     and the per-skill readiness rollup. Emails, salts, hashes and
+#     other PII columns are NEVER returned. The HTML report uses the
+#     same allow-list of fields.
+# ----------------------------------------------------------------------------
+
+from server_app.services import tutor as _t042_tutor  # noqa: E402
+
+
+_T042_STUDENTS_PATH = "/api/tutor/students"
+_T042_REPORT_SUFFIX = "/report"
+
+
+def _t042_resolve_path(handler: "AppHandler") -> tuple[str, dict[str, list[str]]]:
+    raw = getattr(handler, "path", "") or ""
+    parsed = urllib.parse.urlparse(raw)
+    return (parsed.path or ""), urllib.parse.parse_qs(parsed.query or "")
+
+
+def _t042_safe_segment(segment: str) -> str:
+    """Validate an account_id path segment — letters, digits, ``_-``."""
+
+    segment = (segment or "").strip()
+    if not segment:
+        return ""
+    allowed = set(
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
+    )
+    if any(ch not in allowed for ch in segment):
+        return ""
+    return segment
+
+
+def _t042_match_report_path(path: str) -> str | None:
+    """Return the student account_id when ``path`` matches the report route."""
+
+    prefix = _T042_STUDENTS_PATH + "/"
+    if not path.startswith(prefix):
+        return None
+    remainder = path[len(prefix):]
+    if not remainder.endswith(_T042_REPORT_SUFFIX):
+        return None
+    student_segment = remainder[: -len(_T042_REPORT_SUFFIX)]
+    return _t042_safe_segment(student_segment) or None
+
+
+def _t042_emit_error(
+    handler: "AppHandler", error: "_t042_tutor.TutorError"
+) -> None:
+    json_response(
+        handler,
+        error.status_code,
+        {"error": {"code": error.code, "message": error.message}},
+    )
+
+
+def _t042_resolve_org_id(
+    handler: "AppHandler",
+    account_id: str,
+    query: dict[str, list[str]],
+) -> str | None:
+    """Resolve the org the caller is acting as a tutor for.
+
+    Returns the org_id string, or None after emitting a 4xx response.
+    The explicit ``?org_id=`` query parameter wins; otherwise we look
+    up the tutor's orgs and require exactly one match.
+    """
+
+    raw = (query.get("org_id") or [""])[0]
+    if raw:
+        org_id = _t041_safe_org_id(raw)
+        if not org_id:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {
+                    "error": {
+                        "code": "tutor_org_invalid",
+                        "message": "org_id has an unsupported format.",
+                    }
+                },
+            )
+            return None
+        return org_id
+    orgs = _t042_tutor.find_orgs_for_tutor(account_id)
+    if not orgs:
+        json_response(
+            handler,
+            HTTPStatus.FORBIDDEN,
+            {
+                "error": {
+                    "code": "tutor_forbidden",
+                    "message": "Account is not a tutor in any organization.",
+                }
+            },
+        )
+        return None
+    if len(orgs) > 1:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {
+                "error": {
+                    "code": "tutor_org_ambiguous",
+                    "message": (
+                        "Multiple tutor orgs available — pass ?org_id=… "
+                        "to choose."
+                    ),
+                    "candidates": orgs,
+                }
+            },
+        )
+        return None
+    return str(orgs[0]["id"])
+
+
+def _t042_handle_list_students(
+    handler: "AppHandler", query: dict[str, list[str]]
+) -> None:
+    auth = _t041_require_session_account(handler)
+    if auth is None:
+        return
+    account_id, _role = auth
+    org_id = _t042_resolve_org_id(handler, account_id, query)
+    if org_id is None:
+        return
+    try:
+        payload = _t042_tutor.list_students(
+            org_id, actor_account_id=account_id
+        )
+    except _t042_tutor.TutorError as error:
+        _t042_emit_error(handler, error)
+        return
+    json_response(handler, HTTPStatus.OK, payload)
+
+
+def _t042_send_html(handler: "AppHandler", body: str, *, status: int = 200) -> None:
+    raw = body.encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(raw)))
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("X-Tutor-Report", "T-042")
+    handler.end_headers()
+    handler.wfile.write(raw)
+
+
+def _t042_handle_student_report(
+    handler: "AppHandler",
+    student_account_id: str,
+    query: dict[str, list[str]],
+) -> None:
+    auth = _t041_require_session_account(handler)
+    if auth is None:
+        return
+    account_id, _role = auth
+    org_id = _t042_resolve_org_id(handler, account_id, query)
+    if org_id is None:
+        return
+    try:
+        report = _t042_tutor.get_student_report(
+            org_id, student_account_id, actor_account_id=account_id
+        )
+    except _t042_tutor.TutorError as error:
+        # Emit a plain-text HTML envelope for non-403/404 so a browser
+        # rendering the link still sees a readable error.
+        if error.status_code >= 500:
+            json_response(
+                handler,
+                error.status_code,
+                {"error": {"code": error.code, "message": error.message}},
+            )
+        else:
+            _t042_emit_error(handler, error)
+        return
+    html_body = _t042_tutor.build_student_report_html(report)
+    _t042_send_html(handler, html_body, status=HTTPStatus.OK)
+
+
+_T042_ORIGINAL_DO_GET = AppHandler.do_GET
+
+
+def _t042_patched_do_get(self: "AppHandler") -> None:
+    path, query = _t042_resolve_path(self)
+    if path == _T042_STUDENTS_PATH:
+        _t042_handle_list_students(self, query)
+        return
+    student_account_id = _t042_match_report_path(path)
+    if student_account_id is not None:
+        _t042_handle_student_report(self, student_account_id, query)
+        return
+    _T042_ORIGINAL_DO_GET(self)
+
+
+AppHandler.do_GET = _t042_patched_do_get  # type: ignore[assignment]
+AppHandler._t042_installed = True  # type: ignore[attr-defined]
+
+
+try:  # pragma: no cover - import-time side effect
+    with db_connection() as _t042_init_conn:
+        _t042_tutor.init_tutor_extensions(_t042_init_conn)
+except Exception as _t042_init_exc:  # noqa: BLE001 - hook must never crash import
+    try:
+        log_event(
+            "warning",
+            "t042_init_failed",
+            error=type(_t042_init_exc).__name__,
+        )
+    except Exception:
+        pass
+# ============================================================================
+# end T-042 tutor dashboard route hook
+# ============================================================================
+
+
+# ============================================================================
 # T-036 Vue 3 + TypeScript SPA static handler (mounted at /v2/)
 # ============================================================================
 # Serves the built apps/web-v2/dist/ assets under /v2/ via a tail-of-file

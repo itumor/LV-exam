@@ -31,6 +31,7 @@ from . import (  # noqa: F401  (re-exported for the audit list)
     rate_limit,
     sso,
     tenant,
+    tutor,
     uploads,
     voice,
     xp,
@@ -60,6 +61,7 @@ for _module in (
     mock_exam,
     xp,
     institutional,
+    tutor,
 ):
     for _method, _pattern in _module.ROUTES:
         ROUTES.append((_method, _pattern, _module.__name__.rsplit(".", 1)[-1]))
@@ -82,6 +84,7 @@ __all__ = [
     "rate_limit",
     "sso",
     "tenant",
+    "tutor",
     "uploads",
     "voice",
     "xp",
