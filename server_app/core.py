@@ -6843,6 +6843,73 @@ except Exception as _t040_init_exc:  # noqa: BLE001 - hook must never crash impo
 
 
 # ============================================================================
+# T-030 A2 readiness dashboard route hook
+# ============================================================================
+# Exposes the per-skill readiness rollup computed by
+# ``server_app.services.readiness`` to the learner-facing dashboard. The
+# route is a thin wrapper around ``compute_readiness`` — all logic
+# (recency weighting, 9/15 rule, badge colours) lives in the service
+# module so it can be unit-tested in isolation.
+#
+# Route added:
+#   GET /api/readiness   (learner session required)
+#
+# Response shape (HTTP 200):
+#   {
+#     "skills": [
+#       {"skill": "listening", "avg_score": 11.4,
+#        "predicted_pass": true, "badge": "green", "sample_size": 5},
+#       ...   # four entries, canonical A2 skill order
+#     ],
+#     "overall_pass_predicted": true,
+#     "last_updated": "2026-05-24T07:48:00Z"
+#   }
+#
+# Installed BEFORE the T-036 v2 SPA static handler so the T-036 do_GET
+# patcher remains the outermost wrapper (audited by
+# tests/server/test_v2_static_route.py::V2HookInstallationTests). Same
+# composition rule that T-025, T-043, T-044, T-045 follow.
+# ----------------------------------------------------------------------------
+
+from server_app.services import readiness as _t030_readiness  # noqa: E402
+
+
+_T030_READINESS_PATH = "/api/readiness"
+_T030_ORIGINAL_DO_GET = AppHandler.do_GET
+
+
+def _t030_handle_readiness(handler: "AppHandler") -> None:
+    """Handle ``GET /api/readiness`` — learner session required."""
+
+    try:
+        session = require_session(handler)
+        account_id = (session.get("account") or {}).get("id") or ""
+        with db_connection() as conn:
+            payload = _t030_readiness.compute_readiness(conn, account_id)
+        json_response(handler, HTTPStatus.OK, payload)
+    except ApiError as error:
+        api_error_response(handler, error)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+
+
+def _t030_patched_do_get(self: "AppHandler") -> None:
+    raw = getattr(self, "path", "") or ""
+    parsed_path = urllib.parse.urlparse(raw).path or ""
+    if parsed_path == _T030_READINESS_PATH:
+        _t030_handle_readiness(self)
+        return
+    _T030_ORIGINAL_DO_GET(self)
+
+
+AppHandler.do_GET = _t030_patched_do_get  # type: ignore[assignment]
+AppHandler._t030_installed = True  # type: ignore[attr-defined]
+# ============================================================================
+# end T-030 A2 readiness dashboard route hook
+# ============================================================================
+
+
+# ============================================================================
 # T-036 Vue 3 + TypeScript SPA static handler (mounted at /v2/)
 # ============================================================================
 # Serves the built apps/web-v2/dist/ assets under /v2/ via a tail-of-file

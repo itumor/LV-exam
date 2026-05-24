@@ -56,6 +56,8 @@ ROUTES: list[tuple[str, str]] = [
     ("POST", "/api/attempts/analytics"),
     ("GET", "/api/dashboard"),
     ("POST", "/api/evaluate"),
+    # T-030 — A2 readiness dashboard (per-skill 9/15 + badges).
+    ("GET", "/api/readiness"),
 ]
 
 __all__ = [

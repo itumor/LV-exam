@@ -6368,3 +6368,107 @@ body[data-flow-screen="candidate"] .workspace {
 }
 .legal-footer nav a:hover { text-decoration: underline; }
 .legal-footer-note { margin: 0.5rem 0 0; }
+
+/* ============================================================
+   T-030 — A2 readiness dashboard tile
+   Per-skill 9/15 visualization with traffic-light risk badges.
+   ============================================================ */
+.dashboard-card.readiness {
+  grid-column: span 12;
+}
+.readiness-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.readiness-overall {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+.readiness-overall-pass {
+  background: rgba(46, 160, 67, 0.15);
+  color: #2ea043;
+  border: 1px solid rgba(46, 160, 67, 0.4);
+}
+.readiness-overall-fail {
+  background: rgba(218, 54, 51, 0.15);
+  color: #da3633;
+  border: 1px solid rgba(218, 54, 51, 0.4);
+}
+.readiness-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: grid;
+  gap: 14px;
+}
+.readiness-row {
+  display: grid;
+  gap: 6px;
+}
+.readiness-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.readiness-skill {
+  font-weight: 600;
+  color: var(--on-surface, #1f2328);
+}
+.readiness-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+.readiness-badge-green  { background: #2ea043; }
+.readiness-badge-yellow { background: #d4a72c; color: #1f2328; }
+.readiness-badge-red    { background: #da3633; }
+.readiness-bar {
+  position: relative;
+  height: 10px;
+  background: var(--surface-container, rgba(0,0,0,0.07));
+  border-radius: 6px;
+  overflow: hidden;
+}
+.readiness-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.3s ease;
+}
+.readiness-bar-green  { background: linear-gradient(90deg, #2ea043, #56d364); }
+.readiness-bar-yellow { background: linear-gradient(90deg, #d4a72c, #f0d96c); }
+.readiness-bar-red    { background: linear-gradient(90deg, #da3633, #ff7b72); }
+.readiness-threshold {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+.readiness-row-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--on-surface-variant, #57606a);
+}
+.readiness-footer {
+  margin: 12px 0 0;
+  font-size: 0.75rem;
+  color: var(--on-surface-variant, #57606a);
+}
+.dashboard-card.readiness.empty .dashboard-subtitle {
+  margin-bottom: 0;
+}
