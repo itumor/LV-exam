@@ -1,0 +1,43 @@
+{
+  "name": "lvcodex v2 — Latvian A2 Exam Studio",
+  "short_name": "lvcodex v2",
+  "description": "Vue 3 Latvian A2 exam workspace. Mobile-ready, installable, works offline.",
+  "id": "/v2/",
+  "start_url": "/v2/?utm_source=pwa",
+  "scope": "/v2/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "portrait-primary",
+  "background_color": "#fffdf8",
+  "theme_color": "#146b63",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "language", "productivity"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "prefer_related_applications": false
+}

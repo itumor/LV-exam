@@ -9,9 +9,17 @@
     <title>Latvian Listening Feed</title>
     <meta
       name="description"
-      content="TikTok-style vertical scroll feed of Latvian listening clips with a one-question micro-quiz after each clip."
+      content="TikTok-style vertical scroll feed of Latvian listening clips with a one-question micro-quiz after each clip. Works offline."
     />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <!-- T-061 PWA wiring -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#082f49" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Klausīšanās" />
+    <link rel="apple-touch-icon" href="icon.svg" />
     <style>
       :root {
         --feed-bg: #060810;
@@ -367,14 +375,180 @@
         backdrop-filter: blur(8px);
         z-index: 10;
       }
+
+      /* T-061 offline pill + install banner */
+      .feed-offline-pill {
+        position: fixed;
+        top: 18px;
+        right: 18px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(255, 79, 135, 0.22);
+        border: 1px solid var(--feed-wrong);
+        color: var(--feed-ink);
+        font-size: 12px;
+        font-weight: 600;
+        z-index: 20;
+        display: none;
+      }
+      .feed-offline-pill[data-visible="true"] { display: inline-flex; gap: 6px; align-items: center; }
+      .feed-offline-pill::before {
+        content: "";
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--feed-wrong);
+      }
+
+      .pwa-install-banner {
+        position: fixed;
+        left: 16px;
+        right: 16px;
+        bottom: 80px;
+        z-index: 30;
+        background: var(--feed-panel);
+        border: 1px solid var(--feed-line);
+        color: var(--feed-ink);
+        padding: 12px 14px;
+        border-radius: 16px;
+        backdrop-filter: blur(12px);
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        font-size: 13px;
+      }
+      .pwa-install-banner[hidden] { display: none !important; }
+      .pwa-install-banner__text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 200px; }
+      .pwa-install-banner__text strong { font-size: 14px; }
+      .pwa-install-banner__text span { color: var(--feed-muted); }
+      .pwa-install-banner__actions { display: flex; gap: 8px; }
+      .pwa-install-banner button {
+        border: none;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .pwa-install-banner button#pwa-install-accept { background: var(--feed-accent); color: #fff; }
+      .pwa-install-banner button#pwa-install-dismiss {
+        background: transparent;
+        color: var(--feed-muted);
+        border: 1px solid var(--feed-line);
+      }
     </style>
   </head>
   <body>
     <div id="feed-status" class="feed-status" role="status" aria-live="polite"></div>
     <div id="feed-xp" class="feed-xp" aria-live="polite">XP: 0</div>
+    <div
+      id="feed-offline-pill"
+      class="feed-offline-pill"
+      role="status"
+      aria-live="polite"
+    >Offline</div>
     <main id="feed" class="feed" aria-label="Latvian listening feed">
       <div class="feed-loader" id="feed-loader">Loading feed</div>
     </main>
+
+    <!-- T-061 install prompt -->
+    <div
+      id="pwa-install-banner"
+      class="pwa-install-banner"
+      role="dialog"
+      aria-live="polite"
+      aria-label="Install the listening app"
+      hidden
+    >
+      <div class="pwa-install-banner__text">
+        <strong>Install for offline</strong>
+        <span>Save the last 50 clips so you can practise on the bus.</span>
+      </div>
+      <div class="pwa-install-banner__actions">
+        <button id="pwa-install-accept" type="button">Install</button>
+        <button id="pwa-install-dismiss" type="button">Not now</button>
+      </div>
+    </div>
+
     <script src="feed.js" defer></script>
+    <script>
+      // T-061 — Service worker registration + install prompt.
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker
+            .register("/latvian-listening-library/web/sw.js", {
+              scope: "/latvian-listening-library/",
+            })
+            .catch(function (err) {
+              if (window.console && console.warn) {
+                console.warn("[pwa] listening sw registration failed", err);
+              }
+            });
+        });
+      }
+
+      (function installPrompt() {
+        var banner = document.getElementById("pwa-install-banner");
+        var accept = document.getElementById("pwa-install-accept");
+        var dismiss = document.getElementById("pwa-install-dismiss");
+        if (!banner || !accept || !dismiss) return;
+        var deferred = null;
+        var DISMISS_KEY = "pwa_install_dismissed_at_feed";
+        var COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+
+        function recentlyDismissed() {
+          try {
+            var raw = localStorage.getItem(DISMISS_KEY);
+            if (!raw) return false;
+            var when = parseInt(raw, 10);
+            return !isNaN(when) && Date.now() - when < COOLDOWN_MS;
+          } catch (e) {
+            return false;
+          }
+        }
+        window.addEventListener("beforeinstallprompt", function (event) {
+          event.preventDefault();
+          deferred = event;
+          if (!recentlyDismissed()) banner.hidden = false;
+        });
+        accept.addEventListener("click", function () {
+          if (!deferred) {
+            banner.hidden = true;
+            return;
+          }
+          deferred.prompt();
+          deferred.userChoice.finally(function () {
+            deferred = null;
+            banner.hidden = true;
+          });
+        });
+        dismiss.addEventListener("click", function () {
+          try {
+            localStorage.setItem(DISMISS_KEY, String(Date.now()));
+          } catch (e) {
+            /* ignore */
+          }
+          banner.hidden = true;
+        });
+        var ua = navigator.userAgent || "";
+        var isIos = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+        var isStandalone =
+          window.matchMedia &&
+          window.matchMedia("(display-mode: standalone)").matches;
+        var isIosStandalone = window.navigator.standalone === true;
+        if (isIos && !isStandalone && !isIosStandalone && !recentlyDismissed()) {
+          var hint = banner.querySelector(".pwa-install-banner__text span");
+          if (hint) {
+            hint.textContent =
+              'On iPhone: tap Share ↑ then "Add to Home Screen".';
+          }
+          accept.textContent = "Got it";
+          banner.hidden = false;
+        }
+        window.addEventListener("appinstalled", function () {
+          banner.hidden = true;
+        });
+      })();
+    </script>
   </body>
 </html>

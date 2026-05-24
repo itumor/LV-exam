@@ -23,6 +23,9 @@
   var LOADER = document.getElementById("feed-loader");
   var STATUS_EL = document.getElementById("feed-status");
   var XP_EL = document.getElementById("feed-xp");
+  // T-061 — offline indicator. Toggled by online/offline events and any
+  // fetch that lands the synthetic 503 produced by the SW fallback.
+  var OFFLINE_PILL = document.getElementById("feed-offline-pill");
 
   if (!FEED_ROOT) {
     return;
@@ -36,6 +39,13 @@
     activeId: null,
     answered: Object.create(null),
     xp: 0,
+    // T-061 — `offline` is updated on online/offline events and when a
+    // fetch returns the synthetic 503 served by the SW. The UI just
+    // toggles the offline pill — feed data still loads from the SW
+    // cache when offline because of stale-while-revalidate.
+    offline:
+      typeof navigator !== "undefined" && navigator.onLine === false,
+    pendingAnswers: [],
   };
 
   var API = {
@@ -64,6 +74,24 @@
 
   function parseJson(response) {
     if (!response.ok) {
+      // T-061 — synthetic 503 from the SW carries { offline: true } so
+      // we can show a friendlier offline UX instead of a generic error.
+      if (response.status === 503) {
+        return response
+          .json()
+          .catch(function () {
+            return null;
+          })
+          .then(function (data) {
+            if (data && data.offline) {
+              setOffline(true);
+              var err = new Error("You are offline. Showing cached clips only.");
+              err.offline = true;
+              throw err;
+            }
+            throw new Error("Request failed");
+          });
+      }
       return response.text().then(function (text) {
         var error;
         try {
@@ -75,7 +103,47 @@
         throw new Error(error || "Request failed");
       });
     }
+    // Successful response — we are online (or served from a still-warm
+    // cache that the SW will refresh in the background).
+    setOffline(false);
     return response.json();
+  }
+
+  // -------------------------------------------------------------------
+  // T-061 offline helpers
+  // -------------------------------------------------------------------
+
+  function setOffline(isOffline) {
+    state.offline = Boolean(isOffline);
+    if (!OFFLINE_PILL) return;
+    if (state.offline) {
+      OFFLINE_PILL.dataset.visible = "true";
+      OFFLINE_PILL.textContent = "Offline — cached clips only";
+    } else {
+      OFFLINE_PILL.dataset.visible = "false";
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("online", function () {
+      setOffline(false);
+      flushPendingAnswers();
+    });
+    window.addEventListener("offline", function () {
+      setOffline(true);
+    });
+  }
+
+  function flushPendingAnswers() {
+    if (!state.pendingAnswers.length) return;
+    var pending = state.pendingAnswers.slice();
+    state.pendingAnswers = [];
+    pending.forEach(function (item) {
+      API.answer(item.clipId, item.idx).catch(function () {
+        // Re-queue if we still cannot reach the server.
+        state.pendingAnswers.push(item);
+      });
+    });
   }
 
   function showStatus(text, ms) {
@@ -375,6 +443,18 @@
         addXp(data.xp_delta || 0);
       })
       .catch(function (error) {
+        // T-061 — when offline, treat the answer as queued: keep the
+        // chosen option styled, show an offline note, and replay the
+        // answer when the network is back.
+        if (error && error.offline) {
+          state.pendingAnswers.push({ clipId: clipId, idx: idx });
+          resultEl.textContent = "Saved offline — will sync when online.";
+          resultEl.dataset.state = "wrong";
+          buttons.forEach(function (b, i) {
+            if (i === idx) b.dataset.result = "reveal";
+          });
+          return;
+        }
         state.answered[clipId] = false;
         buttons.forEach(function (b) {
           b.disabled = false;
@@ -432,6 +512,9 @@
       })
       .catch(function (error) {
         state.fetching = false;
+        if (error && error.offline) {
+          setOffline(true);
+        }
         throw error;
       });
   }
@@ -570,10 +653,16 @@
         activeId: state.activeId,
         xp: state.xp,
         answered: Object.keys(state.answered),
+        offline: state.offline,
+        pendingAnswers: state.pendingAnswers.length,
       };
     },
     refresh: boot,
+    setOfflineForTests: setOffline,
   };
+
+  // Apply the initial offline indicator (no-op if already online).
+  setOffline(state.offline);
 
   boot();
 })();

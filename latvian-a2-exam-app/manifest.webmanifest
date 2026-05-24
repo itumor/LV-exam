@@ -1,0 +1,59 @@
+{
+  "name": "Latvian A2 Exam Simulator",
+  "short_name": "A2 Exam",
+  "description": "Practice the Latvian A2 state-language exam offline — listening, reading, writing, speaking.",
+  "id": "/latvian-a2-exam-app/",
+  "start_url": "/latvian-a2-exam-app/?utm_source=pwa",
+  "scope": "/latvian-a2-exam-app/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "portrait-primary",
+  "background_color": "#fffdf8",
+  "theme_color": "#146b63",
+  "lang": "lv",
+  "dir": "ltr",
+  "categories": ["education", "language", "productivity"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start exam",
+      "short_name": "Start",
+      "description": "Begin a new A2 exam attempt.",
+      "url": "/latvian-a2-exam-app/?view=runner",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Listening feed",
+      "short_name": "Feed",
+      "description": "TikTok-style vertical Latvian listening clips (works offline).",
+      "url": "/latvian-listening-library/web/feed.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "prefer_related_applications": false
+}
