@@ -135,7 +135,8 @@ class RouteAuditTests(unittest.TestCase):
             "curriculum",
             "debug", "exams", "healthz", "institutional", "leaderboards",
             "legal", "listening_feed", "metrics", "mock_exam", "multiplayer",
-            "npc", "rate_limit", "sso", "srs", "story", "tenant", "tutor",
+            "npc", "procedural_story", "rate_limit", "sso", "srs",
+            "story", "tenant", "tutor",
             "uploads", "voice", "xp",
         }
         for _method, pattern, owner in ROUTES:

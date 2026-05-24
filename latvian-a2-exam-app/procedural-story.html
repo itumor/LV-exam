@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Choose-Your-Own-Adventure — Latvian A2</title>
+  <meta name="description" content="Practise Latvian by reading a branching A2-level adventure where every choice you pick steers the next chapter." />
+  <link rel="stylesheet" href="./styles.css" />
+  <style>
+    .story-shell {
+      max-width: 760px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      display: grid;
+      gap: 1rem;
+    }
+    .story-section {
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 1rem;
+    }
+    .story-section h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+
+    .story-chapters {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      max-height: 460px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+    .story-chapter {
+      border-left: 3px solid #0969da;
+      background: #f6f8fa;
+      border-radius: 4px;
+      padding: 0.6rem 0.8rem;
+    }
+    .story-chapter.is-current {
+      border-left-color: #1f883d;
+      background: #ddf4ff;
+    }
+    .story-chapter .chapter-label {
+      font-size: 0.78rem;
+      color: #57606a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+    .story-chapter .chapter-narrative {
+      margin: 0.25rem 0 0.4rem;
+      font-size: 1rem;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .story-chapter .chapter-selected {
+      font-size: 0.85rem;
+      color: #1f883d;
+      font-style: italic;
+    }
+    .story-chapter .chapter-selected::before { content: "→ "; }
+
+    .story-choices {
+      display: grid;
+      gap: 0.5rem;
+      margin-top: 0.6rem;
+    }
+    .story-choice {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      padding: 0.6rem 0.8rem;
+      border: 1px solid #d0d7de;
+      background: #ffffff;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+      width: 100%;
+      transition: border-color 120ms ease, background 120ms ease;
+    }
+    .story-choice:hover:not([disabled]) {
+      border-color: #0969da;
+      background: #ddf4ff;
+    }
+    .story-choice[disabled] { opacity: 0.55; cursor: not-allowed; }
+    .story-choice .key {
+      flex: 0 0 auto;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #0969da;
+      color: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+    .story-choice .label { flex: 1; line-height: 1.35; }
+
+    .story-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .story-actions button {
+      padding: 0.55rem 1rem;
+      border: 0;
+      border-radius: 6px;
+      background: #1f883d;
+      color: #ffffff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .story-actions button.secondary { background: #6e7781; }
+    .story-actions button[disabled] { opacity: 0.55; cursor: not-allowed; }
+
+    .story-meta {
+      font-size: 0.85rem;
+      color: #57606a;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .story-meta .quota-pill {
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      background: #f6f8fa;
+      border: 1px solid #d0d7de;
+    }
+    .story-error {
+      color: #cf222e;
+      font-size: 0.9rem;
+      padding: 0.5rem 0;
+    }
+    .story-empty {
+      text-align: center;
+      color: #57606a;
+      padding: 1.5rem 0.5rem;
+    }
+    .story-finished-banner {
+      background: #fff8c5;
+      border: 1px solid #d4a72c;
+      border-radius: 6px;
+      padding: 0.6rem 0.8rem;
+      font-size: 0.95rem;
+      color: #57606a;
+    }
+    .skip-link {
+      position: absolute;
+      left: -9999px;
+      top: auto;
+    }
+    .skip-link:focus { left: 1rem; top: 1rem; background: #ffffff; padding: 0.5rem; }
+  </style>
+</head>
+<body>
+  <a href="#story-main" class="skip-link">Skip to story</a>
+  <header class="exam-appbar" role="banner">
+    <div class="exam-appbar-inner container-xxl">
+      <a href="./index.html" class="exam-brand-title" style="color: inherit; text-decoration: none;">A2 State Language Exam Simulator</a>
+      <nav aria-label="Procedural story">
+        <strong>Procedural Story (T-055)</strong>
+      </nav>
+    </div>
+  </header>
+
+  <main class="story-shell" id="story-main">
+    <section class="story-section" aria-labelledby="story-intro-title">
+      <h2 id="story-intro-title">Choose-Your-Own-Adventure</h2>
+      <p style="margin: 0 0 0.5rem; line-height: 1.45;">
+        Read each short chapter in Latvian, then pick what your character does next.
+        Every choice steers the rest of the story — there is no "right" answer.
+      </p>
+      <div class="story-meta" id="story-meta" aria-live="polite">
+        <span id="story-progress">Chapter: —</span>
+        <span class="quota-pill" id="story-quota">Quota: —</span>
+      </div>
+      <div class="story-error" id="story-error" role="alert" hidden></div>
+    </section>
+
+    <section class="story-section" aria-labelledby="story-chapters-title">
+      <h2 id="story-chapters-title">Your story so far</h2>
+      <div class="story-chapters" id="story-chapters" aria-live="polite">
+        <div class="story-empty" id="story-chapters-empty">
+          You have not started a story yet. Press <strong>Begin story</strong> below to get your first chapter.
+        </div>
+      </div>
+    </section>
+
+    <section class="story-section" aria-labelledby="story-choice-title">
+      <h2 id="story-choice-title">What happens next?</h2>
+      <div id="story-choices-wrap">
+        <div class="story-empty" id="story-choices-empty">
+          Choices appear here once you have at least one chapter.
+        </div>
+        <div class="story-choices" id="story-choices" hidden></div>
+      </div>
+      <div class="story-finished-banner" id="story-finished" hidden>
+        This story has reached its maximum length. Reset to start a new one.
+      </div>
+      <div class="story-actions" style="margin-top: 0.75rem;">
+        <button type="button" id="story-begin">Begin story</button>
+        <button type="button" id="story-reset" class="secondary">Reset</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="./procedural-story.js" defer></script>
+  <!-- T-053 AI companion persistent chat bubble -->
+  <script src="./companion.js" defer></script>
+</body>
+</html>
