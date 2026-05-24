@@ -27,6 +27,7 @@ const tenant = useTenant();
         <RouterLink to="/readiness" class="layout__nav-link">Readiness</RouterLink>
         <RouterLink to="/attempts" class="layout__nav-link">Attempts</RouterLink>
         <RouterLink to="/tutor" class="layout__nav-link">Tutor</RouterLink>
+        <RouterLink to="/leaderboards" class="layout__nav-link">Leaderboards</RouterLink>
         <a href="/latvian-a2-exam-app/" class="layout__nav-link layout__nav-link--external">
           Classic app
         </a>
