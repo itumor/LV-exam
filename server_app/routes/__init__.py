@@ -18,6 +18,7 @@ from . import (  # noqa: F401  (re-exported for the audit list)
     admin,
     attempts,
     auth,
+    avatars,
     billing,
     companion,
     curriculum,
@@ -76,6 +77,7 @@ for _module in (
     story,
     leaderboards,
     procedural_story,
+    avatars,
 ):
     for _method, _pattern in _module.ROUTES:
         ROUTES.append((_method, _pattern, _module.__name__.rsplit(".", 1)[-1]))
@@ -85,6 +87,7 @@ __all__ = [
     "admin",
     "attempts",
     "auth",
+    "avatars",
     "billing",
     "companion",
     "curriculum",

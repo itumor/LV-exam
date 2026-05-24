@@ -1088,6 +1088,18 @@ function renderDashboard() {
            <button class="btn btn-primary" type="submit">Save profile</button>
          </form>
        </article>
+       <article class="dashboard-card avatars-card">
+         <h3>Avatar &amp; cosmetics</h3>
+         <p class="dashboard-subtitle">Pick the avatar shown next to your name. Free skins are always available; XP skins unlock as you earn points; premium skins require a subscription.</p>
+         <div class="avatars-filter" role="tablist" aria-label="Avatar filter">
+           <button type="button" class="btn btn-outline-light btn-sm" data-avatar-filter="all" aria-pressed="true">All</button>
+           <button type="button" class="btn btn-outline-light btn-sm" data-avatar-filter="unpaid" aria-pressed="false">Free / XP</button>
+           <button type="button" class="btn btn-outline-light btn-sm" data-avatar-filter="paid" aria-pressed="false">Premium</button>
+         </div>
+         <div id="avatar-picker" class="avatars-grid" aria-live="polite">
+           <p class="empty-message">Loading avatars…</p>
+         </div>
+       </article>
        <article class="dashboard-card metrics">
          <div class="dashboard-metric"><span>Attempts taken</span><strong>${escapeHtml(summary.attempts_taken ?? 0)}</strong></div>
          <div class="dashboard-metric"><span>Latest score</span><strong>${escapeHtml(latestScore)}</strong></div>
@@ -1132,13 +1144,143 @@ function renderDashboard() {
    els.dashboardOutput.querySelector("#delete-account-button")?.addEventListener("click", () => deleteAccount());
    els.dashboardOutput.querySelector("#export-account-button")?.addEventListener("click", () => exportAccount());
    els.dashboardOutput.querySelector("#profile-form")?.addEventListener("submit", handleProfileSubmit);
-   
+
+   // T-051 — avatar picker. Kick off the catalog fetch + bind filter
+   // pills. The fetch updates the picker grid in place so the rest of
+   // the dashboard stays visible while it loads.
+   loadAvatarPicker().catch((error) => {
+     console.warn("avatar picker load failed", error);
+   });
+   els.dashboardOutput.querySelectorAll("[data-avatar-filter]")?.forEach((btn) => {
+     btn.addEventListener("click", () => {
+       const filter = btn.getAttribute("data-avatar-filter") || "all";
+       state.avatars.filter = filter;
+       els.dashboardOutput.querySelectorAll("[data-avatar-filter]").forEach((other) => {
+         other.setAttribute(
+           "aria-pressed",
+           other === btn ? "true" : "false"
+         );
+       });
+       renderAvatarPicker();
+     });
+   });
+
    // Initialize chart if we have data
 if (analytics.trends && analytics.trends.length > 0) {
       initProgressChart(analytics.trends);
     }
     els.dashboardOutput.querySelector("#reset-learning-progress")?.addEventListener("click", () => resetLearningProgress());
   }
+
+// T-051 — Avatar picker helpers ------------------------------------------------
+// Every value interpolated into the picker's HTML goes through the
+// project-wide `escapeHtml` sanitizer (see end of file), mirroring the
+// same pattern used by `renderDashboard` and its sibling card renderers.
+
+async function loadAvatarPicker() {
+  if (state.auth.status !== "authenticated") {
+    return;
+  }
+  try {
+    const response = await fetch("/api/avatars", {
+      credentials: "same-origin"
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const payload = await response.json();
+    state.avatars.items = Array.isArray(payload.items) ? payload.items : [];
+    state.avatars.equipped = payload.equipped || null;
+    state.avatars.error = "";
+  } catch (error) {
+    state.avatars.error = error.message || "Failed to load avatars";
+  }
+  renderAvatarPicker();
+}
+
+function renderAvatarPicker() {
+  const container = els.dashboardOutput?.querySelector("#avatar-picker");
+  if (!container) {
+    return;
+  }
+  if (state.avatars.error) {
+    container.textContent = state.avatars.error;
+    return;
+  }
+  let items = state.avatars.items || [];
+  if (state.avatars.filter === "paid") {
+    items = items.filter((it) => it.avatar.tier === "premium");
+  } else if (state.avatars.filter === "unpaid") {
+    items = items.filter((it) => it.avatar.tier !== "premium");
+  }
+  if (!items.length) {
+    container.textContent = "No avatars in this category yet.";
+    return;
+  }
+  // All interpolations below are sanitized via `escapeHtml` — same pattern as
+  // renderWeakSkillsGrid / renderDashboard markup above. No untrusted HTML.
+  container.innerHTML = items.map((item) => {
+    const a = item.avatar;
+    const locked = !item.unlocked;
+    const equipped = !!item.equipped;
+    const lockedReason = item.locked_reason
+      ? `<span class="avatar-locked-reason">${escapeHtml(item.locked_reason)}</span>`
+      : "";
+    const action = locked
+      ? `<button type="button" class="btn btn-outline-light btn-sm" disabled aria-disabled="true">${escapeHtml(item.locked_reason || "Locked")}</button>`
+      : equipped
+        ? `<button type="button" class="btn btn-success btn-sm" disabled aria-disabled="true">Equipped</button>`
+        : `<button type="button" class="btn btn-primary btn-sm" data-equip-avatar="${escapeHtml(a.id)}">Equip</button>`;
+    return `
+      <div class="avatar-card ${locked ? "is-locked" : ""} ${equipped ? "is-equipped" : ""}" data-avatar-id="${escapeHtml(a.id)}">
+        <div class="avatar-art" role="img" aria-label="${escapeHtml(a.display_name)}">
+          <img src="${escapeHtml(a.art_ref)}" alt="${escapeHtml(a.display_name)}" loading="lazy" onerror="this.style.visibility='hidden'">
+        </div>
+        <div class="avatar-meta">
+          <strong>${escapeHtml(a.display_name)}</strong>
+          <span class="avatar-tier avatar-tier-${escapeHtml(a.tier)}">${escapeHtml(a.tier)}</span>
+        </div>
+        <p class="avatar-description">${escapeHtml(a.description || "")}</p>
+        ${lockedReason}
+        <div class="avatar-actions">${action}</div>
+      </div>
+    `;
+  }).join("");
+  container.querySelectorAll("[data-equip-avatar]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-equip-avatar");
+      if (id) {
+        equipAvatar(id).catch((error) => {
+          console.warn("equip avatar failed", error);
+        });
+      }
+    });
+  });
+}
+
+async function equipAvatar(avatarId) {
+  if (!avatarId) return;
+  try {
+    const response = await fetch("/api/avatars/equip", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ avatar_id: avatarId })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      showToast(result.error === "avatar_locked"
+        ? `Avatar locked: ${result.reason || "subscriber only"}`
+        : (result.error || `Equip failed (HTTP ${response.status})`));
+      return;
+    }
+    // Refresh the picker so unlocked/equipped state stays in sync.
+    await loadAvatarPicker();
+    showToast(`Equipped ${result.equipped?.avatar?.display_name || "avatar"}`);
+  } catch (error) {
+    showToast(error.message || "Equip failed");
+  }
+}
 
 function renderWeakSkillsGrid() {
   const weakSkills = getWeakSkillsSummary();

@@ -1,0 +1,9 @@
+{
+  "id": "free-commuter",
+  "display_name": "Commuter",
+  "description": "Tram ticket in hand, headphones on — the everyday Latvian commuter. Free for every learner.",
+  "art_ref": "/assets/avatars/free-commuter.svg",
+  "rarity": "common",
+  "tier": "free",
+  "unlock": {"kind": "free"}
+}

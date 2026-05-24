@@ -1,0 +1,9 @@
+{
+  "id": "xp-midsummer-dancer",
+  "display_name": "Midsummer Dancer",
+  "description": "2 500 XP. Crowned with an oak-leaf wreath for Jāņi, ready to dance until sunrise.",
+  "art_ref": "/assets/avatars/xp-midsummer-dancer.svg",
+  "rarity": "rare",
+  "tier": "xp",
+  "unlock": {"kind": "xp", "xp": 2500}
+}

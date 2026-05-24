@@ -1,0 +1,9 @@
+{
+  "id": "xp-citizen",
+  "display_name": "Citizen",
+  "description": "6 000 XP. The highest XP avatar — passport in pocket, the Citizen has earned a place in the community.",
+  "art_ref": "/assets/avatars/xp-citizen.svg",
+  "rarity": "epic",
+  "tier": "xp",
+  "unlock": {"kind": "xp", "xp": 6000}
+}

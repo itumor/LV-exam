@@ -1,0 +1,9 @@
+{
+  "id": "xp-apprentice",
+  "display_name": "Apprentice",
+  "description": "Awarded at 150 XP — you've built a study habit. The Apprentice wears a freshly-pressed school uniform.",
+  "art_ref": "/assets/avatars/xp-apprentice.svg",
+  "rarity": "common",
+  "tier": "xp",
+  "unlock": {"kind": "xp", "xp": 150}
+}

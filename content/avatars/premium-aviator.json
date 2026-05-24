@@ -1,0 +1,9 @@
+{
+  "id": "premium-aviator",
+  "display_name": "Aviator",
+  "description": "Subscriber-only. Riga International Airport pilot — cap, epaulettes, and an easy smile.",
+  "art_ref": "/assets/avatars/premium-aviator.svg",
+  "rarity": "legendary",
+  "tier": "premium",
+  "unlock": {"kind": "premium"}
+}

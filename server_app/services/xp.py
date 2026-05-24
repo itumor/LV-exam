@@ -463,6 +463,19 @@ def award_xp(
     streak = update_streak(conn, account_id, now=instant)
     total_xp = _total_xp(conn, account_id)
 
+    # T-051 — auto-grant any XP-tier avatar unlocks the learner just
+    # crossed. Lazy import keeps the XP module free of an avatar
+    # dependency at import time (the avatars module reads ``xp_log``,
+    # so the two would otherwise form an import cycle if pulled in
+    # eagerly). Failures here MUST NOT break the XP award itself —
+    # cosmetics are a side-effect, never a precondition.
+    try:
+        from server_app.services import avatars as _avatars_service
+
+        _avatars_service.grant_xp_unlocks(conn, account_id, now=instant)
+    except Exception as exc:  # noqa: BLE001 — never fail an XP award
+        logger.warning("xp: avatar auto-grant failed — %s", exc)
+
     logger.info(
         "xp_awarded account=%s kind=%s amount=%s total=%s streak=%s",
         account_id,

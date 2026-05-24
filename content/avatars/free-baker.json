@@ -1,0 +1,9 @@
+{
+  "id": "free-baker",
+  "display_name": "Baker",
+  "description": "Apron dusted with rye flour — the friendly maiznīca apprentice. Available to every account.",
+  "art_ref": "/assets/avatars/free-baker.svg",
+  "rarity": "common",
+  "tier": "free",
+  "unlock": {"kind": "free"}
+}

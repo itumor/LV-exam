@@ -1,0 +1,9 @@
+{
+  "id": "xp-mushroom-picker",
+  "display_name": "Mushroom Picker",
+  "description": "1 500 XP. The autumn forest expert — wicker basket, rubber boots, and a quiet pride about secret spots.",
+  "art_ref": "/assets/avatars/xp-mushroom-picker.svg",
+  "rarity": "rare",
+  "tier": "xp",
+  "unlock": {"kind": "xp", "xp": 1500}
+}

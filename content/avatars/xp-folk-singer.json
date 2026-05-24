@@ -1,0 +1,9 @@
+{
+  "id": "xp-folk-singer",
+  "display_name": "Folk Singer",
+  "description": "Unlocked at 300 XP. The Folk Singer carries a kokle and hums a daina under her breath.",
+  "art_ref": "/assets/avatars/xp-folk-singer.svg",
+  "rarity": "uncommon",
+  "tier": "xp",
+  "unlock": {"kind": "xp", "xp": 300}
+}
