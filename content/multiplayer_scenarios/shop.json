@@ -1,0 +1,44 @@
+{
+  "id": "shop",
+  "title": "Veikalā (At the shop)",
+  "summary": "Two shoppers at Rimi help each other find items, compare prices, and check out together.",
+  "location": "Rimi lielveikals, Rīga",
+  "language_level": "A2",
+  "estimated_duration_minutes": 7,
+  "roles": [
+    {
+      "id": "shopper_a",
+      "name": "Pircējs A",
+      "label": "Shopper A",
+      "objective": "Ask for help finding bread, milk, and fruit. Suggest splitting the queue.",
+      "starter_lines": [
+        "Sveiki, vai jūs zināt, kur ir maize?",
+        "Es meklēju arī pienu un āboļus.",
+        "Iesim divās rindās, lai būtu ātrāk."
+      ],
+      "vocabulary_focus": ["maize", "piens", "āboli", "rinda", "kase"]
+    },
+    {
+      "id": "shopper_b",
+      "name": "Pircējs B",
+      "label": "Shopper B",
+      "objective": "Help locate items, compare prices, and offer to share a shopping basket.",
+      "starter_lines": [
+        "Sveiki! Maize ir tur, otrajā plauktā.",
+        "Piens ir aukstā vitrīnā pie sienas.",
+        "Vai jūs vēlaties dalīties ar grozu?"
+      ],
+      "vocabulary_focus": ["plaukts", "vitrīna", "grozs", "atlaide", "akcija"]
+    }
+  ],
+  "objectives_shared": [
+    "Greet each other in Latvian.",
+    "Help find at least two products.",
+    "Discuss one price.",
+    "Wish each other a nice day at checkout."
+  ],
+  "safety_rules": [
+    "Stay on the shopping topic.",
+    "No personal contact info, no loyalty-card numbers."
+  ]
+}
