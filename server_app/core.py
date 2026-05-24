@@ -4949,7 +4949,39 @@ class AppHandler(SimpleHTTPRequestHandler):
             log_event("error", "api_error", path=self.path, error=type(error).__name__)
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
+    # ------------------------------------------------------------------
+    # Billing handler shims (T-020b).
+    #
+    # The real bodies live in :mod:`server_app.routes.billing`. These
+    # one-line forwarders preserve the method names so legacy patches
+    # (``patch.object(server.AppHandler, "handle_checkout_session", …)``)
+    # keep working while the actual logic is owned by the routes module.
+    # Lazy import avoids the import-time circular dep
+    # (``server_app.core`` is mid-load when AppHandler is being defined).
+    # ------------------------------------------------------------------
+
     def handle_checkout_session(self) -> None:
+        from server_app.routes import billing as _billing_routes
+        _billing_routes.handle_checkout_session(self)
+
+    def handle_consume_exam(self) -> None:
+        from server_app.routes import billing as _billing_routes
+        _billing_routes.handle_consume_exam(self)
+
+    def handle_consume_ai_credit(self) -> None:
+        from server_app.routes import billing as _billing_routes
+        _billing_routes.handle_consume_ai_credit(self)
+
+    def handle_stripe_webhook(self) -> None:
+        from server_app.routes import billing as _billing_routes
+        _billing_routes.handle_stripe_webhook(self)
+
+    def handle_billing_refund(self) -> None:
+        """T-016 self-serve 7-day refund — shim, body in routes.billing."""
+        from server_app.routes import billing as _billing_routes
+        _billing_routes.handle_billing_refund(self)
+
+    def _peeled_orig_handle_checkout_session(self) -> None:
         try:
             payload = safe_read_json(self)
             learner_id = str(payload.get("learner_id", "")).strip()
