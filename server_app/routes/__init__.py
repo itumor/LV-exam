@@ -25,6 +25,7 @@ from . import (  # noqa: F401  (re-exported for the audit list)
     legal,
     listening_feed,
     metrics,
+    mock_exam,
     npc,
     rate_limit,
     sso,
@@ -54,6 +55,7 @@ for _module in (
     tenant,
     npc,
     voice,
+    mock_exam,
 ):
     for _method, _pattern in _module.ROUTES:
         ROUTES.append((_method, _pattern, _module.__name__.rsplit(".", 1)[-1]))
@@ -70,6 +72,7 @@ __all__ = [
     "legal",
     "listening_feed",
     "metrics",
+    "mock_exam",
     "npc",
     "rate_limit",
     "sso",
