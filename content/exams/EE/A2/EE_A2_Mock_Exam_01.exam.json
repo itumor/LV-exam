@@ -1,0 +1,385 @@
+{
+  "schema_version": "1.0",
+  "version": "2026.05.0",
+  "exam_id": "ee-a2-01",
+  "slug": "ee-a2-01",
+  "title": "Eesti keele A2 prooviksam 01 — Igapäevane suhtlus",
+  "level": "A2",
+  "language": "et",
+  "status": "draft",
+  "content_version": 1,
+  "is_immutable": false,
+  "source": {
+    "markdown_path": "content/exams/EE/A2/EE_A2_Mock_Exam_01.md",
+    "attachment_root": "content/exams/EE/A2/audio"
+  },
+  "workflow": {
+    "status_values": ["draft", "review", "published", "archived"],
+    "immutable_statuses": ["published", "archived"],
+    "current_status": "draft"
+  },
+  "scoring": {
+    "total_points": 60,
+    "skill_points": {
+      "listening": 15,
+      "reading": 15,
+      "writing": 15,
+      "speaking": 15
+    },
+    "minimum_per_skill": 9,
+    "task_point_allocation": {
+      "listening": {"task1": 6, "task2": 5, "task3": 4},
+      "reading":   {"task1": 6, "task2": 5, "task3": 4},
+      "writing":   {"task1": 5, "task2": 4, "task3": 6},
+      "speaking":  {"task1": 5, "task2": 5, "task3": 5}
+    },
+    "pass_rule": {
+      "minimum_per_skill": 9,
+      "total_points": 60,
+      "description": "Estonian A2 pass rule: at least 9/15 in every skill (CEFR A2, same threshold as Latvian A2)."
+    }
+  },
+  "assets": {
+    "audio": [
+      "content/exams/EE/A2/audio/ee_a2_01_kuulamine_1.mp3",
+      "content/exams/EE/A2/audio/ee_a2_01_kuulamine_2.mp3",
+      "content/exams/EE/A2/audio/ee_a2_01_kuulamine_3.mp3",
+      "content/exams/EE/A2/audio/ee_a2_01_raakimine_1.mp3"
+    ]
+  },
+  "sections": [
+    {
+      "skill": "listening",
+      "title": "Kuulamise ülesanded",
+      "points_max": 15,
+      "minutes": 30,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. ülesanne — Teadaanne raudteejaamas",
+          "type": "listening_multiple_choice",
+          "scoring_mode": "objective",
+          "points_max": 6,
+          "instruction": "PLACEHOLDER — Kuulake teadaannet raudteejaamas. Valige õige vastus. Helisalvestus kõlab kaks korda.",
+          "audio_assets": [
+            {"path": "content/exams/EE/A2/audio/ee_a2_01_kuulamine_1.mp3", "label": "Teadaanne raudteejaamas", "kind": "audio"}
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "multiple_choice",
+              "prompt": "PLACEHOLDER — Millisesse linna rong sõidab?",
+              "options": [
+                {"label": "a", "text": "Tallinn"},
+                {"label": "b", "text": "Tartu"},
+                {"label": "c", "text": "Pärnu"}
+              ],
+              "correct_answers": ["a"]
+            },
+            {
+              "number": 2,
+              "kind": "multiple_choice",
+              "prompt": "PLACEHOLDER — Millal rong väljub?",
+              "options": [
+                {"label": "a", "text": "9:15"},
+                {"label": "b", "text": "10:30"},
+                {"label": "c", "text": "11:45"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 3,
+              "kind": "multiple_choice",
+              "prompt": "PLACEHOLDER — Milliselt platvormilt?",
+              "options": [
+                {"label": "a", "text": "1. platvorm"},
+                {"label": "b", "text": "2. platvorm"},
+                {"label": "c", "text": "3. platvorm"}
+              ],
+              "correct_answers": ["c"]
+            },
+            {
+              "number": 4,
+              "kind": "multiple_choice",
+              "prompt": "PLACEHOLDER — Kui palju pilet maksab?",
+              "options": [
+                {"label": "a", "text": "5 eurot"},
+                {"label": "b", "text": "8 eurot"},
+                {"label": "c", "text": "12 eurot"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 5,
+              "kind": "multiple_choice",
+              "prompt": "PLACEHOLDER — Kas piletit saab osta internetist?",
+              "options": [
+                {"label": "a", "text": "Jah"},
+                {"label": "b", "text": "Ei"},
+                {"label": "c", "text": "Pole selge"}
+              ],
+              "correct_answers": ["a"]
+            },
+            {
+              "number": 6,
+              "kind": "multiple_choice",
+              "prompt": "PLACEHOLDER — Mitu vagunit rongil on?",
+              "options": [
+                {"label": "a", "text": "4"},
+                {"label": "b", "text": "6"},
+                {"label": "c", "text": "8"}
+              ],
+              "correct_answers": ["b"]
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2. ülesanne — Vestlus poes",
+          "type": "listening_true_false",
+          "scoring_mode": "objective",
+          "points_max": 5,
+          "instruction": "PLACEHOLDER — Kuulake vestlust poes. Märkige, kas väited on õiged (jah) või valed (ei).",
+          "audio_assets": [
+            {"path": "content/exams/EE/A2/audio/ee_a2_01_kuulamine_2.mp3", "label": "Vestlus poes", "kind": "audio"}
+          ],
+          "questions": [
+            {"number": 1, "kind": "true_false", "prompt": "PLACEHOLDER — Klient ostab piima.", "correct_answers": ["jah"]},
+            {"number": 2, "kind": "true_false", "prompt": "PLACEHOLDER — Leib maksab 2 eurot.", "correct_answers": ["ei"]},
+            {"number": 3, "kind": "true_false", "prompt": "PLACEHOLDER — Pood on lahti kella 22-ni.", "correct_answers": ["jah"]},
+            {"number": 4, "kind": "true_false", "prompt": "PLACEHOLDER — Klient maksab sularahas.", "correct_answers": ["ei"]},
+            {"number": 5, "kind": "true_false", "prompt": "PLACEHOLDER — Müüja pakub allahindlust.", "correct_answers": ["jah"]}
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3. ülesanne — Lühiteated",
+          "type": "listening_gap_fill",
+          "scoring_mode": "objective",
+          "points_max": 4,
+          "instruction": "PLACEHOLDER — Kuulake nelja lühiteadet. Kirjutage üles puuduv info.",
+          "audio_assets": [
+            {"path": "content/exams/EE/A2/audio/ee_a2_01_kuulamine_3.mp3", "label": "Lühiteated", "kind": "audio"}
+          ],
+          "questions": [
+            {"number": 1, "kind": "gap_fill", "prompt": "PLACEHOLDER — Kohtumise kuupäev: _____", "correct_answers": ["12. aprill"]},
+            {"number": 2, "kind": "gap_fill", "prompt": "PLACEHOLDER — Algus: _____", "correct_answers": ["18:00"]},
+            {"number": 3, "kind": "gap_fill", "prompt": "PLACEHOLDER — Koht: _____", "correct_answers": ["Pikk tn 5"]},
+            {"number": 4, "kind": "gap_fill", "prompt": "PLACEHOLDER — Telefon: _____", "correct_answers": ["+372 5000 1234"]}
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "reading",
+      "title": "Lugemise ülesanded",
+      "points_max": 15,
+      "minutes": 25,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. ülesanne — Kuulutus",
+          "type": "reading_multiple_choice",
+          "scoring_mode": "objective",
+          "points_max": 6,
+          "instruction": "PLACEHOLDER — Lugege kuulutust ja vastake küsimustele.",
+          "questions": [
+            {"number": 1, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Mida kuulutuses pakutakse?", "options": [{"label": "a", "text": "Korter üürile"}, {"label": "b", "text": "Töökoht"}, {"label": "c", "text": "Auto"}], "correct_answers": ["a"]},
+            {"number": 2, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Mitu tuba?", "options": [{"label": "a", "text": "1"}, {"label": "b", "text": "2"}, {"label": "c", "text": "3"}], "correct_answers": ["b"]},
+            {"number": 3, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Millises linnas?", "options": [{"label": "a", "text": "Tallinn"}, {"label": "b", "text": "Tartu"}, {"label": "c", "text": "Narva"}], "correct_answers": ["a"]},
+            {"number": 4, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Kuuhind?", "options": [{"label": "a", "text": "300 €"}, {"label": "b", "text": "450 €"}, {"label": "c", "text": "600 €"}], "correct_answers": ["b"]},
+            {"number": 5, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Kas rõdu on?", "options": [{"label": "a", "text": "Jah"}, {"label": "b", "text": "Ei"}, {"label": "c", "text": "Ei ole märgitud"}], "correct_answers": ["a"]},
+            {"number": 6, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Kuidas ühendust võtta?", "options": [{"label": "a", "text": "Telefon"}, {"label": "b", "text": "E-post"}, {"label": "c", "text": "Mõlemad"}], "correct_answers": ["c"]}
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2. ülesanne — Lühitekstid ja pealkirjad",
+          "type": "reading_matching",
+          "scoring_mode": "objective",
+          "points_max": 5,
+          "instruction": "PLACEHOLDER — Sobitage viis pealkirja sobivate tekstidega.",
+          "questions": [
+            {"number": 1, "kind": "matching", "prompt": "PLACEHOLDER — Tekst 1 → pealkiri?", "correct_answers": ["A"]},
+            {"number": 2, "kind": "matching", "prompt": "PLACEHOLDER — Tekst 2 → pealkiri?", "correct_answers": ["C"]},
+            {"number": 3, "kind": "matching", "prompt": "PLACEHOLDER — Tekst 3 → pealkiri?", "correct_answers": ["E"]},
+            {"number": 4, "kind": "matching", "prompt": "PLACEHOLDER — Tekst 4 → pealkiri?", "correct_answers": ["B"]},
+            {"number": 5, "kind": "matching", "prompt": "PLACEHOLDER — Tekst 5 → pealkiri?", "correct_answers": ["D"]}
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3. ülesanne — Lühisõnum",
+          "type": "reading_text_choice",
+          "scoring_mode": "objective",
+          "points_max": 4,
+          "instruction": "PLACEHOLDER — Lugege sõnumit ja vastake neljale küsimusele.",
+          "questions": [
+            {"number": 1, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Kes sõnumit kirjutab?", "options": [{"label": "a", "text": "Õpetaja"}, {"label": "b", "text": "Ema"}, {"label": "c", "text": "Sõber"}], "correct_answers": ["b"]},
+            {"number": 2, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Millest sõnum räägib?", "options": [{"label": "a", "text": "Reisist"}, {"label": "b", "text": "Lõunast"}, {"label": "c", "text": "Ostudest"}], "correct_answers": ["c"]},
+            {"number": 3, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Mida tuleb osta?", "options": [{"label": "a", "text": "Leiba"}, {"label": "b", "text": "Piima"}, {"label": "c", "text": "Juustu"}], "correct_answers": ["a"]},
+            {"number": 4, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Millal ema tagasi tuleb?", "options": [{"label": "a", "text": "1 tunni pärast"}, {"label": "b", "text": "2 tunni pärast"}, {"label": "c", "text": "3 tunni pärast"}], "correct_answers": ["b"]}
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "writing",
+      "title": "Kirjutamise ülesanded",
+      "points_max": 15,
+      "minutes": 30,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. ülesanne — Lühike sõnum",
+          "type": "writing_short_message",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "PLACEHOLDER — Kirjutage sõbrale lühike SMS (umbes 30–40 sõna). Teatage, et tulete hiljem, ja selgitage miks.",
+          "requirements": [
+            "PLACEHOLDER — 30–40 sõna",
+            "PLACEHOLDER — tervitus",
+            "PLACEHOLDER — vabandus",
+            "PLACEHOLDER — põhjus"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "PLACEHOLDER — Kirjutage SMS vastavalt juhistele.",
+              "minimum_words": 30
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2. ülesanne — Käändeülesanne",
+          "type": "writing_inflection",
+          "scoring_mode": "objective",
+          "points_max": 4,
+          "instruction": "PLACEHOLDER — Pange sõnad vajalikku käändevormi.",
+          "questions": [
+            {"number": 1, "kind": "inflection", "prompt": "PLACEHOLDER — Ma lähen _____ (pood).", "lemma": "pood", "correct_answers": ["poodi"]},
+            {"number": 2, "kind": "inflection", "prompt": "PLACEHOLDER — Eile rääkisin _____ (õpetaja).", "lemma": "õpetaja", "correct_answers": ["õpetajaga"]},
+            {"number": 3, "kind": "inflection", "prompt": "PLACEHOLDER — Me elame _____ (Tallinn).", "lemma": "Tallinn", "correct_answers": ["Tallinnas"]},
+            {"number": 4, "kind": "inflection", "prompt": "PLACEHOLDER — Raamat on _____ (laud) peal.", "lemma": "laud", "correct_answers": ["laua"]}
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3. ülesanne — Isiklik kiri",
+          "type": "writing_personal_letter",
+          "scoring_mode": "subjective",
+          "points_max": 6,
+          "instruction": "PLACEHOLDER — Kirjutage sõbrale kiri (umbes 60–80 sõna). Rääkige oma nädalavahetusest: mida tegite, kus käisite, mis meeldis kõige rohkem.",
+          "requirements": [
+            "PLACEHOLDER — 60–80 sõna",
+            "PLACEHOLDER — tervitus ja hüvastijätt",
+            "PLACEHOLDER — vähemalt kolm tegevust",
+            "PLACEHOLDER — üks isiklik hinnang"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "PLACEHOLDER — Kirjutage kiri vastavalt juhistele.",
+              "minimum_words": 60
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "speaking",
+      "title": "Rääkimise ülesanded",
+      "points_max": 15,
+      "minutes": 15,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. ülesanne — Monoloog endast",
+          "type": "speaking_monologue",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "PLACEHOLDER — Rääkige endast: nimi, vanus, pere, kus elate, mida töötate või õpite. Rääkige umbes 1–2 minutit.",
+          "audio_assets": [
+            {"path": "content/exams/EE/A2/audio/ee_a2_01_raakimine_1.mp3", "label": "Eksamineerija küsimused (monoloog)", "kind": "audio"}
+          ],
+          "requirements": [
+            "PLACEHOLDER — vähemalt 1 min kõnet",
+            "PLACEHOLDER — vähemalt 5 lauset",
+            "PLACEHOLDER — nimi ja vanus",
+            "PLACEHOLDER — pere või töö"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "PLACEHOLDER — Rääkige endast vastavalt juhistele."
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2. ülesanne — Dialoog: ost poes",
+          "type": "speaking_dialogue",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "PLACEHOLDER — Mängige dialoog: ostke poest puuvilju. Tervitage, küsige hinda, maksake, jätke hüvasti.",
+          "requirements": [
+            "PLACEHOLDER — täislaused",
+            "PLACEHOLDER — vähemalt 2 küsimust",
+            "PLACEHOLDER — tervitus ja hüvastijätt",
+            "PLACEHOLDER — viisakas keel"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "PLACEHOLDER — Mängige ostmise dialoog eksamineerijaga."
+            }
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3. ülesanne — Pildi kirjeldus",
+          "type": "speaking_picture_description",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "PLACEHOLDER — Vaadake pilti ja kirjeldage seda. Öelge, mis on kujutatud, mida inimesed teevad, kus see toimub. Rääkige umbes 1–2 minutit.",
+          "requirements": [
+            "PLACEHOLDER — vähemalt 5 lauset",
+            "PLACEHOLDER — inimesed ja tegevused",
+            "PLACEHOLDER — koht",
+            "PLACEHOLDER — üks isiklik kommentaar"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "PLACEHOLDER — Kirjeldage pilti vastavalt juhistele."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "answer_key": {
+    "listening": {
+      "task1": ["a", "b", "c", "b", "a", "b"],
+      "task2": ["jah", "ei", "jah", "ei", "jah"],
+      "task3": ["12. aprill", "18:00", "Pikk tn 5", "+372 5000 1234"]
+    },
+    "reading": {
+      "task1": ["a", "b", "a", "b", "a", "c"],
+      "task2": ["A", "C", "E", "B", "D"],
+      "task3": ["b", "c", "a", "b"]
+    },
+    "writing": {
+      "task2": ["poodi", "õpetajaga", "Tallinnas", "laua"]
+    }
+  },
+  "references": {
+    "note": "T-063 PLACEHOLDER manifest. Content is a schema-valid scaffold for the Estonian A2 fork. Real exam text + audio is produced in follow-up tickets — listening transcripts and writing model answers are intentionally not included yet."
+  }
+}

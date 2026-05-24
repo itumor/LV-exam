@@ -1,10 +1,10 @@
 /*
- * T-062 — Frontend language switcher
+ * T-062 — Frontend language switcher (T-063 adds et-EE)
  *
  * Renders a tiny dropdown inside the unified-header mount that lets the
- * learner pick between the three locales the platform ships: Latvian
- * (lv-LV), English (en-US) and Lithuanian (lt-LT). The selection is
- * persisted to:
+ * learner pick between the four locales the platform ships: Latvian
+ * (lv-LV), English (en-US), Lithuanian (lt-LT) and Estonian (et-EE).
+ * The selection is persisted to:
  *
  *   1. localStorage  (key: "lvcodex.locale") — survives reloads,
  *   2. document.cookie "locale=<code>; Path=/; Max-Age=31536000;
@@ -44,7 +44,8 @@
   var SUPPORTED = [
     { code: "lv-LV", name: "Latviešu", english: "Latvian" },
     { code: "en-US", name: "English", english: "English" },
-    { code: "lt-LT", name: "Lietuvių", english: "Lithuanian" }
+    { code: "lt-LT", name: "Lietuvių", english: "Lithuanian" },
+    { code: "et-EE", name: "Eesti", english: "Estonian" }
   ];
 
   function readStorage() {

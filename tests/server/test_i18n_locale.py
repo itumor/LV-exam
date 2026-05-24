@@ -1,17 +1,17 @@
-"""Unit tests for T-062 — i18n locale resolution and fallback.
+"""Unit tests for T-062 / T-063 — i18n locale resolution and fallback.
 
 Covers the deliverables in the T-062 plan:
 
-* (1) The locale catalog loads lv-LV, en-US and lt-LT from
-      ``server_app/services/locales/``.
+* (1) The locale catalog loads lv-LV, en-US, lt-LT and et-EE from
+      ``server_app/services/locales/`` (T-063 adds et-EE).
 * (2) ``resolve_locale`` honors the candidate chain (cookie/query/header)
       and falls back to ``lv-LV`` when nothing matches.
 * (3) ``Accept-Language`` parsing returns highest-quality first and
       tolerates malformed input.
 * (4) ``translate`` falls back to the default locale, then to the key,
       so a missing translation never crashes a request.
-* (5) String fallback works across languages — Lithuanian inherits any
-      key it does not explicitly override from ``lv-LV``.
+* (5) String fallback works across languages — Lithuanian and Estonian
+      inherit any key they do not explicitly override from ``lv-LV``.
 """
 
 from __future__ import annotations
@@ -53,23 +53,33 @@ class LocaleCatalogTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.i18n = _load_i18n()
 
-    def test_three_locales_shipped(self) -> None:
+    def test_four_locales_shipped(self) -> None:
         catalog = self.i18n.load_catalog()
-        for expected in ("lv-LV", "en-US", "lt-LT"):
+        # T-063 adds et-EE alongside the original lv-LV / en-US / lt-LT trio.
+        for expected in ("lv-LV", "en-US", "lt-LT", "et-EE"):
             self.assertIn(expected, catalog, f"missing locale: {expected}")
 
     def test_available_locales_orders_declared_first(self) -> None:
         available = self.i18n.available_locales()
         # lv-LV must come first — it is the default locale.
         self.assertEqual(available[0], "lv-LV")
-        # All three declared locales must appear, in declared order.
-        for code in ("lv-LV", "en-US", "lt-LT"):
+        # All four declared locales must appear, in declared order.
+        for code in ("lv-LV", "en-US", "lt-LT", "et-EE"):
             self.assertIn(code, available)
 
     def test_locale_metadata_present(self) -> None:
         meta = self.i18n.describe_locale("lt-LT")
         self.assertEqual(meta["code"], "lt-LT")
         self.assertEqual(meta["english_name"], "Lithuanian")
+        self.assertEqual(meta["direction"], "ltr")
+
+    def test_estonian_locale_metadata_present(self) -> None:
+        """T-063: et-EE describes itself as Estonian."""
+
+        meta = self.i18n.describe_locale("et-EE")
+        self.assertEqual(meta["code"], "et-EE")
+        self.assertEqual(meta["english_name"], "Estonian")
+        self.assertEqual(meta["name"], "Eesti")
         self.assertEqual(meta["direction"], "ltr")
 
     def test_describe_locale_unknown_falls_back(self) -> None:
@@ -167,6 +177,25 @@ class LocaleResolutionTests(unittest.TestCase):
         result = self.i18n.resolve_locale("lt-XX")
         self.assertEqual(result, "lt-LT")
 
+    def test_estonian_explicit_candidate_resolves(self) -> None:
+        """T-063: ``et-EE`` is a first-class candidate."""
+
+        self.assertEqual(self.i18n.resolve_locale("et-EE"), "et-EE")
+
+    def test_estonian_language_only_candidate_matches_family(self) -> None:
+        """T-063: a bare ``"et"`` candidate resolves to et-EE."""
+
+        self.assertEqual(self.i18n.resolve_locale("et"), "et-EE")
+
+    def test_estonian_resolves_from_accept_language(self) -> None:
+        """T-063: an Accept-Language header carrying ``et`` picks et-EE."""
+
+        result = self.i18n.resolve_locale(
+            None,
+            accept_language="et-EE,et;q=0.9,en;q=0.5",
+        )
+        self.assertEqual(result, "et-EE")
+
 
 class TranslationFallbackTests(unittest.TestCase):
     """T-062 (4)+(5): translate() never returns None and falls back."""
@@ -236,6 +265,27 @@ class TranslationFallbackTests(unittest.TestCase):
         lv_pairs = dict(self.i18n.iter_strings("lv-LV"))
         for key in lv_pairs:
             self.assertIn(key, pairs, f"missing fallback key: {key}")
+
+    def test_estonian_translation_is_used(self) -> None:
+        """T-063: et-EE returns Estonian strings for known keys."""
+
+        self.assertEqual(
+            self.i18n.translate("header.signin", locale="et-EE"),
+            "Logi sisse",
+        )
+        self.assertEqual(
+            self.i18n.translate("exam.skill.reading", locale="et-EE"),
+            "Lugemine",
+        )
+
+    def test_estonian_iter_strings_inherits_from_default(self) -> None:
+        """T-063: et-EE strings fall back through lv-LV for any unset key."""
+
+        pairs = dict(self.i18n.iter_strings("et-EE"))
+        self.assertEqual(pairs["header.signin"], "Logi sisse")
+        lv_pairs = dict(self.i18n.iter_strings("lv-LV"))
+        for key in lv_pairs:
+            self.assertIn(key, pairs, f"missing fallback key for et-EE: {key}")
 
 
 if __name__ == "__main__":

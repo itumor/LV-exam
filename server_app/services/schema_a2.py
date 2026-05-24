@@ -181,11 +181,17 @@ def init_a2_schema_tables(conn: sqlite3.Connection) -> None:
 # the existing Latvian rows ("A2"/"B1"/"B2") are not disturbed — the
 # language-fork additions live alongside the original catalog and the
 # frontend picks the right row via the i18n locale.
+#
+# T-063: ``EE-A2`` is the Estonian A2 fork. Like LT-A2 it reuses the
+# canonical 9/15 threshold (Estonian citizenship uses CEFR B1 today, but
+# the A2 sitting still uses a 60% / 9-out-of-15 cut) and lives alongside
+# the Latvian rows.
 _SEED_LEVELS: tuple[tuple[str, str, str, int, int], ...] = (
     ("lvl_a2", "A2", "CEFR A2 (Latvian — naturalization)", 60, 9),
     ("lvl_b1", "B1", "CEFR B1 (Latvian)", 60, 12),
     ("lvl_b2", "B2", "CEFR B2 (Latvian)", 60, 15),
     ("lvl_lt_a2", "LT-A2", "CEFR A2 (Lithuanian — naturalization)", 60, 9),
+    ("lvl_ee_a2", "EE-A2", "CEFR A2 (Estonian — naturalization)", 60, 9),
 )
 
 # (skill_id, level_code, code, name, max_points, ordinal)
@@ -213,6 +219,13 @@ _SEED_SKILLS: tuple[tuple[str, str, str, str, int, int], ...] = (
     ("skl_lt_a2_reading", "LT-A2", "reading", "Skaitymas", 15, 2),
     ("skl_lt_a2_writing", "LT-A2", "writing", "Rašymas", 15, 3),
     ("skl_lt_a2_speaking", "LT-A2", "speaking", "Kalbėjimas", 15, 4),
+    # EE-A2 — Estonian A2 fork (T-063). Same shape as LT-A2 with the four
+    # skill names in Estonian so the readiness/dashboard surfaces render
+    # the right strings when the user picks the et-EE locale.
+    ("skl_ee_a2_listening", "EE-A2", "listening", "Kuulamine", 15, 1),
+    ("skl_ee_a2_reading", "EE-A2", "reading", "Lugemine", 15, 2),
+    ("skl_ee_a2_writing", "EE-A2", "writing", "Kirjutamine", 15, 3),
+    ("skl_ee_a2_speaking", "EE-A2", "speaking", "Rääkimine", 15, 4),
 )
 
 # (task_type_id, skill_code (A2 only), code, format, max_points)
@@ -278,12 +291,13 @@ def ensure_seed_data(conn: sqlite3.Connection) -> dict[str, int]:
             counts["levels"] += 1
 
     # Resolve code -> id for the seeded levels (handles the case where
-    # the row already existed under a different id). T-062 adds ``LT-A2``
-    # (Lithuanian A2 fork) alongside the original Latvian A2/B1/B2 rows.
+    # the row already existed under a different id). T-062 added
+    # ``LT-A2`` (Lithuanian A2 fork) and T-063 added ``EE-A2`` (Estonian
+    # A2 fork) alongside the original Latvian A2/B1/B2 rows.
     level_ids: dict[str, str] = {}
     for row in conn.execute(
         "SELECT id, code FROM exam_levels "
-        "WHERE code IN ('A2','B1','B2','LT-A2')"
+        "WHERE code IN ('A2','B1','B2','LT-A2','EE-A2')"
     ).fetchall():
         level_ids[row["code"]] = row["id"]
 

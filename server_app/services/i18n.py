@@ -1,7 +1,8 @@
-"""i18n service (T-062).
+"""i18n service (T-062, extended T-063).
 
 Tiny, dependency-free internationalization layer used by the Lithuanian
-A2 fork (T-062) and any future locale extension. Owns three concerns:
+A2 fork (T-062), the Estonian A2 fork (T-063), and any future locale
+extension. Owns three concerns:
 
 1. **Locale catalog** — discovers and loads the JSON locale files that
    ship next to this module under ``server_app/services/locales/*.json``.
@@ -31,7 +32,7 @@ Design notes
   never crash a learner-facing request.
 * The default locale is ``lv-LV`` (the original platform language).
   Lithuanian (``lt-LT``) and English (``en-US``) are first-class
-  alongside it as of T-062.
+  alongside it as of T-062; Estonian (``et-EE``) was added in T-063.
 """
 
 from __future__ import annotations
@@ -73,12 +74,12 @@ LOCALES_DIR: Path = Path(__file__).resolve().parent / "locales"
 #: ``default`` keyword.
 DEFAULT_LOCALE: str = "lv-LV"
 
-#: Locales the platform formally supports at T-062. The list is the
-#: union of files that ship under :data:`LOCALES_DIR` and is recomputed
-#: from disk by :func:`available_locales` — this tuple is just the
-#: declared baseline so callers (and the frontend switcher) have a
-#: stable ordering.
-SUPPORTED_LOCALES: tuple[str, ...] = ("lv-LV", "en-US", "lt-LT")
+#: Locales the platform formally supports. The list is the union of
+#: files that ship under :data:`LOCALES_DIR` and is recomputed from disk
+#: by :func:`available_locales` — this tuple is just the declared
+#: baseline so callers (and the frontend switcher) have a stable
+#: ordering. T-062 added ``lt-LT``; T-063 added ``et-EE``.
+SUPPORTED_LOCALES: tuple[str, ...] = ("lv-LV", "en-US", "lt-LT", "et-EE")
 
 
 # ---------------------------------------------------------------------------
