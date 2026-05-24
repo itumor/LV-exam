@@ -46,6 +46,8 @@ from threading import Lock
 from typing import Any
 
 __all__ = [
+    "ALLOWED_DATA_REGIONS",
+    "DEFAULT_DATA_REGION",
     "DEFAULT_TENANT_ID",
     "TENANT_DIR",
     "TenantConfig",
@@ -57,6 +59,7 @@ __all__ = [
     "register_custom_domain",
     "remove_custom_domain",
     "resolve_tenant",
+    "resolve_tenant_by_subdomain",
     "tenant_to_dict",
 ]
 
@@ -91,6 +94,40 @@ _DEFAULT_PALETTE: dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
+# T-065 — Data residency + portal subdomain
+# ---------------------------------------------------------------------------
+#
+# Data-residency tags. The set is intentionally small and closed:
+#
+# * ``eu``       — EU/EEA region pool. Default for commercial tenants.
+#                  Storage + DB pinned to ``fra`` (Fly Frankfurt) per the
+#                  multi-region runbook (``docs/multi-region.md``).
+# * ``us``       — US region pool. Reserved for North-American
+#                  white-label deployments. Storage pinned to ``iad`` /
+#                  Cloudflare R2 ``ENAM`` jurisdiction.
+# * ``lv-only``  — Latvia-only government tier. Storage + DB pinned to
+#                  ``waw`` / on-prem Latvian operator with a DPA in
+#                  place. No cross-border replication is allowed.
+#
+# Any tenant JSON that declares a value outside this set is coerced to
+# ``eu`` (the safe public-cloud default) at load time. The enforcement
+# helper that PINS storage + DB selection per tenant lives in
+# :mod:`server_app.services.residency` and is what callers should go
+# through whenever they need to read or write tenant data.
+
+ALLOWED_DATA_REGIONS: frozenset[str] = frozenset({"eu", "us", "lv-only"})
+DEFAULT_DATA_REGION: str = "eu"
+
+# A portal_subdomain value must be a DNS-safe label (RFC 1123): letters,
+# digits, hyphens; 1-63 chars; cannot start or end with a hyphen. The
+# server needs a single canonical form because it renders the subdomain
+# back into a fully-qualified host without ambiguity.
+_PORTAL_SUBDOMAIN_RE = re.compile(
+    r"^(?!-)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+)
+
+
+# ---------------------------------------------------------------------------
 # Config dataclass (lightweight — no pydantic to keep import budget tiny)
 # ---------------------------------------------------------------------------
 
@@ -115,6 +152,8 @@ class TenantConfig:
         "support_email",
         "custom_domain",
         "host_aliases",
+        "data_region",
+        "portal_subdomain",
     )
 
     def __init__(
@@ -131,6 +170,8 @@ class TenantConfig:
         support_email: str | None = None,
         custom_domain: str | None = None,
         host_aliases: list[str] | None = None,
+        data_region: str | None = None,
+        portal_subdomain: str | None = None,
     ) -> None:
         self.id = id
         self.name = name
@@ -143,6 +184,17 @@ class TenantConfig:
         self.support_email = support_email
         self.custom_domain = custom_domain
         self.host_aliases = list(host_aliases or [])
+        # T-065 — residency tag is closed-set. Unknown / missing values
+        # collapse to ``eu`` (safe public-cloud default). We never coerce
+        # to ``lv-only`` because that would be a fail-OPEN posture (the
+        # gov tier must be opted into explicitly via the tenant JSON).
+        if isinstance(data_region, str) and data_region in ALLOWED_DATA_REGIONS:
+            self.data_region = data_region
+        else:
+            self.data_region = DEFAULT_DATA_REGION
+        # T-065 — portal subdomain is optional. Validation happens at
+        # load time, so an unset / malformed value lands here as ``None``.
+        self.portal_subdomain = portal_subdomain
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         return (
@@ -171,6 +223,8 @@ def tenant_to_dict(tenant: TenantConfig) -> dict[str, Any]:
         "support_email": tenant.support_email,
         "custom_domain": tenant.custom_domain,
         "host_aliases": list(tenant.host_aliases),
+        "data_region": tenant.data_region,
+        "portal_subdomain": tenant.portal_subdomain,
         "css_variables": build_css_variables(tenant),
     }
 
@@ -196,6 +250,37 @@ def _coerce_color(value: Any, fallback: str) -> str:
     if isinstance(value, str) and _is_valid_hex_color(value):
         return value
     return fallback
+
+
+def _is_valid_portal_subdomain(value: str | None) -> bool:
+    """Return True when ``value`` is a DNS-safe single-label subdomain.
+
+    The check is intentionally strict: the subdomain is used to build a
+    canonical fully-qualified host (``<sub>.lvcodex.com`` by default) and
+    we never want a tenant config to inject extra dots or unusual
+    characters that would land traffic on a parent domain.
+    """
+
+    if not isinstance(value, str):
+        return False
+    return bool(_PORTAL_SUBDOMAIN_RE.match(value.strip().lower()))
+
+
+def _coerce_portal_subdomain(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    candidate = value.strip().lower()
+    if not candidate:
+        return None
+    if not _is_valid_portal_subdomain(candidate):
+        return None
+    return candidate
+
+
+def _coerce_data_region(value: Any) -> str:
+    if isinstance(value, str) and value in ALLOWED_DATA_REGIONS:
+        return value
+    return DEFAULT_DATA_REGION
 
 
 def _normalise_host(host: str | None) -> str:
@@ -312,6 +397,8 @@ def load_tenant_file(tenant_id: str) -> TenantConfig | None:
         support_email=_as_str_or_none(raw.get("support_email")),
         custom_domain=_as_str_or_none(raw.get("custom_domain")),
         host_aliases=aliases,
+        data_region=_coerce_data_region(raw.get("data_region")),
+        portal_subdomain=_coerce_portal_subdomain(raw.get("portal_subdomain")),
     )
 
     with _TENANT_CACHE_LOCK:
@@ -556,11 +643,82 @@ def resolve_tenant(
         for cfg in non_default:
             if host in cfg.host_aliases or host == _normalise_host(cfg.custom_domain or ""):
                 return cfg
+        # T-065 — branded portal subdomain resolution. A tenant that
+        # declares ``portal_subdomain: gov-lv`` claims every host of the
+        # form ``gov-lv.<parent>`` where ``<parent>`` is one of the
+        # default tenant's host aliases (the platform's base domain).
+        # Checked AFTER explicit host_aliases / custom_domain so
+        # operators can override the subdomain mapping with an explicit
+        # entry, but BEFORE the default fallback so the branded portal
+        # route works without an operator action.
+        sub_match = _match_portal_subdomain(host, non_default, default_cfg)
+        if sub_match is not None:
+            return sub_match
         if default_cfg is not None and host in default_cfg.host_aliases:
             return default_cfg
 
     # Step 4 — default.
     return _default_tenant()
+
+
+def _match_portal_subdomain(
+    host: str,
+    non_default: list["TenantConfig"],
+    default_cfg: "TenantConfig | None",
+) -> "TenantConfig | None":
+    """Resolve a tenant via its declared ``portal_subdomain``.
+
+    Algorithm: take the inbound host, split it on the first dot, and
+    treat the left-most label as a candidate portal subdomain. If any
+    non-default tenant declares that exact subdomain AND the right-hand
+    parent host appears in the default tenant's host_aliases (the
+    platform's base domain — ``lvcodex.com``, ``localhost``, etc.), the
+    tenant wins.
+
+    Returns ``None`` when no tenant matches; the caller then continues
+    with the default-alias check + default fallback.
+    """
+
+    if "." not in host:
+        return None
+    sublabel, _, parent = host.partition(".")
+    if not sublabel or not parent:
+        return None
+    if default_cfg is None:
+        # Without the default tenant we cannot decide what a "platform"
+        # domain even is, so we don't attempt the match.
+        return None
+    parent_ok = (
+        parent in default_cfg.host_aliases
+        or parent == _normalise_host(default_cfg.custom_domain or "")
+    )
+    if not parent_ok:
+        return None
+    for cfg in non_default:
+        if cfg.portal_subdomain and cfg.portal_subdomain == sublabel:
+            return cfg
+    return None
+
+
+def resolve_tenant_by_subdomain(subdomain: str | None) -> TenantConfig | None:
+    """Look up a tenant by its declared ``portal_subdomain`` value.
+
+    Returns ``None`` when no tenant claims that subdomain. The default
+    tenant is never returned from this helper — by definition it does
+    not have a branded subdomain. Used by the admin previewer and by
+    onboarding tooling that needs to test a portal URL before DNS is
+    cut over.
+    """
+
+    candidate = _coerce_portal_subdomain(subdomain)
+    if candidate is None:
+        return None
+    for cfg in list_tenants():
+        if cfg.id == DEFAULT_TENANT_ID:
+            continue
+        if cfg.portal_subdomain == candidate:
+            return cfg
+    return None
 
 
 # ---------------------------------------------------------------------------

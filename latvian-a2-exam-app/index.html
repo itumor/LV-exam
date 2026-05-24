@@ -349,6 +349,8 @@
 
     <script src="flow-core.js"></script>
     <script src="unified-header.js"></script>
+    <!-- T-062 language switcher (lv-LV / en-US / lt-LT) -->
+    <script src="lang-switcher.js"></script>
     <script src="app.js"></script>
 
     <!-- T-061 PWA install prompt + service worker registration -->
@@ -461,5 +463,9 @@
         window.addEventListener("appinstalled", hide);
       })();
     </script>
+    <!-- T-053 AI companion persistent chat bubble -->
+    <script src="./companion.js" defer></script>
+    <!-- T-054 AI curriculum "Custom lesson" tile (auto-injected at top of <main>) -->
+    <script src="./curriculum.js" defer></script>
   </body>
 </html>

@@ -1,0 +1,78 @@
+{
+  "id": "m8-cesis-exam-prep",
+  "order": 8,
+  "city": "Cesis",
+  "city_lv": "Cēsis",
+  "title": "Mission 8 — A2 Exam preparation finale",
+  "title_lv": "8. misija — A2 eksāmena gala sagatavošanās",
+  "summary": "Final story mission. Sit a mock oral interview with teacher Andris, answer official-style A2 prompts, and earn the Latvian A2 Ready badge.",
+  "summary_lv": "Pēdējā stāsta misija. Veic mutvārdu interviju ar Andri, atbildi uz oficiāliem A2 jautājumiem un saņem nozīmīti 'Gatavs A2 eksāmenam'.",
+  "language_level": "A2",
+  "estimated_duration_minutes": 22,
+  "xp_on_complete": 150,
+  "unlock_criteria": {
+    "requires_missions": ["m7-cesis-castle"],
+    "min_total_xp": 520,
+    "min_streak_days": 7
+  },
+  "map_position": {"lat": 57.3145, "lng": 25.2698},
+  "scenes": [
+    {
+      "id": "s1-self-presentation",
+      "order": 1,
+      "title": "Self-presentation",
+      "title_lv": "Pašprezentācija",
+      "location_lv": "Cēsu valsts ģimnāzija",
+      "instruction": "Give a 60-second self-presentation in Latvian — name, origin, work, why you study Latvian.",
+      "instruction_lv": "Sniedz 60 sekunžu pašprezentāciju latviski — vārds, izcelsme, darbs, mācību iemesls.",
+      "npc_id": "teacher-andris",
+      "objective": "oral_self_intro",
+      "target_phrases": [
+        "Mani sauc...",
+        "Es esmu no...",
+        "Es strādāju par...",
+        "Es mācos latviešu valodu jau gadu."
+      ],
+      "xp": 40
+    },
+    {
+      "id": "s2-roleplay-clinic",
+      "order": 2,
+      "title": "Roleplay — booking a doctor",
+      "title_lv": "Lomu spēle — pieraksts pie ārsta",
+      "location_lv": "Cēsu valsts ģimnāzija",
+      "instruction": "Roleplay calling the clinic to book a visit. Andris plays the receptionist.",
+      "instruction_lv": "Iztēlojies, ka zvani poliklīnikai un pieraksti vizīti. Andris būs reģistratore.",
+      "npc_id": "teacher-andris",
+      "objective": "oral_roleplay",
+      "target_phrases": [
+        "Es vēlos pierakstīties pie ārsta.",
+        "Kad ir brīvs laiks?",
+        "Vai var pulksten desmitos?"
+      ],
+      "xp": 50
+    },
+    {
+      "id": "s3-final-debrief",
+      "order": 3,
+      "title": "Final debrief",
+      "title_lv": "Noslēguma saruna",
+      "location_lv": "Cēsu valsts ģimnāzija",
+      "instruction": "Discuss with Andris what was easy, what was hard, and your plans for the real A2 exam.",
+      "instruction_lv": "Pārrunā ar Andri, kas bija viegli, kas grūti, un tavus plānus reālajam A2 eksāmenam.",
+      "npc_id": "teacher-andris",
+      "objective": "oral_reflection",
+      "target_phrases": [
+        "Klausīšanās man bija viegla.",
+        "Rakstīšana bija grūta.",
+        "Es plānoju kārtot eksāmenu rudenī."
+      ],
+      "xp": 60
+    }
+  ],
+  "rewards": {
+    "title_unlock": "Latvian A2 Ready",
+    "title_unlock_lv": "Gatavs A2 eksāmenam",
+    "final_badge": true
+  }
+}

@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Story Mode — Latvian A2</title>
+  <meta name="description" content="Story-mode missions across Latvia — Rīga, Jūrmala, Liepāja, Daugavpils, Cēsis. Practice Latvian A2 conversations with NPCs scene by scene." />
+  <link rel="stylesheet" href="./styles.css" />
+  <style>
+    .story-shell {
+      max-width: 1080px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      display: grid;
+      gap: 1rem;
+    }
+    .story-section {
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 1rem;
+    }
+    .story-section h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+    .story-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      font-size: 0.9rem;
+      color: #57606a;
+    }
+    .story-summary .pill {
+      padding: 0.3rem 0.7rem;
+      background: #ddf4ff;
+      border: 1px solid #54aeff;
+      border-radius: 999px;
+      color: #0969da;
+      font-weight: 600;
+    }
+    .story-map-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: linear-gradient(135deg, #cae9ff 0%, #a3d2ff 60%, #79b7e7 100%);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #d0d7de;
+    }
+    .story-map-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .story-marker {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+      font-size: 0.85rem;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+      background: none;
+      border: 0;
+    }
+    .story-marker .pin {
+      width: 32px;
+      height: 32px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      background: #6e7781;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-weight: 700;
+      border: 2px solid #ffffff;
+    }
+    .story-marker .pin span { transform: rotate(45deg); }
+    .story-marker.is-available .pin { background: #1f883d; }
+    .story-marker.is-in-progress .pin { background: #d4a72c; color: #1c2128; }
+    .story-marker.is-completed .pin { background: #0969da; }
+    .story-marker.is-locked .pin { background: #6e7781; opacity: 0.7; }
+    .story-marker .label {
+      padding: 0.15rem 0.45rem;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 4px;
+      color: #1c2128;
+      max-width: 140px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .story-mission-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 0.75rem;
+    }
+    .story-mission-card {
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      padding: 0.85rem;
+      background: #f6f8fa;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      cursor: pointer;
+      transition: border-color 120ms ease, transform 120ms ease;
+    }
+    .story-mission-card:hover {
+      border-color: #0969da;
+      transform: translateY(-2px);
+    }
+    .story-mission-card.is-locked {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+    .story-mission-card.is-completed { background: #ddf4ff; border-color: #54aeff; }
+    .story-mission-card.is-available { background: #dafbe1; border-color: #6fdd8b; }
+    .story-mission-card.is-in-progress { background: #fff8c5; border-color: #ddca6c; }
+    .story-mission-card.is-active { box-shadow: 0 0 0 2px #0969da inset; }
+    .story-mission-card .title { font-weight: 600; font-size: 1rem; }
+    .story-mission-card .meta {
+      font-size: 0.75rem;
+      color: #57606a;
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .story-mission-card .summary { font-size: 0.85rem; line-height: 1.4; }
+    .story-mission-card .progress {
+      height: 6px;
+      width: 100%;
+      background: #d0d7de;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .story-mission-card .progress-bar {
+      height: 100%;
+      background: #1f883d;
+      transition: width 200ms ease;
+    }
+    .story-mission-card .status-tag {
+      display: inline-block;
+      padding: 0.1rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #d0d7de;
+      color: #1c2128;
+    }
+    .story-mission-card.is-available .status-tag { background: #1f883d; color: #fff; }
+    .story-mission-card.is-completed .status-tag { background: #0969da; color: #fff; }
+    .story-mission-card.is-in-progress .status-tag { background: #d4a72c; color: #1c2128; }
+    .story-mission-card .lock-hint { font-size: 0.75rem; color: #cf222e; }
+
+    .story-scene-panel { display: none; }
+    .story-scene-panel.is-open { display: block; }
+    .story-scene-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
+    .story-scene {
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 0.7rem;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .story-scene.is-done { background: #ddf4ff; border-color: #54aeff; }
+    .story-scene .row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .story-scene .npc-pill {
+      font-size: 0.75rem;
+      padding: 0.15rem 0.5rem;
+      background: #f6f8fa;
+      border: 1px solid #d0d7de;
+      border-radius: 999px;
+      color: #1c2128;
+    }
+    .story-scene button {
+      padding: 0.4rem 0.9rem;
+      border: 0;
+      border-radius: 6px;
+      background: #1f883d;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .story-scene button[disabled] { opacity: 0.6; cursor: not-allowed; }
+    .story-scene button.secondary { background: #0969da; }
+    .story-toast {
+      position: fixed;
+      right: 1rem;
+      bottom: 1rem;
+      background: #1f883d;
+      color: #fff;
+      padding: 0.65rem 1rem;
+      border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+      max-width: 320px;
+      font-size: 0.9rem;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 180ms ease, transform 180ms ease;
+      pointer-events: none;
+    }
+    .story-toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .story-error { color: #cf222e; font-size: 0.85rem; margin: 0.25rem 0; }
+    .skip-link { position: absolute; left: -9999px; top: auto; }
+    .skip-link:focus { left: 1rem; top: 1rem; background: #fff; padding: 0.5rem; }
+  </style>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to story content</a>
+  <header class="exam-appbar" role="banner">
+    <div class="exam-appbar-inner container-xxl">
+      <a href="./index.html" class="exam-brand-title" style="color: inherit; text-decoration: none;">A2 State Language Exam Simulator</a>
+      <nav aria-label="Story mode">
+        <strong>Story Mode (T-050)</strong>
+      </nav>
+    </div>
+  </header>
+
+  <main class="story-shell" id="main">
+    <section class="story-section" aria-labelledby="story-summary-title">
+      <h2 id="story-summary-title">Your journey through Latvia</h2>
+      <div class="story-summary" id="story-summary" role="status" aria-live="polite">
+        Loading story progress...
+      </div>
+      <div class="story-error" id="story-error" role="alert" hidden></div>
+    </section>
+
+    <section class="story-section" aria-labelledby="story-map-title">
+      <h2 id="story-map-title">Map</h2>
+      <div class="story-map-container" id="story-map">
+        <!-- Stylised Latvia outline so the map works without external tiles. -->
+        <svg viewBox="0 0 1000 562" class="story-map-svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="land-gradient" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#b8e1a0" />
+              <stop offset="100%" stop-color="#8bc275" />
+            </linearGradient>
+          </defs>
+          <!-- Schematic Latvia silhouette (Baltic Sea is the background). -->
+          <path d="M120 220
+                   Q160 170 220 165
+                   Q280 160 320 195
+                   Q350 220 420 205
+                   Q500 190 580 215
+                   Q660 240 740 235
+                   Q820 230 880 270
+                   Q900 320 860 360
+                   Q800 400 720 395
+                   Q640 390 560 405
+                   Q480 420 400 410
+                   Q320 400 250 380
+                   Q180 360 140 320
+                   Q110 280 120 220 Z"
+                fill="url(#land-gradient)"
+                stroke="#5e8a4a"
+                stroke-width="2" />
+        </svg>
+        <!-- City markers injected by JS. -->
+      </div>
+    </section>
+
+    <section class="story-section" aria-labelledby="story-missions-title">
+      <h2 id="story-missions-title">Missions</h2>
+      <ul class="story-mission-list" id="story-missions" role="list">
+        <li class="story-mission-card is-locked">Loading missions...</li>
+      </ul>
+    </section>
+
+    <section class="story-section story-scene-panel" id="story-scene-panel" aria-labelledby="story-scene-title">
+      <h2 id="story-scene-title">Scenes</h2>
+      <p class="meta" id="story-scene-mission-meta" style="margin: 0 0 0.5rem; color: #57606a;"></p>
+      <ul class="story-scene-list" id="story-scene-list"></ul>
+    </section>
+  </main>
+
+  <div class="story-toast" id="story-toast" role="status" aria-live="polite"></div>
+  <script src="./story.js" defer></script>
+</body>
+</html>

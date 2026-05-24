@@ -1,0 +1,67 @@
+{
+  "id": "m1-riga-arrival",
+  "order": 1,
+  "city": "Riga",
+  "city_lv": "Rīga",
+  "title": "Mission 1 — Arrival in Rīga",
+  "title_lv": "1. misija — Ierašanās Rīgā",
+  "summary": "You land at Rīga Airport and need to get to your apartment in Vecrīga. Practice greetings, asking directions, and paying for a taxi.",
+  "summary_lv": "Tu ierodies Rīgas lidostā un dodies uz dzīvokli Vecrīgā. Vingrinies sasveicināšanā, ceļa jautāšanā un norēķinā ar taksometru.",
+  "language_level": "A2",
+  "estimated_duration_minutes": 12,
+  "xp_on_complete": 50,
+  "unlock_criteria": {
+    "requires_missions": [],
+    "min_total_xp": 0,
+    "min_streak_days": 0
+  },
+  "map_position": {"lat": 56.9496, "lng": 24.1052},
+  "scenes": [
+    {
+      "id": "s1-greet-taxi-driver",
+      "order": 1,
+      "title": "Greet the taxi driver",
+      "title_lv": "Sasveicinies ar taksometra šoferi",
+      "location_lv": "Rīgas lidosta",
+      "instruction": "Greet the taxi driver Māris and ask if he can take you to Vecrīga.",
+      "instruction_lv": "Sasveicinies ar Māri un pajautā, vai viņš tevi var aizvest uz Vecrīgu.",
+      "npc_id": "taxi-maris",
+      "objective": "greeting",
+      "target_phrases": [
+        "Labdien!",
+        "Vai jūs varat aizvest mani uz Vecrīgu?"
+      ],
+      "xp": 10
+    },
+    {
+      "id": "s2-ask-fare",
+      "order": 2,
+      "title": "Ask about the fare",
+      "title_lv": "Pajautā par cenu",
+      "location_lv": "Lidostas izejas zona",
+      "instruction": "Ask Māris how much the ride will cost.",
+      "instruction_lv": "Pajautā Mārim, cik maksās brauciens.",
+      "npc_id": "taxi-maris",
+      "objective": "ask_price",
+      "target_phrases": ["Cik tas maksā?", "Cik maksā brauciens?"],
+      "xp": 10
+    },
+    {
+      "id": "s3-pay-taxi",
+      "order": 3,
+      "title": "Pay and thank the driver",
+      "title_lv": "Norēķinies un pasaki paldies",
+      "location_lv": "Vecrīga",
+      "instruction": "Pay for the ride, thank the driver, and say goodbye politely.",
+      "instruction_lv": "Norēķinies, pasaki paldies un atvadies pieklājīgi.",
+      "npc_id": "taxi-maris",
+      "objective": "farewell",
+      "target_phrases": ["Paldies!", "Uz redzēšanos!", "Lūdzu, šeit ir nauda."],
+      "xp": 10
+    }
+  ],
+  "rewards": {
+    "title_unlock": "Latvian Newcomer",
+    "title_unlock_lv": "Iebraucējs Latvijā"
+  }
+}

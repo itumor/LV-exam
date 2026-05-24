@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SRS Vocabulary — Latvian A2</title>
+  <meta
+    name="description"
+    content="Spaced-repetition vocabulary drill for Latvian A2 — the daily repair queue powered by the SuperMemo-2 algorithm."
+  />
+  <link rel="stylesheet" href="./styles.css" />
+  <style>
+    .srs-shell {
+      max-width: 640px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    .srs-card {
+      border: 1px solid #d0d7de;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 2rem 1.5rem;
+      text-align: center;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+    }
+    .srs-card .lv {
+      font-size: 2.25rem;
+      font-weight: 600;
+      color: #0d1117;
+    }
+    .srs-card .en {
+      font-size: 1.25rem;
+      color: #4a5764;
+    }
+    .srs-card.is-hidden .en { visibility: hidden; }
+    .srs-meta {
+      margin: 1rem 0 0.5rem;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: #57606a;
+    }
+    .srs-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .srs-reveal-row {
+      display: flex;
+      justify-content: center;
+    }
+    .srs-grade-row {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 0.4rem;
+    }
+    .srs-grade {
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 0.6rem 0.25rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .srs-grade:hover { border-color: #0969da; }
+    .srs-grade[data-q="0"], .srs-grade[data-q="1"] { color: #cf222e; }
+    .srs-grade[data-q="2"] { color: #bc4c00; }
+    .srs-grade[data-q="3"] { color: #9a6700; }
+    .srs-grade[data-q="4"], .srs-grade[data-q="5"] { color: #1a7f37; }
+    .srs-grade:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .srs-status {
+      text-align: center;
+      margin: 1rem 0;
+      font-size: 0.95rem;
+      color: #57606a;
+    }
+    .srs-status.is-error { color: #cf222e; }
+    .srs-empty {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: #57606a;
+    }
+    .srs-reveal-btn {
+      background: #0969da;
+      color: #ffffff;
+      border: 1px solid #0969da;
+      border-radius: 8px;
+      padding: 0.6rem 1.25rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .srs-reveal-btn:hover { background: #0550ae; }
+    .srs-back {
+      display: inline-block;
+      margin-top: 1.5rem;
+      font-size: 0.9rem;
+      color: #0969da;
+      text-decoration: none;
+    }
+    .srs-back:hover { text-decoration: underline; }
+    .srs-add {
+      margin-top: 2rem;
+      border-top: 1px solid #d0d7de;
+      padding-top: 1.5rem;
+    }
+    .srs-add h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+    .srs-add form {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+      align-items: end;
+    }
+    @media (max-width: 540px) {
+      .srs-add form { grid-template-columns: 1fr; }
+      .srs-grade-row { grid-template-columns: repeat(3, 1fr); }
+    }
+    .srs-add label {
+      display: flex;
+      flex-direction: column;
+      font-size: 0.85rem;
+      color: #57606a;
+      gap: 0.25rem;
+    }
+    .srs-add input {
+      padding: 0.5rem;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+    .srs-add button {
+      padding: 0.55rem 1rem;
+      border-radius: 6px;
+      background: #1a7f37;
+      color: #ffffff;
+      border: 1px solid #1a7f37;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .srs-add button:hover { background: #145d28; }
+  </style>
+</head>
+<body>
+  <main class="srs-shell" id="srs-app">
+    <header>
+      <h1>SRS Vocabulary Repair Queue</h1>
+      <p class="srs-status" id="srs-status">Loading your due cards…</p>
+    </header>
+
+    <section
+      class="srs-card is-hidden"
+      id="srs-card"
+      aria-live="polite"
+      hidden
+    >
+      <div class="lv" id="srs-card-lv">—</div>
+      <div class="en" id="srs-card-en">—</div>
+    </section>
+
+    <div class="srs-meta" id="srs-meta" hidden>
+      <span id="srs-position">Card 0 of 0</span>
+      <span id="srs-due-meta">next due —</span>
+    </div>
+
+    <div class="srs-actions" id="srs-actions" hidden>
+      <div class="srs-reveal-row" id="srs-reveal-row">
+        <button
+          type="button"
+          class="srs-reveal-btn"
+          id="srs-reveal"
+          aria-label="Reveal English translation"
+        >
+          Reveal translation
+        </button>
+      </div>
+      <div class="srs-grade-row" id="srs-grades" hidden>
+        <button type="button" class="srs-grade" data-q="0">0<br /><small>blackout</small></button>
+        <button type="button" class="srs-grade" data-q="1">1<br /><small>wrong</small></button>
+        <button type="button" class="srs-grade" data-q="2">2<br /><small>hard</small></button>
+        <button type="button" class="srs-grade" data-q="3">3<br /><small>recall</small></button>
+        <button type="button" class="srs-grade" data-q="4">4<br /><small>good</small></button>
+        <button type="button" class="srs-grade" data-q="5">5<br /><small>perfect</small></button>
+      </div>
+    </div>
+
+    <div class="srs-empty" id="srs-empty" hidden>
+      <p>No cards due right now. Add a word below to start your deck.</p>
+    </div>
+
+    <section class="srs-add">
+      <h2>Add a card</h2>
+      <form id="srs-add-form" novalidate>
+        <label>
+          <span>Lemma</span>
+          <input type="text" name="lemma" required autocomplete="off" />
+        </label>
+        <label>
+          <span>Latvian</span>
+          <input type="text" name="lv" required autocomplete="off" />
+        </label>
+        <label>
+          <span>English</span>
+          <input type="text" name="en" required autocomplete="off" />
+        </label>
+        <button type="submit">Add to deck</button>
+      </form>
+    </section>
+
+    <a class="srs-back" href="./index.html">&larr; Back to exam app</a>
+  </main>
+
+  <script src="./srs.js" defer></script>
+</body>
+</html>

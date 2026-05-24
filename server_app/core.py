@@ -679,7 +679,29 @@ def built_in_exam_catalog() -> list[dict[str, Any]]:
         }
         for index in range(1, 4)
     ]
-    return a2 + b1
+    # T-071: Naturalizācijas (citizenship) exam pack. Single published exam
+    # whose canonical manifest lives at content/exams/NAT/NAT_Exam_*.exam.json.
+    # Unlike CEFR exams, the citizenship exam uses a dual-section pass rule:
+    # history+constitution combined >= 12 AND language >= 9 (see
+    # server_app.services.citizenship_scoring).
+    nat = [
+        {
+            "id": f"nat-{str(index).zfill(2)}",
+            "title": f"Naturalizācijas eksāmens {str(index).zfill(2)}",
+            "description": "Built-in Latvian citizenship (naturalisation) exam (T-071).",
+            "content_version": 1,
+            "status": "published",
+            "manifest": {
+                "level": "CITIZENSHIP",
+                "markdownPath": f"/content/exams/NAT/NAT_Exam_{str(index).zfill(2)}.md",
+                "sourcePath": f"content/exams/NAT/NAT_Exam_{str(index).zfill(2)}.md",
+                "attachmentRoot": "/content/exams/NAT/audio/",
+                "manifestPath": f"content/exams/NAT/NAT_Exam_{str(index).zfill(2)}.exam.json",
+            },
+        }
+        for index in range(1, 2)
+    ]
+    return a2 + b1 + nat
 
 
 class ApiError(Exception):
@@ -2077,6 +2099,46 @@ def submit_attempt(attempt_id: str, session: dict[str, Any]) -> dict[str, Any]:
         updated = conn.execute(
             "SELECT * FROM attempts WHERE id = ?", (attempt_id,)
         ).fetchone()
+
+        # T-034 — award XP for correct quiz answers + perfect-skill
+        # bonuses. The same DB connection is reused so the award is
+        # atomic with the score insert.
+        try:
+            from server_app.services import xp as _xp_service
+
+            _xp_account_id = session["account"]["id"]
+            if score_total > 0:
+                _xp_service.award_xp(
+                    conn,
+                    _xp_account_id,
+                    _xp_service.KIND_QUIZ_CORRECT,
+                    amount=score_total
+                    * _xp_service.XP_AMOUNTS[_xp_service.KIND_QUIZ_CORRECT],
+                    payload={
+                        "attempt_id": attempt_id,
+                        "correct_count": score_total,
+                        "per_correct_xp": _xp_service.XP_AMOUNTS[
+                            _xp_service.KIND_QUIZ_CORRECT
+                        ],
+                    },
+                )
+            for _skill, _skill_data in by_skill.items():
+                _possible = int(_skill_data.get("objective_possible", 0) or 0)
+                _correct = int(_skill_data.get("objective_correct", 0) or 0)
+                if _possible > 0 and _correct == _possible:
+                    _xp_service.award_xp(
+                        conn,
+                        _xp_account_id,
+                        _xp_service.KIND_PERFECT_SKILL_PASS,
+                        payload={
+                            "attempt_id": attempt_id,
+                            "skill": _skill,
+                            "score": _correct,
+                            "points_possible": _possible,
+                        },
+                    )
+        except Exception:  # noqa: BLE001 - never block scoring on XP failure
+            log_event("warning", "xp_award_failed_attempt", attempt_id=attempt_id)
     return {"attempt": serialize_attempt(updated), "score": scoring}
 
 
@@ -7103,6 +7165,31 @@ def _t031_handle_complete(handler: "AppHandler", mission_id: str) -> None:
                 {"error": "mission_forbidden", "detail": str(error)},
             )
             return
+        # T-034 — award XP only on first completion (analytics emission
+        # is the canonical "first completion" signal — see T-031).
+        if result.get("analytics_event_emitted"):
+            try:
+                from server_app.services import xp as _t031_xp_service
+
+                mission = result.get("mission") or {}
+                with db_connection() as conn_xp:
+                    _t031_xp_service.award_xp(
+                        conn_xp,
+                        account_id,
+                        _t031_xp_service.KIND_MISSION_COMPLETE,
+                        payload={
+                            "mission_id": mission.get("id"),
+                            "slot": mission.get("slot"),
+                            "kind": mission.get("kind"),
+                            "skill": mission.get("skill"),
+                        },
+                    )
+            except Exception as xp_error:  # noqa: BLE001
+                log_event(
+                    "warning",
+                    "xp_award_failed_mission",
+                    error=type(xp_error).__name__,
+                )
         json_response(handler, _T031_HTTPStatus.OK, result)
     except PermissionError as error:
         json_response(
@@ -7149,6 +7236,339 @@ AppHandler.do_POST = _t031_patched_do_post  # type: ignore[assignment]
 AppHandler._t031_installed = True  # type: ignore[attr-defined]
 # ============================================================================
 # end T-031 daily mission route hook
+# ============================================================================
+
+
+# ============================================================================
+# T-034 — XP + streak route hook installer
+# ============================================================================
+# Wires the single XP summary endpoint onto AppHandler:
+#   GET  /api/xp/summary  -> {total_xp, current_streak, longest_streak,
+#                            recent_log}
+#
+# The do_GET wrapper is installed BEFORE the T-036 SPA static handler so
+# T-036 remains the outermost ``do_GET`` wrapper.
+#
+# The hook is inlined here (rather than imported via
+# :mod:`server_app.routes.xp`) for the same reason as T-031: at import
+# time the ``server_app.routes`` package eagerly pulls in modules that
+# reference symbols defined later in this file. The :mod:`routes.xp`
+# module remains the canonical re-export point used by the modularization
+# audit and by external imports.
+# ----------------------------------------------------------------------------
+
+from server_app.services import xp as _t034_xp_service  # noqa: E402
+
+_T034_SUMMARY_PATH = "/api/xp/summary"
+
+
+def _t034_account_id(session: dict) -> str:
+    return (session.get("account") or {}).get("id") or ""
+
+
+def _t034_handle_summary(handler: "AppHandler") -> None:
+    """``GET /api/xp/summary`` — return XP totals + streak + recent log."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t034_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        with db_connection() as conn:
+            payload = _t034_xp_service.get_summary(conn, account_id)
+        json_response(handler, HTTPStatus.OK, payload)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001
+        log_event(
+            "error",
+            "xp_summary_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "xp_unavailable"},
+        )
+
+
+_T034_ORIGINAL_DO_GET = AppHandler.do_GET
+
+
+def _t034_patched_do_get(self: "AppHandler") -> None:
+    raw = getattr(self, "path", "") or ""
+    path = urllib.parse.urlparse(raw).path or ""
+    if path == _T034_SUMMARY_PATH or path.rstrip("/") == _T034_SUMMARY_PATH:
+        _t034_handle_summary(self)
+        return
+    _T034_ORIGINAL_DO_GET(self)
+
+
+AppHandler.do_GET = _t034_patched_do_get  # type: ignore[assignment]
+AppHandler._t034_installed = True  # type: ignore[attr-defined]
+# ============================================================================
+# end T-034 XP + streak route hook
+# ============================================================================
+
+
+# ============================================================================
+# T-032 — SRS (spaced-repetition) route hook installer
+# ============================================================================
+# Wires the three SRS endpoints onto AppHandler:
+#
+#   GET  /api/srs/due                       -> due cards today
+#   POST /api/srs/cards                     -> add a card to the deck
+#   POST /api/srs/cards/<card_id>/review    -> apply SM-2 update
+#
+# The hooks are installed BEFORE the T-036 v2 SPA static handler so the
+# T-036 do_GET wrapper remains the outermost ``do_GET`` patch — the same
+# invariant enforced for T-031 / T-034 / T-043.
+#
+# The dispatch is inlined here (rather than imported via
+# :mod:`server_app.routes.srs`) for the same reason as T-031 / T-034: at
+# import time the ``server_app.routes`` package eagerly pulls in modules
+# that reference symbols defined later in this file. The
+# :mod:`routes.srs` module remains the canonical re-export point used
+# by the modularization audit.
+# ----------------------------------------------------------------------------
+
+import re as _t032_re  # noqa: E402
+
+from server_app.services import srs as _t032_srs_service  # noqa: E402
+
+_T032_DUE_PATH = "/api/srs/due"
+_T032_ADD_CARD_PATH = "/api/srs/cards"
+_T032_REVIEW_RE = _t032_re.compile(
+    r"^/api/srs/cards/([A-Za-z0-9_\-]+)/review/?$"
+)
+
+
+def _t032_resolve_path(handler: "AppHandler") -> str:
+    raw = getattr(handler, "path", "") or ""
+    return urllib.parse.urlparse(raw).path or ""
+
+
+def _t032_account_id(session: dict) -> str:
+    return (session.get("account") or {}).get("id") or ""
+
+
+def _t032_handle_due(handler: "AppHandler") -> None:
+    """``GET /api/srs/due`` — return today's due cards for the learner."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t032_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        with db_connection() as conn:
+            cards = _t032_srs_service.due_cards(conn, account_id)
+        json_response(
+            handler,
+            HTTPStatus.OK,
+            {"cards": cards, "count": len(cards)},
+        )
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001
+        log_event(
+            "error",
+            "srs_due_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "srs_unavailable"},
+        )
+
+
+def _t032_handle_add_card(handler: "AppHandler") -> None:
+    """``POST /api/srs/cards`` — insert a new card into the learner's deck."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t032_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        try:
+            body = safe_read_json(handler)
+        except ValueError as error:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": str(error)},
+            )
+            return
+        if not isinstance(body, dict):
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body"},
+            )
+            return
+        lemma = str(body.get("lemma", "") or "").strip()
+        lv = str(body.get("lv", "") or "").strip()
+        en = str(body.get("en", "") or "").strip()
+        if not lemma or not lv or not en:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": "lemma, lv, en are required"},
+            )
+            return
+        with db_connection() as conn:
+            card = _t032_srs_service.add_card(conn, account_id, lemma, lv, en)
+        json_response(handler, HTTPStatus.OK, {"card": card})
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001
+        log_event(
+            "error",
+            "srs_add_card_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "srs_unavailable"},
+        )
+
+
+def _t032_handle_review(handler: "AppHandler", card_id: str) -> None:
+    """``POST /api/srs/cards/<id>/review`` — apply an SM-2 update."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t032_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        try:
+            body = safe_read_json(handler)
+        except ValueError as error:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": str(error)},
+            )
+            return
+        if not isinstance(body, dict) or "quality" not in body:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": "quality is required"},
+            )
+            return
+        try:
+            quality = int(body["quality"])
+        except (TypeError, ValueError):
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": "quality must be 0-5"},
+            )
+            return
+        if quality < 0 or quality > 5:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": "quality must be 0-5"},
+            )
+            return
+        try:
+            with db_connection() as conn:
+                card = _t032_srs_service.review_card(
+                    conn, account_id, card_id, quality
+                )
+        except PermissionError:
+            # Treat unknown-or-foreign card as 404 — never reveal to the
+            # caller whether the id exists on another account. This is
+            # the same isolation-by-obscurity policy missions/XP use.
+            json_response(
+                handler,
+                HTTPStatus.NOT_FOUND,
+                {"error": "card_not_found"},
+            )
+            return
+        except ValueError as error:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": str(error)},
+            )
+            return
+        json_response(handler, HTTPStatus.OK, {"card": card})
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001
+        log_event(
+            "error",
+            "srs_review_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "srs_unavailable"},
+        )
+
+
+_T032_ORIGINAL_DO_GET = AppHandler.do_GET
+_T032_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t032_patched_do_get(self: "AppHandler") -> None:
+    path = _t032_resolve_path(self)
+    if path == _T032_DUE_PATH or path.rstrip("/") == _T032_DUE_PATH:
+        _t032_handle_due(self)
+        return
+    _T032_ORIGINAL_DO_GET(self)
+
+
+def _t032_patched_do_post(self: "AppHandler") -> None:
+    path = _t032_resolve_path(self)
+    match = _T032_REVIEW_RE.match(path)
+    if match:
+        _t032_handle_review(self, match.group(1))
+        return
+    if path == _T032_ADD_CARD_PATH or path.rstrip("/") == _T032_ADD_CARD_PATH:
+        _t032_handle_add_card(self)
+        return
+    _T032_ORIGINAL_DO_POST(self)
+
+
+AppHandler.do_GET = _t032_patched_do_get  # type: ignore[assignment]
+AppHandler.do_POST = _t032_patched_do_post  # type: ignore[assignment]
+AppHandler._t032_installed = True  # type: ignore[attr-defined]
+# ============================================================================
+# end T-032 SRS route hook
 # ============================================================================
 
 
@@ -7416,6 +7836,1086 @@ AppHandler._t043_installed = True  # type: ignore[attr-defined]
 _t043_ensure_org_id_column()
 # ============================================================================
 # end T-043 audit-log export route hook
+# ============================================================================
+
+
+# ============================================================================
+# T-041 institutional seat-licensing hook
+# ============================================================================
+# Wires the institutional service (server_app/services/institutional.py)
+# into the AppHandler via a monkey-patch block, same composition pattern
+# as T-024 / T-031 / T-040 / T-046.
+#
+# Installed BEFORE the T-036 v2 SPA static handler so the T-036 do_GET
+# patcher remains the outermost ``do_GET`` wrapper (structural invariant
+# enforced by ``tests/server/test_v2_static_route.py``).
+#
+# Routes installed:
+#   POST /api/orgs                              -> create an organization
+#   GET  /api/orgs/<org_id>/seats               -> seat usage + roster
+#   POST /api/orgs/<org_id>/vouchers            -> issue single voucher
+#   POST /api/orgs/<org_id>/vouchers/bulk       -> bulk vouchers (?count=N)
+#   POST /api/orgs/<org_id>/subscription        -> Stripe seat sub checkout
+#   POST /api/vouchers/redeem                   -> redeem onto caller
+#
+# Authorisation:
+#   - POST /api/orgs requires an authenticated session. The caller is
+#     recorded as the org owner and is added as the first member.
+#   - Org-scoped routes require either an admin/superadmin session or
+#     the org's owner.
+#   - POST /api/vouchers/redeem requires any authenticated session and
+#     redeems onto the caller's account.
+# ----------------------------------------------------------------------------
+
+from server_app.services import institutional as _t041_institutional  # noqa: E402
+
+
+_T041_ORG_CREATE_PATH = "/api/orgs"
+_T041_VOUCHER_REDEEM_PATH = "/api/vouchers/redeem"
+
+
+def _t041_safe_org_id(raw_segment: str) -> str:
+    """Sanitise an ``org_id`` path segment.
+
+    Org IDs are generated by the service (``org_<hex>``); we accept
+    only ASCII letters, digits, underscores and hyphens to defend
+    against path traversal via the ``<org_id>`` slot.
+    """
+
+    seg = (raw_segment or "").strip()
+    if not seg:
+        return ""
+    allowed = set(
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
+    )
+    if any(ch not in allowed for ch in seg):
+        return ""
+    return seg
+
+
+def _t041_match_org_path(path: str) -> tuple[str, str] | None:
+    """Match ``/api/orgs/<org_id>/<tail>`` and return ``(org_id, tail)``."""
+
+    prefix = "/api/orgs/"
+    if not path.startswith(prefix):
+        return None
+    remainder = path[len(prefix):]
+    if "/" not in remainder:
+        return None
+    org_id, tail = remainder.split("/", 1)
+    org_id = _t041_safe_org_id(org_id)
+    if not org_id:
+        return None
+    return org_id, tail
+
+
+def _t041_require_session_account(handler: "AppHandler") -> tuple[str, str] | None:
+    """Return ``(account_id, role)`` or emit a 401 and return None."""
+
+    session = current_session_record(handler)
+    if session is None:
+        json_response(
+            handler,
+            HTTPStatus.UNAUTHORIZED,
+            {
+                "error": {
+                    "code": "auth_required",
+                    "message": "Authentication required.",
+                }
+            },
+        )
+        return None
+    account_id = str((session.get("account") or {}).get("id") or "")
+    role = account_role(session)
+    return account_id, role
+
+
+def _t041_emit_institutional_error(
+    handler: "AppHandler", error: "_t041_institutional.InstitutionalError"
+) -> None:
+    json_response(
+        handler,
+        error.status_code,
+        {"error": {"code": error.code, "message": error.message}},
+    )
+
+
+def _t041_handle_create_org(handler: "AppHandler") -> None:
+    auth = _t041_require_session_account(handler)
+    if auth is None:
+        return
+    account_id, _role = auth
+    try:
+        payload = safe_read_json(handler)
+    except (ValueError, json.JSONDecodeError) as error:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {"error": {"code": "org_body_invalid", "message": str(error)}},
+        )
+        return
+    name = str(payload.get("name") or "").strip()
+    max_seats_raw = payload.get("max_seats", 1)
+    try:
+        max_seats = int(max_seats_raw)
+    except (TypeError, ValueError):
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {
+                "error": {
+                    "code": "org_max_seats_invalid",
+                    "message": "max_seats must be an integer.",
+                }
+            },
+        )
+        return
+    try:
+        record = _t041_institutional.create_org(
+            name=name,
+            owner_account_id=account_id,
+            max_seats=max_seats,
+            stripe_customer_id=payload.get("stripe_customer_id"),
+            stripe_subscription_id=payload.get("stripe_subscription_id"),
+        )
+    except _t041_institutional.InstitutionalError as error:
+        _t041_emit_institutional_error(handler, error)
+        return
+    json_response(handler, HTTPStatus.CREATED, {"organization": record})
+
+
+def _t041_resolve_org_actor(
+    handler: "AppHandler", org_id: str, account_id: str, role: str
+) -> str | None:
+    """Return the ``actor_account_id`` to use, or write a 4xx and return None."""
+
+    org = _t041_institutional.get_org(org_id)
+    if org is None:
+        json_response(
+            handler,
+            HTTPStatus.NOT_FOUND,
+            {
+                "error": {
+                    "code": "org_not_found",
+                    "message": "Organization not found.",
+                }
+            },
+        )
+        return None
+    if role in {"admin", "superadmin"}:
+        return str(org["owner_account_id"])
+    if org["owner_account_id"] != account_id:
+        json_response(
+            handler,
+            HTTPStatus.FORBIDDEN,
+            {
+                "error": {
+                    "code": "org_owner_required",
+                    "message": "Only the organization owner can perform this action.",
+                }
+            },
+        )
+        return None
+    return account_id
+
+
+def _t041_handle_list_seats(handler: "AppHandler", org_id: str) -> None:
+    auth = _t041_require_session_account(handler)
+    if auth is None:
+        return
+    account_id, role = auth
+    org = _t041_institutional.get_org(org_id)
+    if org is None:
+        json_response(
+            handler,
+            HTTPStatus.NOT_FOUND,
+            {
+                "error": {
+                    "code": "org_not_found",
+                    "message": "Organization not found.",
+                }
+            },
+        )
+        return
+    if role not in {"admin", "superadmin"} and org["owner_account_id"] != account_id:
+        json_response(
+            handler,
+            HTTPStatus.FORBIDDEN,
+            {
+                "error": {
+                    "code": "org_owner_required",
+                    "message": "Only the organization owner or an admin can view seats.",
+                }
+            },
+        )
+        return
+    try:
+        result = _t041_institutional.list_seats(org_id)
+    except _t041_institutional.InstitutionalError as error:
+        _t041_emit_institutional_error(handler, error)
+        return
+    json_response(handler, HTTPStatus.OK, result)
+
+
+def _t041_handle_invite_member(handler: "AppHandler", org_id: str) -> None:
+    auth = _t041_require_session_account(handler)
+    if auth is None:
+        return
+    account_id, role = auth
+    try:
+        payload = safe_read_json(handler)
+    except (ValueError, json.JSONDecodeError):
+        payload = {}
+    actor = _t041_resolve_org_actor(handler, org_id, account_id, role)
+    if actor is None:
+        return
+    try:
+        record = _t041_institutional.invite_member(
+            org_id,
+            actor_account_id=actor,
+            invite_email=payload.get("invite_email"),
+            expires_at=payload.get("expires_at"),
+        )
+    except _t041_institutional.InstitutionalError as error:
+        _t041_emit_institutional_error(handler, error)
+        return
+    json_response(handler, HTTPStatus.CREATED, {"voucher": record})
+
+
+def _t041_handle_bulk_vouchers(
+    handler: "AppHandler", org_id: str, query: dict[str, list[str]]
+) -> None:
+    auth = _t041_require_session_account(handler)
+    if auth is None:
+        return
+    account_id, role = auth
+    count_str = (query.get("count") or [""])[0]
+    try:
+        body = safe_read_json(handler)
+    except (ValueError, json.JSONDecodeError):
+        body = {}
+    if not count_str:
+        count_str = str(body.get("count", "")).strip()
+    try:
+        count = int(count_str) if count_str else int(body.get("count") or 0)
+    except (TypeError, ValueError):
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {
+                "error": {
+                    "code": "bulk_count_invalid",
+                    "message": "count must be an integer.",
+                }
+            },
+        )
+        return
+    actor = _t041_resolve_org_actor(handler, org_id, account_id, role)
+    if actor is None:
+        return
+    try:
+        records = _t041_institutional.create_bulk_vouchers(
+            org_id,
+            count=count,
+            actor_account_id=actor,
+            expires_at=body.get("expires_at"),
+        )
+    except _t041_institutional.InstitutionalError as error:
+        _t041_emit_institutional_error(handler, error)
+        return
+    json_response(
+        handler,
+        HTTPStatus.CREATED,
+        {"vouchers": records, "count": len(records)},
+    )
+
+
+def _t041_handle_redeem(handler: "AppHandler") -> None:
+    auth = _t041_require_session_account(handler)
+    if auth is None:
+        return
+    account_id, _role = auth
+    try:
+        payload = safe_read_json(handler)
+    except (ValueError, json.JSONDecodeError) as error:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {"error": {"code": "voucher_body_invalid", "message": str(error)}},
+        )
+        return
+    code = str(payload.get("code") or "").strip()
+    try:
+        result = _t041_institutional.redeem_voucher(code, account_id)
+    except _t041_institutional.InstitutionalError as error:
+        _t041_emit_institutional_error(handler, error)
+        return
+    json_response(handler, HTTPStatus.OK, {"redeemed": result})
+
+
+def _t041_handle_subscription_checkout(
+    handler: "AppHandler", org_id: str
+) -> None:
+    """Open a Stripe seat-based checkout session for the org.
+
+    Returns ``{checkout_url, session_id, seats}``. The handler builds
+    the request body via
+    :func:`institutional.build_seat_subscription_body` and submits it
+    through the existing :class:`billing.StripeClient`. When Stripe is
+    not configured (test / staging without keys) we return a mock
+    session URL so the client-side flow can be exercised end-to-end.
+    """
+
+    auth = _t041_require_session_account(handler)
+    if auth is None:
+        return
+    account_id, role = auth
+    actor = _t041_resolve_org_actor(handler, org_id, account_id, role)
+    if actor is None:
+        return
+    try:
+        payload = safe_read_json(handler)
+    except (ValueError, json.JSONDecodeError) as error:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {
+                "error": {
+                    "code": "subscription_body_invalid",
+                    "message": str(error),
+                }
+            },
+        )
+        return
+    seats_raw = payload.get("seats")
+    try:
+        seats = int(seats_raw) if seats_raw is not None else 0
+    except (TypeError, ValueError):
+        seats = 0
+    if seats < 1:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {
+                "error": {
+                    "code": "quantity_invalid",
+                    "message": "seats must be a positive integer.",
+                }
+            },
+        )
+        return
+    price_id = (
+        os.getenv("STRIPE_PRICE_SEAT", "").strip()
+        or os.getenv("STRIPE_PRICE_INSTITUTIONAL_SEAT", "").strip()
+    )
+    success_url = str(
+        payload.get("success_url")
+        or f"{request_base_url(handler)}/orgs/{org_id}?checkout=success"
+    )
+    cancel_url = str(
+        payload.get("cancel_url")
+        or f"{request_base_url(handler)}/orgs/{org_id}?checkout=cancel"
+    )
+    org = _t041_institutional.get_org(org_id)
+    if org is None:  # pragma: no cover - guarded above
+        json_response(
+            handler,
+            HTTPStatus.NOT_FOUND,
+            {
+                "error": {
+                    "code": "org_not_found",
+                    "message": "Organization not found.",
+                }
+            },
+        )
+        return
+    try:
+        body = _t041_institutional.build_seat_subscription_body(
+            org_id=org_id,
+            price_id=price_id or "price_seat_placeholder",
+            quantity=seats,
+            success_url=success_url,
+            cancel_url=cancel_url,
+            customer_email=payload.get("customer_email"),
+            customer_id=org.get("stripe_customer_id"),
+        )
+    except _t041_institutional.InstitutionalError as error:
+        _t041_emit_institutional_error(handler, error)
+        return
+    client = get_stripe_client()
+    if not client.enabled() or not price_id:
+        mock_session_id = f"cs_test_seats_{secrets.token_hex(6)}"
+        _t041_institutional.attach_stripe_subscription(
+            org_id,
+            stripe_customer_id=org.get("stripe_customer_id") or None,
+            stripe_subscription_id=mock_session_id,
+        )
+        json_response(
+            handler,
+            HTTPStatus.OK,
+            {
+                "checkout_url": success_url,
+                "session_id": mock_session_id,
+                "seats": seats,
+                "stripe_enabled": False,
+                "body": body,
+            },
+        )
+        return
+    try:
+        request = urllib.request.Request(
+            f"{client.api_base}/v1/checkout/sessions",
+            data=urllib.parse.urlencode(
+                {k: v for k, v in body.items() if v}
+            ).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {client.secret_key}",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Stripe-Version": "2024-06-20",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310
+            session_json = json.loads(response.read().decode("utf-8"))
+    except Exception as error:  # noqa: BLE001 - opaque Stripe error
+        capture_exception(error)
+        json_response(
+            handler,
+            HTTPStatus.BAD_GATEWAY,
+            {
+                "error": {
+                    "code": "stripe_checkout_failed",
+                    "message": "Stripe checkout session could not be created.",
+                }
+            },
+        )
+        return
+    if session_json.get("customer"):
+        _t041_institutional.attach_stripe_subscription(
+            org_id,
+            stripe_customer_id=str(session_json["customer"]),
+            stripe_subscription_id=None,
+        )
+    json_response(
+        handler,
+        HTTPStatus.OK,
+        {
+            "checkout_url": session_json.get("url"),
+            "session_id": session_json.get("id"),
+            "seats": seats,
+            "stripe_enabled": True,
+        },
+    )
+
+
+_T041_ORIGINAL_DO_GET = AppHandler.do_GET
+_T041_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t041_patched_do_get(self: "AppHandler") -> None:
+    parsed = urllib.parse.urlparse(getattr(self, "path", "") or "")
+    path = parsed.path or ""
+    matched = _t041_match_org_path(path)
+    if matched is not None:
+        org_id, tail = matched
+        if tail == "seats":
+            _t041_handle_list_seats(self, org_id)
+            return
+    _T041_ORIGINAL_DO_GET(self)
+
+
+def _t041_patched_do_post(self: "AppHandler") -> None:
+    parsed = urllib.parse.urlparse(getattr(self, "path", "") or "")
+    path = parsed.path or ""
+    if path == _T041_ORG_CREATE_PATH:
+        _t041_handle_create_org(self)
+        return
+    if path == _T041_VOUCHER_REDEEM_PATH:
+        _t041_handle_redeem(self)
+        return
+    matched = _t041_match_org_path(path)
+    if matched is not None:
+        org_id, tail = matched
+        if tail == "vouchers":
+            _t041_handle_invite_member(self, org_id)
+            return
+        if tail == "vouchers/bulk":
+            _t041_handle_bulk_vouchers(
+                self, org_id, urllib.parse.parse_qs(parsed.query or "")
+            )
+            return
+        if tail == "subscription":
+            _t041_handle_subscription_checkout(self, org_id)
+            return
+    _T041_ORIGINAL_DO_POST(self)
+
+
+AppHandler.do_GET = _t041_patched_do_get  # type: ignore[assignment]
+AppHandler.do_POST = _t041_patched_do_post  # type: ignore[assignment]
+AppHandler._t041_installed = True  # type: ignore[attr-defined]
+
+
+try:  # pragma: no cover - import-time side effect
+    with db_connection() as _t041_init_conn:
+        _t041_institutional.init_institutional_tables(_t041_init_conn)
+except Exception as _t041_init_exc:  # noqa: BLE001 - hook must never crash import
+    try:
+        log_event(
+            "warning",
+            "t041_init_failed",
+            error=type(_t041_init_exc).__name__,
+        )
+    except Exception:
+        pass
+# ============================================================================
+# end T-041 institutional seat-licensing hook
+# ============================================================================
+
+
+# ============================================================================
+# T-042 tutor dashboard route hook
+# ============================================================================
+# Wires the tutor service (server_app/services/tutor.py) onto AppHandler.
+# Same composition pattern as T-024 / T-030 / T-040 / T-041 — a thin
+# end-of-file monkey-patch installed BEFORE the T-036 v2 SPA static
+# handler so T-036 remains the outermost ``do_GET`` wrapper.
+#
+# Routes installed:
+#   GET /api/tutor/students                          -> roster + readiness
+#   GET /api/tutor/students/<account_id>/report      -> HTML student report
+#
+# Authorisation:
+#   * Caller must hold a session.
+#   * The org is resolved from the ``org_id`` query parameter when
+#     supplied; otherwise the hook auto-discovers the tutor's single
+#     tutor-plan org (and returns ``tutor_org_ambiguous`` 400 when the
+#     caller is a tutor in more than one org).
+#   * :func:`tutor.assert_tutor` enforces the role + plan_tier check.
+#
+# PII boundary:
+#   * The roster includes only ``account_id``, ``role``, ``joined_at``
+#     and the per-skill readiness rollup. Emails, salts, hashes and
+#     other PII columns are NEVER returned. The HTML report uses the
+#     same allow-list of fields.
+# ----------------------------------------------------------------------------
+
+from server_app.services import tutor as _t042_tutor  # noqa: E402
+
+
+_T042_STUDENTS_PATH = "/api/tutor/students"
+_T042_REPORT_SUFFIX = "/report"
+
+
+def _t042_resolve_path(handler: "AppHandler") -> tuple[str, dict[str, list[str]]]:
+    raw = getattr(handler, "path", "") or ""
+    parsed = urllib.parse.urlparse(raw)
+    return (parsed.path or ""), urllib.parse.parse_qs(parsed.query or "")
+
+
+def _t042_safe_segment(segment: str) -> str:
+    """Validate an account_id path segment — letters, digits, ``_-``."""
+
+    segment = (segment or "").strip()
+    if not segment:
+        return ""
+    allowed = set(
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
+    )
+    if any(ch not in allowed for ch in segment):
+        return ""
+    return segment
+
+
+def _t042_match_report_path(path: str) -> str | None:
+    """Return the student account_id when ``path`` matches the report route."""
+
+    prefix = _T042_STUDENTS_PATH + "/"
+    if not path.startswith(prefix):
+        return None
+    remainder = path[len(prefix):]
+    if not remainder.endswith(_T042_REPORT_SUFFIX):
+        return None
+    student_segment = remainder[: -len(_T042_REPORT_SUFFIX)]
+    return _t042_safe_segment(student_segment) or None
+
+
+def _t042_emit_error(
+    handler: "AppHandler", error: "_t042_tutor.TutorError"
+) -> None:
+    json_response(
+        handler,
+        error.status_code,
+        {"error": {"code": error.code, "message": error.message}},
+    )
+
+
+def _t042_resolve_org_id(
+    handler: "AppHandler",
+    account_id: str,
+    query: dict[str, list[str]],
+) -> str | None:
+    """Resolve the org the caller is acting as a tutor for.
+
+    Returns the org_id string, or None after emitting a 4xx response.
+    The explicit ``?org_id=`` query parameter wins; otherwise we look
+    up the tutor's orgs and require exactly one match.
+    """
+
+    raw = (query.get("org_id") or [""])[0]
+    if raw:
+        org_id = _t041_safe_org_id(raw)
+        if not org_id:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {
+                    "error": {
+                        "code": "tutor_org_invalid",
+                        "message": "org_id has an unsupported format.",
+                    }
+                },
+            )
+            return None
+        return org_id
+    orgs = _t042_tutor.find_orgs_for_tutor(account_id)
+    if not orgs:
+        json_response(
+            handler,
+            HTTPStatus.FORBIDDEN,
+            {
+                "error": {
+                    "code": "tutor_forbidden",
+                    "message": "Account is not a tutor in any organization.",
+                }
+            },
+        )
+        return None
+    if len(orgs) > 1:
+        json_response(
+            handler,
+            HTTPStatus.BAD_REQUEST,
+            {
+                "error": {
+                    "code": "tutor_org_ambiguous",
+                    "message": (
+                        "Multiple tutor orgs available — pass ?org_id=… "
+                        "to choose."
+                    ),
+                    "candidates": orgs,
+                }
+            },
+        )
+        return None
+    return str(orgs[0]["id"])
+
+
+def _t042_handle_list_students(
+    handler: "AppHandler", query: dict[str, list[str]]
+) -> None:
+    auth = _t041_require_session_account(handler)
+    if auth is None:
+        return
+    account_id, _role = auth
+    org_id = _t042_resolve_org_id(handler, account_id, query)
+    if org_id is None:
+        return
+    try:
+        payload = _t042_tutor.list_students(
+            org_id, actor_account_id=account_id
+        )
+    except _t042_tutor.TutorError as error:
+        _t042_emit_error(handler, error)
+        return
+    json_response(handler, HTTPStatus.OK, payload)
+
+
+def _t042_send_html(handler: "AppHandler", body: str, *, status: int = 200) -> None:
+    raw = body.encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(raw)))
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("X-Tutor-Report", "T-042")
+    handler.end_headers()
+    handler.wfile.write(raw)
+
+
+def _t042_handle_student_report(
+    handler: "AppHandler",
+    student_account_id: str,
+    query: dict[str, list[str]],
+) -> None:
+    auth = _t041_require_session_account(handler)
+    if auth is None:
+        return
+    account_id, _role = auth
+    org_id = _t042_resolve_org_id(handler, account_id, query)
+    if org_id is None:
+        return
+    try:
+        report = _t042_tutor.get_student_report(
+            org_id, student_account_id, actor_account_id=account_id
+        )
+    except _t042_tutor.TutorError as error:
+        # Emit a plain-text HTML envelope for non-403/404 so a browser
+        # rendering the link still sees a readable error.
+        if error.status_code >= 500:
+            json_response(
+                handler,
+                error.status_code,
+                {"error": {"code": error.code, "message": error.message}},
+            )
+        else:
+            _t042_emit_error(handler, error)
+        return
+    html_body = _t042_tutor.build_student_report_html(report)
+    _t042_send_html(handler, html_body, status=HTTPStatus.OK)
+
+
+_T042_ORIGINAL_DO_GET = AppHandler.do_GET
+
+
+def _t042_patched_do_get(self: "AppHandler") -> None:
+    path, query = _t042_resolve_path(self)
+    if path == _T042_STUDENTS_PATH:
+        _t042_handle_list_students(self, query)
+        return
+    student_account_id = _t042_match_report_path(path)
+    if student_account_id is not None:
+        _t042_handle_student_report(self, student_account_id, query)
+        return
+    _T042_ORIGINAL_DO_GET(self)
+
+
+AppHandler.do_GET = _t042_patched_do_get  # type: ignore[assignment]
+AppHandler._t042_installed = True  # type: ignore[attr-defined]
+
+
+try:  # pragma: no cover - import-time side effect
+    with db_connection() as _t042_init_conn:
+        _t042_tutor.init_tutor_extensions(_t042_init_conn)
+except Exception as _t042_init_exc:  # noqa: BLE001 - hook must never crash import
+    try:
+        log_event(
+            "warning",
+            "t042_init_failed",
+            error=type(_t042_init_exc).__name__,
+        )
+    except Exception:
+        pass
+# ============================================================================
+# end T-042 tutor dashboard route hook
+# ============================================================================
+
+
+# ============================================================================
+# T-053 — AI companion route hook installer
+# ============================================================================
+# Wires two routes onto AppHandler:
+#   POST /api/companion/chat   -> tutor reply w/ persistent memory
+#   GET  /api/companion/nudge  -> daily nudge (rules-based, no LLM)
+#
+# Installed BEFORE the T-036 v2 SPA static handler so T-036 remains the
+# outermost ``do_GET`` wrapper (a structural invariant enforced by
+# ``tests/server/test_v2_static_route.py``).
+#
+# The hook is inlined here (same reason as T-031 / T-034 / T-046) — at
+# import time the ``server_app.routes`` package eagerly pulls in modules
+# that reference symbols defined later in this file, so the actual
+# dispatch wiring must live alongside ``AppHandler`` itself. The
+# :mod:`server_app.routes.companion` module remains the canonical
+# re-export + audit owner.
+# ----------------------------------------------------------------------------
+
+from server_app.services import companion as _t053_companion_service  # noqa: E402
+
+
+_T053_CHAT_PATH = "/api/companion/chat"
+_T053_NUDGE_PATH = "/api/companion/nudge"
+
+
+def _t053_resolve_path(handler: "AppHandler") -> str:
+    raw = getattr(handler, "path", "") or ""
+    return urllib.parse.urlparse(raw).path or ""
+
+
+def _t053_account_id(session: dict) -> str:
+    return (session.get("account") or {}).get("id") or ""
+
+
+def _t053_handle_chat(handler: "AppHandler") -> None:
+    """``POST /api/companion/chat`` — generate a companion reply."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t053_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        plan = (session.get("profile") or {}).get("exam_pack_status") or "free"
+        raw_body = safe_read_json(handler)
+        try:
+            response = _t053_companion_service.generate_chat_reply(
+                account_id=account_id,
+                plan=plan,
+                raw_body=raw_body,
+            )
+        except _t053_companion_service.CompanionInvalidRequest as error:
+            raise ApiError(
+                HTTPStatus.BAD_REQUEST,
+                "companion_invalid_request",
+                str(error),
+            ) from error
+        except QuotaExceededError as error:
+            raise ApiError(
+                HTTPStatus.TOO_MANY_REQUESTS,
+                "ai_quota_exceeded",
+                str(error),
+            ) from error
+        except _t053_companion_service.CompanionProviderError as error:
+            raise ApiError(
+                HTTPStatus.BAD_GATEWAY,
+                "companion_provider_unavailable",
+                str(error),
+            ) from error
+        json_response(handler, HTTPStatus.OK, json.loads(response.model_dump_json()))
+    except ApiError as error:
+        api_error_response(handler, error)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except Exception as error:  # noqa: BLE001 - defence in depth
+        log_event(
+            "error",
+            "companion_chat_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "companion_unavailable"},
+        )
+
+
+def _t053_handle_nudge(handler: "AppHandler") -> None:
+    """``GET /api/companion/nudge`` — return the daily nudge for this learner."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t053_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        nudge = _t053_companion_service.nudge_for_account(account_id)
+        json_response(handler, HTTPStatus.OK, json.loads(nudge.model_dump_json()))
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001 - defence in depth
+        log_event(
+            "error",
+            "companion_nudge_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "companion_unavailable"},
+        )
+
+
+_T053_ORIGINAL_DO_GET = AppHandler.do_GET
+_T053_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t053_patched_do_get(self: "AppHandler") -> None:
+    path = _t053_resolve_path(self)
+    if path == _T053_NUDGE_PATH or path.rstrip("/") == _T053_NUDGE_PATH:
+        _t053_handle_nudge(self)
+        return
+    _T053_ORIGINAL_DO_GET(self)
+
+
+def _t053_patched_do_post(self: "AppHandler") -> None:
+    path = _t053_resolve_path(self)
+    if path == _T053_CHAT_PATH or path.rstrip("/") == _T053_CHAT_PATH:
+        _t053_handle_chat(self)
+        return
+    _T053_ORIGINAL_DO_POST(self)
+
+
+AppHandler.do_GET = _t053_patched_do_get  # type: ignore[assignment]
+AppHandler.do_POST = _t053_patched_do_post  # type: ignore[assignment]
+AppHandler._t053_installed = True  # type: ignore[attr-defined]
+
+try:
+    _t053_companion_service.ensure_companion_tables_ready()
+except Exception:  # noqa: BLE001 — never crash import if DB is unavailable
+    pass
+# ============================================================================
+# end T-053 companion route hook
+# ============================================================================
+
+
+# ============================================================================
+# T-054 — AI curriculum generator route hook installer
+# ============================================================================
+# Wires two routes onto AppHandler:
+#   POST /api/curriculum/generate  -> personalised micro-lesson (cached)
+#   GET  /api/curriculum/lessons   -> learner's cached lesson library
+#
+# Installed BEFORE the T-036 v2 SPA static handler so T-036 remains the
+# outermost ``do_GET`` wrapper (the invariant the
+# ``tests/server/test_v2_static_route.py`` audit enforces).
+#
+# The hook is inlined here for the same reason as T-031 / T-034 / T-046 /
+# T-053: import-order constraints. ``server_app.routes.curriculum`` is the
+# canonical re-export module — this block owns the actual dispatch wiring.
+# ----------------------------------------------------------------------------
+
+from server_app.services import curriculum as _t054_curriculum_service  # noqa: E402
+
+
+_T054_GENERATE_PATH = "/api/curriculum/generate"
+_T054_LIST_PATH = "/api/curriculum/lessons"
+
+
+def _t054_resolve_path(handler: "AppHandler") -> str:
+    raw = getattr(handler, "path", "") or ""
+    return urllib.parse.urlparse(raw).path or ""
+
+
+def _t054_account_id(session: dict) -> str:
+    return (session.get("account") or {}).get("id") or ""
+
+
+def _t054_handle_generate(handler: "AppHandler") -> None:
+    """``POST /api/curriculum/generate`` — produce or cache-fetch a lesson."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t054_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        plan = (session.get("profile") or {}).get("exam_pack_status") or "free"
+        raw_body = safe_read_json(handler)
+        try:
+            response = _t054_curriculum_service.generate_lesson(
+                account_id=account_id,
+                plan=plan,
+                raw_body=raw_body,
+            )
+        except _t054_curriculum_service.CurriculumInvalidRequest as error:
+            raise ApiError(
+                HTTPStatus.BAD_REQUEST,
+                "curriculum_invalid_request",
+                str(error),
+            ) from error
+        except QuotaExceededError as error:
+            raise ApiError(
+                HTTPStatus.TOO_MANY_REQUESTS,
+                "ai_quota_exceeded",
+                str(error),
+            ) from error
+        except _t054_curriculum_service.CurriculumProviderError as error:
+            raise ApiError(
+                HTTPStatus.BAD_GATEWAY,
+                "curriculum_provider_unavailable",
+                str(error),
+            ) from error
+        json_response(handler, HTTPStatus.OK, response)
+    except ApiError as error:
+        api_error_response(handler, error)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except Exception as error:  # noqa: BLE001 — defence in depth
+        log_event(
+            "error",
+            "curriculum_generate_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "curriculum_unavailable"},
+        )
+
+
+def _t054_handle_list(handler: "AppHandler") -> None:
+    """``GET /api/curriculum/lessons`` — return the learner's cached lessons."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t054_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        payload = _t054_curriculum_service.list_lessons_for_route(account_id)
+        json_response(handler, HTTPStatus.OK, payload)
+    except ApiError as error:
+        api_error_response(handler, error)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except Exception as error:  # noqa: BLE001 — defence in depth
+        log_event(
+            "error",
+            "curriculum_list_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "curriculum_unavailable"},
+        )
+
+
+_T054_ORIGINAL_DO_GET = AppHandler.do_GET
+_T054_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t054_patched_do_get(self: "AppHandler") -> None:
+    path = _t054_resolve_path(self)
+    if path == _T054_LIST_PATH or path.rstrip("/") == _T054_LIST_PATH:
+        _t054_handle_list(self)
+        return
+    _T054_ORIGINAL_DO_GET(self)
+
+
+def _t054_patched_do_post(self: "AppHandler") -> None:
+    path = _t054_resolve_path(self)
+    if path == _T054_GENERATE_PATH or path.rstrip("/") == _T054_GENERATE_PATH:
+        _t054_handle_generate(self)
+        return
+    _T054_ORIGINAL_DO_POST(self)
+
+
+AppHandler.do_GET = _t054_patched_do_get  # type: ignore[assignment]
+AppHandler.do_POST = _t054_patched_do_post  # type: ignore[assignment]
+AppHandler._t054_installed = True  # type: ignore[attr-defined]
+
+try:
+    _t054_curriculum_service.ensure_curriculum_tables_ready()
+except Exception:  # noqa: BLE001 — never crash import if DB is unavailable
+    pass
+# ============================================================================
+# end T-054 curriculum route hook
 # ============================================================================
 
 
@@ -7971,6 +9471,8 @@ _t046_install_voice_score_route()
 # ============================================================================
 # end T-046 voice scoring route hook
 # ============================================================================
+
+
 
 
 if __name__ == "__main__":
