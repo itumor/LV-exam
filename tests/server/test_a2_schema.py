@@ -106,10 +106,12 @@ class A2SchemaServiceTests(unittest.TestCase):
                 row["code"]
                 for row in conn.execute("SELECT code FROM exam_levels").fetchall()
             }
-        self.assertEqual(level_codes, {"A2", "B1", "B2"})
-        self.assertEqual(counts["levels"], 3)
-        # 4 skills × 3 levels.
-        self.assertEqual(counts["skills"], 12)
+        # T-062: ``LT-A2`` (Lithuanian A2 fork) is seeded alongside the
+        # original Latvian A2/B1/B2 catalog.
+        self.assertEqual(level_codes, {"A2", "B1", "B2", "LT-A2"})
+        self.assertEqual(counts["levels"], 4)
+        # 4 skills × 4 levels (A2, B1, B2, LT-A2).
+        self.assertEqual(counts["skills"], 16)
         # 11 task_types covering all 4 A2 skills.
         self.assertGreaterEqual(counts["task_types"], 8)
         # 4 exam_parts for the built-in A2 exam.
@@ -142,9 +144,10 @@ class A2SchemaServiceTests(unittest.TestCase):
                 third[key], 0,
                 f"third run must insert 0 {key} rows (got {third[key]})",
             )
-        # Row counts must be stable across re-runs.
-        self.assertEqual(level_count, 3)
-        self.assertEqual(skill_count, 12)
+        # Row counts must be stable across re-runs. T-062 adds the LT-A2
+        # level + its four skill rows (4 levels total, 16 skills total).
+        self.assertEqual(level_count, 4)
+        self.assertEqual(skill_count, 16)
         self.assertEqual(task_type_count, 11)
         self.assertEqual(part_count, 4)
 
@@ -412,7 +415,8 @@ class SeedScriptTests(unittest.TestCase):
             level_count = conn.execute(
                 "SELECT COUNT(*) AS n FROM exam_levels"
             ).fetchone()["n"]
-        self.assertEqual(level_count, 3)
+        # T-062: 4 levels (A2, B1, B2, LT-A2).
+        self.assertEqual(level_count, 4)
 
     def test_seed_script_is_idempotent(self) -> None:
         # First run inserts; subsequent runs must report zero inserts.
@@ -434,16 +438,17 @@ class SeedScriptTests(unittest.TestCase):
                 payload["inserted"][key], 0,
                 f"second run must insert 0 {key} rows",
             )
-        # Row counts must be unchanged.
+        # Row counts must be unchanged. T-062: 4 levels (incl. LT-A2),
+        # 16 skills (4 skills × 4 levels).
         with sqlite3.connect(str(self.db_path)) as conn:
             conn.row_factory = sqlite3.Row
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) AS n FROM exam_levels").fetchone()["n"],
-                3,
+                4,
             )
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) AS n FROM skills").fetchone()["n"],
-                12,
+                16,
             )
 
     def test_seed_script_creates_parent_dir(self) -> None:

@@ -174,10 +174,18 @@ def init_a2_schema_tables(conn: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 # (level_id, code, name, total_points, min_per_skill)
+#
+# T-062: ``LT-A2`` is the Lithuanian A2 fork. It shares the 9/15 pass rule
+# with the Latvian A2 sitting (Lithuanian citizenship uses the same CEFR-A2
+# threshold). The code is namespaced ``LT-A2`` rather than plain ``A2`` so
+# the existing Latvian rows ("A2"/"B1"/"B2") are not disturbed — the
+# language-fork additions live alongside the original catalog and the
+# frontend picks the right row via the i18n locale.
 _SEED_LEVELS: tuple[tuple[str, str, str, int, int], ...] = (
     ("lvl_a2", "A2", "CEFR A2 (Latvian — naturalization)", 60, 9),
     ("lvl_b1", "B1", "CEFR B1 (Latvian)", 60, 12),
     ("lvl_b2", "B2", "CEFR B2 (Latvian)", 60, 15),
+    ("lvl_lt_a2", "LT-A2", "CEFR A2 (Lithuanian — naturalization)", 60, 9),
 )
 
 # (skill_id, level_code, code, name, max_points, ordinal)
@@ -197,6 +205,14 @@ _SEED_SKILLS: tuple[tuple[str, str, str, str, int, int], ...] = (
     ("skl_b2_reading", "B2", "reading", "Lasīšana", 15, 2),
     ("skl_b2_writing", "B2", "writing", "Rakstīšana", 15, 3),
     ("skl_b2_speaking", "B2", "speaking", "Runāšana", 15, 4),
+    # LT-A2 — Lithuanian A2 fork (T-062). Same 4-skill shape, 15 pts each,
+    # with localized skill names. Seeded so the readiness/dashboard code
+    # paths that join through ``skills`` continue to work for the LT
+    # locale without any further plumbing.
+    ("skl_lt_a2_listening", "LT-A2", "listening", "Klausymas", 15, 1),
+    ("skl_lt_a2_reading", "LT-A2", "reading", "Skaitymas", 15, 2),
+    ("skl_lt_a2_writing", "LT-A2", "writing", "Rašymas", 15, 3),
+    ("skl_lt_a2_speaking", "LT-A2", "speaking", "Kalbėjimas", 15, 4),
 )
 
 # (task_type_id, skill_code (A2 only), code, format, max_points)
@@ -262,10 +278,12 @@ def ensure_seed_data(conn: sqlite3.Connection) -> dict[str, int]:
             counts["levels"] += 1
 
     # Resolve code -> id for the seeded levels (handles the case where
-    # the row already existed under a different id).
+    # the row already existed under a different id). T-062 adds ``LT-A2``
+    # (Lithuanian A2 fork) alongside the original Latvian A2/B1/B2 rows.
     level_ids: dict[str, str] = {}
     for row in conn.execute(
-        "SELECT id, code FROM exam_levels WHERE code IN ('A2','B1','B2')"
+        "SELECT id, code FROM exam_levels "
+        "WHERE code IN ('A2','B1','B2','LT-A2')"
     ).fetchall():
         level_ids[row["code"]] = row["id"]
 
