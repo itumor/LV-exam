@@ -132,6 +132,7 @@ class RouteAuditTests(unittest.TestCase):
         from server_app.routes import ROUTES
         known_owners = {
             "admin", "attempts", "auth", "billing", "companion",
+            "curriculum",
             "debug", "exams", "healthz", "institutional", "legal",
             "listening_feed", "metrics", "mock_exam", "multiplayer",
             "npc", "rate_limit", "sso", "srs", "tenant", "tutor",
