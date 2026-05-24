@@ -1,0 +1,76 @@
+{
+  "id": "m7-cesis-castle",
+  "order": 7,
+  "city": "Cesis",
+  "city_lv": "Cēsis",
+  "title": "Mission 7 — A day in Cēsis old town",
+  "title_lv": "7. misija — Diena Cēsu vecpilsētā",
+  "summary": "Travel to Cēsis for a weekend. Buy a museum ticket, ask for directions to the castle, and order a traditional Latvian lunch.",
+  "summary_lv": "Aizbrauc uz Cēsīm uz nedēļas nogali. Nopērc muzeja biļeti, pajautā ceļu uz pili un pasūti tradicionālu latviešu pusdienu.",
+  "language_level": "A2",
+  "estimated_duration_minutes": 18,
+  "xp_on_complete": 100,
+  "unlock_criteria": {
+    "requires_missions": ["m6-daugavpils-neighbor"],
+    "min_total_xp": 420,
+    "min_streak_days": 5
+  },
+  "map_position": {"lat": 57.3122, "lng": 25.2750},
+  "scenes": [
+    {
+      "id": "s1-buy-ticket",
+      "order": 1,
+      "title": "Buy a museum ticket",
+      "title_lv": "Nopērc muzeja biļeti",
+      "location_lv": "Cēsu pils kase",
+      "instruction": "Ask Anna at the ticket counter for one adult ticket and a student ticket.",
+      "instruction_lv": "Pajautā Annai kasē vienu pieaugušā un vienu studenta biļeti.",
+      "npc_id": "cashier-anna",
+      "objective": "ticket_purchase",
+      "target_phrases": [
+        "Vienu pieaugušā biļeti, lūdzu.",
+        "Un vienu studenta biļeti.",
+        "Cik ir kopā?"
+      ],
+      "xp": 30
+    },
+    {
+      "id": "s2-ask-directions",
+      "order": 2,
+      "title": "Ask for directions",
+      "title_lv": "Pajautā ceļu",
+      "location_lv": "Cēsu vecpilsēta",
+      "instruction": "Stop neighbour Līga on the street and ask the way to the old castle.",
+      "instruction_lv": "Pavaicā Līgai uz ielas ceļu uz veco pili.",
+      "npc_id": "neighbor-liga",
+      "objective": "directions",
+      "target_phrases": [
+        "Atvainojiet, kā nokļūt uz veco pili?",
+        "Vai tālu?",
+        "Pa labi vai pa kreisi?"
+      ],
+      "xp": 35
+    },
+    {
+      "id": "s3-order-lunch",
+      "order": 3,
+      "title": "Order Latvian lunch",
+      "title_lv": "Pasūti latviešu pusdienas",
+      "location_lv": "Cēsu krodziņš",
+      "instruction": "Order grey peas with bacon, brown bread, and birch juice from Jānis.",
+      "instruction_lv": "Pie Jāņa pasūti pelēkos zirņus ar speķi, rupjmaizi un bērzu sulu.",
+      "npc_id": "waiter-janis",
+      "objective": "order_traditional",
+      "target_phrases": [
+        "Vienu porciju pelēko zirņu ar speķi, lūdzu.",
+        "Un rupjmaizi.",
+        "Vienu glāzi bērzu sulas."
+      ],
+      "xp": 35
+    }
+  ],
+  "rewards": {
+    "title_unlock": "Old Town Explorer",
+    "title_unlock_lv": "Vecpilsētas pētnieks"
+  }
+}

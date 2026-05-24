@@ -1,0 +1,76 @@
+{
+  "id": "m5-daugavpils-classroom",
+  "order": 5,
+  "city": "Daugavpils",
+  "city_lv": "Daugavpils",
+  "title": "Mission 5 — Latvian class in Daugavpils",
+  "title_lv": "5. misija — Latviešu valodas stunda Daugavpilī",
+  "summary": "You attend a community Latvian-language class. Introduce yourself to teacher Andris, answer questions about your background, and read a short text aloud.",
+  "summary_lv": "Apmeklē kopienas latviešu valodas nodarbību. Iepazīsties ar skolotāju Andri, atbildi uz jautājumiem un izlasi īsu tekstu skaļi.",
+  "language_level": "A2",
+  "estimated_duration_minutes": 18,
+  "xp_on_complete": 90,
+  "unlock_criteria": {
+    "requires_missions": ["m4-liepaja-clinic"],
+    "min_total_xp": 240,
+    "min_streak_days": 2
+  },
+  "map_position": {"lat": 55.8748, "lng": 26.5364},
+  "scenes": [
+    {
+      "id": "s1-introduce-self",
+      "order": 1,
+      "title": "Introduce yourself to the class",
+      "title_lv": "Iepazīstini sevi klasei",
+      "location_lv": "Daugavpils Tālākizglītības centrs",
+      "instruction": "Tell teacher Andris your name, where you live, and why you study Latvian.",
+      "instruction_lv": "Pastāsti Andrim savu vārdu, kur dzīvo un kāpēc mācies latviešu valodu.",
+      "npc_id": "teacher-andris",
+      "objective": "self_intro",
+      "target_phrases": [
+        "Mani sauc...",
+        "Es dzīvoju Rīgā.",
+        "Es mācos latviešu valodu, jo gribu kārtot eksāmenu."
+      ],
+      "xp": 25
+    },
+    {
+      "id": "s2-discuss-family",
+      "order": 2,
+      "title": "Talk about your family",
+      "title_lv": "Pastāsti par savu ģimeni",
+      "location_lv": "Klases telpa",
+      "instruction": "Answer Andris's questions about your family — how many people, their jobs.",
+      "instruction_lv": "Atbildi uz Andra jautājumiem par tavu ģimeni — cik cilvēku, viņu profesijas.",
+      "npc_id": "teacher-andris",
+      "objective": "family",
+      "target_phrases": [
+        "Manai ģimenei ir četri cilvēki.",
+        "Mans tētis ir inženieris.",
+        "Mana māsa mācās skolā."
+      ],
+      "xp": 30
+    },
+    {
+      "id": "s3-read-aloud",
+      "order": 3,
+      "title": "Read a short text aloud",
+      "title_lv": "Izlasi īsu tekstu skaļi",
+      "location_lv": "Klases telpa",
+      "instruction": "Read the short A2 paragraph Andris hands you and answer one comprehension question.",
+      "instruction_lv": "Izlasi īso A2 tekstu un atbildi uz vienu jautājumu par to.",
+      "npc_id": "teacher-andris",
+      "objective": "reading_aloud",
+      "target_phrases": [
+        "Šī ir mana māja.",
+        "Es to lasu skolotājam.",
+        "Es saprotu tekstu."
+      ],
+      "xp": 35
+    }
+  ],
+  "rewards": {
+    "title_unlock": "Diligent Student",
+    "title_unlock_lv": "Čakls skolnieks"
+  }
+}

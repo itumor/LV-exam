@@ -1,0 +1,72 @@
+{
+  "id": "m2-riga-market",
+  "order": 2,
+  "city": "Riga",
+  "city_lv": "Rīga",
+  "title": "Mission 2 — Shopping at Rīgas Centrāltirgus",
+  "title_lv": "2. misija — Iepirkšanās Rīgas Centrāltirgū",
+  "summary": "Settle in by buying groceries at the Central Market and a coffee at a nearby café.",
+  "summary_lv": "Iekārtojies — iepērcies Centrāltirgū un nopērc kafiju tuvējā kafejnīcā.",
+  "language_level": "A2",
+  "estimated_duration_minutes": 14,
+  "xp_on_complete": 60,
+  "unlock_criteria": {
+    "requires_missions": ["m1-riga-arrival"],
+    "min_total_xp": 30,
+    "min_streak_days": 0
+  },
+  "map_position": {"lat": 56.9450, "lng": 24.1149},
+  "scenes": [
+    {
+      "id": "s1-ask-cashier",
+      "order": 1,
+      "title": "Talk to the cashier",
+      "title_lv": "Runā ar kasieri",
+      "location_lv": "Rimi supermārkets",
+      "instruction": "Greet Anna at the supermarket checkout and ask the price of milk.",
+      "instruction_lv": "Sasveicinies ar Annu kasē un pajautā, cik maksā piens.",
+      "npc_id": "cashier-anna",
+      "objective": "ask_price",
+      "target_phrases": ["Labdien!", "Cik maksā piens?", "Vai jums ir maizes?"],
+      "xp": 15
+    },
+    {
+      "id": "s2-pay-by-card",
+      "order": 2,
+      "title": "Pay by card",
+      "title_lv": "Norēķinies ar karti",
+      "location_lv": "Rimi supermārkets",
+      "instruction": "Tell Anna you will pay by card and ask for a bag.",
+      "instruction_lv": "Pasaki Annai, ka maksāsi ar karti, un palūdz maisiņu.",
+      "npc_id": "cashier-anna",
+      "objective": "transaction",
+      "target_phrases": [
+        "Es maksāšu ar karti.",
+        "Vai jums ir maisiņš?",
+        "Lūdzu, vienu maisiņu."
+      ],
+      "xp": 15
+    },
+    {
+      "id": "s3-order-coffee",
+      "order": 3,
+      "title": "Order coffee at the café",
+      "title_lv": "Pasūti kafiju kafejnīcā",
+      "location_lv": "Costa kafejnīca, Vecrīga",
+      "instruction": "Order a black coffee and a pastry from the waiter Jānis.",
+      "instruction_lv": "Pasūti pie Jāņa melno kafiju un kūku.",
+      "npc_id": "waiter-janis",
+      "objective": "order",
+      "target_phrases": [
+        "Vienu melno kafiju, lūdzu.",
+        "Un vienu kūku.",
+        "Cik ir kopā?"
+      ],
+      "xp": 15
+    }
+  ],
+  "rewards": {
+    "title_unlock": "Market Local",
+    "title_unlock_lv": "Tirgus iemītnieks"
+  }
+}

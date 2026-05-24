@@ -34,6 +34,7 @@ from . import (  # noqa: F401  (re-exported for the audit list)
     rate_limit,
     sso,
     srs,
+    story,
     tenant,
     tutor,
     uploads,
@@ -70,6 +71,7 @@ for _module in (
     companion,
     multiplayer,
     curriculum,
+    story,
 ):
     for _method, _pattern in _module.ROUTES:
         ROUTES.append((_method, _pattern, _module.__name__.rsplit(".", 1)[-1]))
@@ -95,6 +97,7 @@ __all__ = [
     "rate_limit",
     "sso",
     "srs",
+    "story",
     "tenant",
     "tutor",
     "uploads",

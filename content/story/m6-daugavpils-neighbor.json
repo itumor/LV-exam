@@ -1,0 +1,76 @@
+{
+  "id": "m6-daugavpils-neighbor",
+  "order": 6,
+  "city": "Daugavpils",
+  "city_lv": "Daugavpils",
+  "title": "Mission 6 — Helping a neighbour",
+  "title_lv": "6. misija — Palīdzība kaimiņienei",
+  "summary": "Your new neighbour Līga in Daugavpils asks for help carrying groceries. Make small talk, accept an invitation for tea, and politely decline a second helping.",
+  "summary_lv": "Tava jaunā kaimiņiene Līga Daugavpilī lūdz palīdzēt aiznest produktus. Iesaisties sarunā, pieņem ielūgumu uz tēju un pieklājīgi atsakies no otras porcijas.",
+  "language_level": "A2",
+  "estimated_duration_minutes": 16,
+  "xp_on_complete": 90,
+  "unlock_criteria": {
+    "requires_missions": ["m5-daugavpils-classroom"],
+    "min_total_xp": 330,
+    "min_streak_days": 3
+  },
+  "map_position": {"lat": 55.8830, "lng": 26.5180},
+  "scenes": [
+    {
+      "id": "s1-help-carry",
+      "order": 1,
+      "title": "Offer help",
+      "title_lv": "Piedāvā palīdzību",
+      "location_lv": "Daudzdzīvokļu māja, Daugavpils",
+      "instruction": "Offer to help Līga carry her grocery bags up to the apartment.",
+      "instruction_lv": "Piedāvā Līgai palīdzēt aiznest somas uz dzīvokli.",
+      "npc_id": "neighbor-liga",
+      "objective": "offer_help",
+      "target_phrases": [
+        "Vai jums vajag palīdzību?",
+        "Es varu jums palīdzēt.",
+        "Lūdzu, dodiet man somu."
+      ],
+      "xp": 25
+    },
+    {
+      "id": "s2-accept-tea",
+      "order": 2,
+      "title": "Accept tea politely",
+      "title_lv": "Pieņem tēju pieklājīgi",
+      "location_lv": "Līgas virtuve",
+      "instruction": "Thank Līga and accept her invitation for a cup of tea.",
+      "instruction_lv": "Pateicies Līgai un pieņem ielūgumu uz tēju.",
+      "npc_id": "neighbor-liga",
+      "objective": "accept_invitation",
+      "target_phrases": [
+        "Paldies, ļoti laipni.",
+        "Jā, ar prieku.",
+        "Vienu tasi tējas, lūdzu."
+      ],
+      "xp": 30
+    },
+    {
+      "id": "s3-decline-second",
+      "order": 3,
+      "title": "Decline a second helping politely",
+      "title_lv": "Pieklājīgi atsakies no otras porcijas",
+      "location_lv": "Līgas virtuve",
+      "instruction": "Tell Līga the food was delicious but you are full and have to go.",
+      "instruction_lv": "Pasaki Līgai, ka bija garšīgi, bet tu esi paēdis un tev jāiet.",
+      "npc_id": "neighbor-liga",
+      "objective": "polite_refusal",
+      "target_phrases": [
+        "Bija ļoti garšīgi, paldies.",
+        "Es esmu paēdis.",
+        "Man diemžēl jāiet."
+      ],
+      "xp": 35
+    }
+  ],
+  "rewards": {
+    "title_unlock": "Friendly Neighbour",
+    "title_unlock_lv": "Draudzīgs kaimiņš"
+  }
+}

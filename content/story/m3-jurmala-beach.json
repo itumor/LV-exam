@@ -1,0 +1,76 @@
+{
+  "id": "m3-jurmala-beach",
+  "order": 3,
+  "city": "Jurmala",
+  "city_lv": "Jūrmala",
+  "title": "Mission 3 — Weekend in Jūrmala",
+  "title_lv": "3. misija — Nedēļas nogale Jūrmalā",
+  "summary": "Take the electric train to Jūrmala, chat with a friendly neighbour on the beach, and ask the waiter for fish at a Majori café.",
+  "summary_lv": "Aizbrauc ar elektrovilcienu uz Jūrmalu, parunājies pludmalē ar laipnu kaimiņieni un pasūti zivi Majoru kafejnīcā.",
+  "language_level": "A2",
+  "estimated_duration_minutes": 16,
+  "xp_on_complete": 70,
+  "unlock_criteria": {
+    "requires_missions": ["m2-riga-market"],
+    "min_total_xp": 90,
+    "min_streak_days": 0
+  },
+  "map_position": {"lat": 56.9714, "lng": 23.7706},
+  "scenes": [
+    {
+      "id": "s1-meet-neighbor",
+      "order": 1,
+      "title": "Small talk on the beach",
+      "title_lv": "Saruna pludmalē",
+      "location_lv": "Majoru pludmale",
+      "instruction": "Introduce yourself to Līga on the beach. Tell her where you are from.",
+      "instruction_lv": "Iepazīsties ar Līgu pludmalē. Pasaki, no kurienes tu esi.",
+      "npc_id": "neighbor-liga",
+      "objective": "introduction",
+      "target_phrases": [
+        "Sveiki! Mani sauc...",
+        "Es esmu no Vācijas.",
+        "Es mācos latviešu valodu."
+      ],
+      "xp": 20
+    },
+    {
+      "id": "s2-discuss-weather",
+      "order": 2,
+      "title": "Talk about the weather",
+      "title_lv": "Sarunājies par laikapstākļiem",
+      "location_lv": "Majoru pludmale",
+      "instruction": "Talk with Līga about the weather and her weekend plans.",
+      "instruction_lv": "Pārrunā ar Līgu laikapstākļus un viņas nedēļas nogales plānus.",
+      "npc_id": "neighbor-liga",
+      "objective": "smalltalk",
+      "target_phrases": [
+        "Šodien ir silts.",
+        "Vai jums patīk vasara?",
+        "Ko jūs plānojat darīt?"
+      ],
+      "xp": 20
+    },
+    {
+      "id": "s3-order-fish",
+      "order": 3,
+      "title": "Order grilled fish",
+      "title_lv": "Pasūti grilētu zivi",
+      "location_lv": "Majoru kafejnīca",
+      "instruction": "Order grilled fish and a glass of water from the waiter Jānis.",
+      "instruction_lv": "Pasūti pie Jāņa grilētu zivi un glāzi ūdens.",
+      "npc_id": "waiter-janis",
+      "objective": "order",
+      "target_phrases": [
+        "Es vēlos grilētu zivi.",
+        "Un glāzi ūdens, lūdzu.",
+        "Cik ilgi tas ilgs?"
+      ],
+      "xp": 20
+    }
+  ],
+  "rewards": {
+    "title_unlock": "Seaside Speaker",
+    "title_unlock_lv": "Jūrmalietis"
+  }
+}
