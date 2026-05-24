@@ -30,6 +30,7 @@ from . import (  # noqa: F401  (re-exported for the audit list)
     mock_exam,
     multiplayer,
     npc,
+    procedural_story,
     rate_limit,
     sso,
     srs,
@@ -68,6 +69,7 @@ for _module in (
     tutor,
     companion,
     multiplayer,
+    procedural_story,
 ):
     for _method, _pattern in _module.ROUTES:
         ROUTES.append((_method, _pattern, _module.__name__.rsplit(".", 1)[-1]))
@@ -89,6 +91,7 @@ __all__ = [
     "mock_exam",
     "multiplayer",
     "npc",
+    "procedural_story",
     "rate_limit",
     "sso",
     "srs",
