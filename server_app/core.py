@@ -9093,6 +9093,345 @@ AppHandler._t052_installed = True  # type: ignore[attr-defined]
 
 
 # ============================================================================
+# T-051 — Avatar + cosmetics route hook installer
+# ============================================================================
+# Wires three routes onto AppHandler:
+#   GET  /api/avatars              -> catalog + per-account unlock state
+#   POST /api/avatars/equip        -> set currently-equipped avatar
+#   POST /api/avatars/unlock       -> attempt to unlock a specific avatar
+#
+# Installed at the current EOF (after the T-046 hook, which is the last
+# block on the develop tip — T-070-final added no core.py wiring). The
+# patch wraps the prior do_GET / do_POST chain and delegates to it on
+# every non-avatar request, so behaviour for existing routes is
+# unchanged.
+#
+# The hook is inlined here (rather than imported via
+# :mod:`server_app.routes.avatars`) for the same reason as
+# T-031 / T-034 / T-046 / T-053 / T-054: at import time the
+# ``server_app.routes`` package eagerly pulls in modules that reference
+# symbols defined later in this file. The :mod:`routes.avatars` module
+# remains the canonical re-export + audit owner.
+# ----------------------------------------------------------------------------
+
+from server_app.services import avatars as _t051_avatar_service  # noqa: E402
+
+
+_T051_LIST_PATH = "/api/avatars"
+_T051_EQUIP_PATH = "/api/avatars/equip"
+_T051_UNLOCK_PATH = "/api/avatars/unlock"
+
+
+def _t051_resolve_path(handler: "AppHandler") -> str:
+    raw = getattr(handler, "path", "") or ""
+    return urllib.parse.urlparse(raw).path or ""
+
+
+def _t051_account_id(session: dict) -> str:
+    return (session.get("account") or {}).get("id") or ""
+
+
+def _t051_billing_state(account_id: str, user_role: str) -> dict[str, Any]:
+    """Pull the billing state used by the premium gate.
+
+    Mirrors :mod:`server_app.services.entitlements`: read the
+    ``BillingStore`` snapshot, then layer the institutional-seat
+    signal on top so the same precedence (subscription ≡ seat) is
+    available to the avatar gate without re-implementing the lookup.
+    """
+
+    try:
+        store = get_billing_store()
+        state = dict(store.get_state(account_id, user_role=user_role) or {})
+    except Exception:  # noqa: BLE001 - never crash the gate on store errors
+        state = {}
+    try:
+        from server_app.services.institutional import account_has_active_seat
+        if account_has_active_seat(account_id):
+            state["has_active_seat"] = True
+    except Exception:  # noqa: BLE001 - log + degrade to non-seat
+        pass
+    return state
+
+
+def _t051_parse_paid_filter(handler: "AppHandler") -> bool | None:
+    """Map the ``?tier=paid``/``?tier=unpaid`` query into the service flag.
+
+    Accepts ``paid`` / ``premium`` for the paid-only view and ``unpaid``
+    / ``free_or_xp`` for the unpaid-only view. Any other value (or no
+    value) returns ``None`` — the service then emits the full catalog.
+    """
+
+    raw = getattr(handler, "path", "") or ""
+    try:
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(raw).query)
+    except ValueError:
+        return None
+    tier = (query.get("tier") or [""])[0].strip().lower()
+    if tier in {"paid", "premium"}:
+        return True
+    if tier in {"unpaid", "free", "free_or_xp", "xp"}:
+        return False
+    return None
+
+
+def _t051_handle_list(handler: "AppHandler") -> None:
+    """``GET /api/avatars`` — list catalog avatars with unlock state."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t051_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        role = account_role(session)
+        billing_state = _t051_billing_state(account_id, role)
+        only_paid_tier = _t051_parse_paid_filter(handler)
+        with db_connection() as conn:
+            items = _t051_avatar_service.list_unlocked(
+                conn,
+                account_id,
+                billing_state=billing_state,
+                only_paid_tier=only_paid_tier,
+            )
+            equipped = _t051_avatar_service.get_equipped(conn, account_id)
+        json_response(
+            handler,
+            HTTPStatus.OK,
+            {
+                "items": items,
+                "equipped": equipped,
+                "count": len(items),
+            },
+        )
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001 - defence in depth
+        log_event(
+            "error",
+            "avatars_list_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "avatars_unavailable"},
+        )
+
+
+def _t051_handle_equip(handler: "AppHandler") -> None:
+    """``POST /api/avatars/equip`` — set the currently-equipped avatar."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t051_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        try:
+            body = safe_read_json(handler)
+        except ValueError as error:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": str(error)},
+            )
+            return
+        if not isinstance(body, dict):
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body"},
+            )
+            return
+        avatar_id = str(body.get("avatar_id") or "").strip()
+        if not avatar_id:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": "avatar_id is required"},
+            )
+            return
+        role = account_role(session)
+        billing_state = _t051_billing_state(account_id, role)
+        with db_connection() as conn:
+            try:
+                equipped = _t051_avatar_service.equip_avatar(
+                    conn,
+                    account_id,
+                    avatar_id,
+                    billing_state=billing_state,
+                )
+            except _t051_avatar_service.AvatarNotFoundError as error:
+                json_response(
+                    handler,
+                    HTTPStatus.NOT_FOUND,
+                    {"error": "avatar_not_found", "detail": str(error)},
+                )
+                return
+            except _t051_avatar_service.AvatarLockedError as error:
+                json_response(
+                    handler,
+                    HTTPStatus.FORBIDDEN,
+                    {
+                        "error": "avatar_locked",
+                        "avatar_id": error.avatar_id,
+                        "reason": error.reason,
+                        "required": error.required,
+                    },
+                )
+                return
+        json_response(handler, HTTPStatus.OK, {"equipped": equipped})
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001 - defence in depth
+        log_event(
+            "error",
+            "avatars_equip_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "avatars_unavailable"},
+        )
+
+
+def _t051_handle_unlock(handler: "AppHandler") -> None:
+    """``POST /api/avatars/unlock`` — best-effort unlock by id."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t051_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        try:
+            body = safe_read_json(handler)
+        except ValueError as error:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": str(error)},
+            )
+            return
+        if not isinstance(body, dict):
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body"},
+            )
+            return
+        avatar_id = str(body.get("avatar_id") or "").strip()
+        if not avatar_id:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": "avatar_id is required"},
+            )
+            return
+        role = account_role(session)
+        billing_state = _t051_billing_state(account_id, role)
+        with db_connection() as conn:
+            try:
+                unlock = _t051_avatar_service.unlock_avatar(
+                    conn,
+                    account_id,
+                    avatar_id,
+                    billing_state=billing_state,
+                )
+            except _t051_avatar_service.AvatarNotFoundError as error:
+                json_response(
+                    handler,
+                    HTTPStatus.NOT_FOUND,
+                    {"error": "avatar_not_found", "detail": str(error)},
+                )
+                return
+            except _t051_avatar_service.AvatarLockedError as error:
+                json_response(
+                    handler,
+                    HTTPStatus.FORBIDDEN,
+                    {
+                        "error": "avatar_locked",
+                        "avatar_id": error.avatar_id,
+                        "reason": error.reason,
+                        "required": error.required,
+                    },
+                )
+                return
+        json_response(handler, HTTPStatus.OK, {"unlock": unlock})
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001 - defence in depth
+        log_event(
+            "error",
+            "avatars_unlock_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "avatars_unavailable"},
+        )
+
+
+_T051_ORIGINAL_DO_GET = AppHandler.do_GET
+_T051_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t051_patched_do_get(self: "AppHandler") -> None:
+    path = _t051_resolve_path(self)
+    if path == _T051_LIST_PATH or path.rstrip("/") == _T051_LIST_PATH:
+        _t051_handle_list(self)
+        return
+    _T051_ORIGINAL_DO_GET(self)
+
+
+def _t051_patched_do_post(self: "AppHandler") -> None:
+    path = _t051_resolve_path(self)
+    if path == _T051_EQUIP_PATH or path.rstrip("/") == _T051_EQUIP_PATH:
+        _t051_handle_equip(self)
+        return
+    if path == _T051_UNLOCK_PATH or path.rstrip("/") == _T051_UNLOCK_PATH:
+        _t051_handle_unlock(self)
+        return
+    _T051_ORIGINAL_DO_POST(self)
+
+
+AppHandler.do_GET = _t051_patched_do_get  # type: ignore[assignment]
+AppHandler.do_POST = _t051_patched_do_post  # type: ignore[assignment]
+AppHandler._t051_installed = True  # type: ignore[attr-defined]
+
+# Best-effort: pre-warm the catalog cache so the first request doesn't
+# pay the directory scan. Failures are silently ignored — the lazy
+# loader retries on each request.
+try:
+    _t051_avatar_service.load_catalog()
+except Exception:  # noqa: BLE001
+    pass
+# ============================================================================
+# end T-051 avatar + cosmetics route hook
+# ============================================================================
+
+# ============================================================================
 # T-036 Vue 3 + TypeScript SPA static handler (mounted at /v2/)
 # ============================================================================
 # Serves the built apps/web-v2/dist/ assets under /v2/ via a tail-of-file
@@ -9644,7 +9983,6 @@ _t046_install_voice_score_route()
 # ============================================================================
 # end T-046 voice scoring route hook
 # ============================================================================
-
 
 
 

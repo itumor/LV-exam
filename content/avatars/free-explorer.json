@@ -1,0 +1,9 @@
+{
+  "id": "free-explorer",
+  "display_name": "Explorer",
+  "description": "A friendly traveller carrying a tattered phrasebook. The default avatar handed to every learner on day one.",
+  "art_ref": "/assets/avatars/free-explorer.svg",
+  "rarity": "common",
+  "tier": "free",
+  "unlock": {"kind": "free"}
+}

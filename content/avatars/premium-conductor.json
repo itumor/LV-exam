@@ -1,0 +1,9 @@
+{
+  "id": "premium-conductor",
+  "display_name": "Choir Conductor",
+  "description": "Subscriber-only. Baton raised at the Latvian Song Festival — the iconic dziesmu svētki maestro.",
+  "art_ref": "/assets/avatars/premium-conductor.svg",
+  "rarity": "legendary",
+  "tier": "premium",
+  "unlock": {"kind": "premium"}
+}

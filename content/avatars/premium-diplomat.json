@@ -1,0 +1,9 @@
+{
+  "id": "premium-diplomat",
+  "display_name": "Diplomat",
+  "description": "Subscriber-only. Tailored suit and a quiet confidence — the multilingual envoy.",
+  "art_ref": "/assets/avatars/premium-diplomat.svg",
+  "rarity": "epic",
+  "tier": "premium",
+  "unlock": {"kind": "premium"}
+}
