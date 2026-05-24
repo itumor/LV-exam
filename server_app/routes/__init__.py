@@ -19,6 +19,7 @@ from . import (  # noqa: F401  (re-exported for the audit list)
     attempts,
     auth,
     billing,
+    companion,
     debug,
     exams,
     healthz,
@@ -65,6 +66,7 @@ for _module in (
     xp,
     institutional,
     tutor,
+    companion,
     multiplayer,
 ):
     for _method, _pattern in _module.ROUTES:
@@ -76,6 +78,7 @@ __all__ = [
     "attempts",
     "auth",
     "billing",
+    "companion",
     "debug",
     "exams",
     "healthz",

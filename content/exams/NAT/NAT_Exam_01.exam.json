@@ -1,0 +1,513 @@
+{
+  "schema_version": "1.0",
+  "version": "2026.05.0",
+  "exam_id": "nat-01",
+  "slug": "nat-01",
+  "title": "Naturalizācijas eksāmens 01 — Latvijas valstspiederība",
+  "level": "CITIZENSHIP",
+  "language": "lv",
+  "status": "published",
+  "content_version": 1,
+  "is_immutable": true,
+  "source": {
+    "markdown_path": "content/exams/NAT/NAT_Exam_01.md",
+    "attachment_root": "content/exams/NAT/audio"
+  },
+  "workflow": {
+    "status_values": ["draft", "review", "published", "archived"],
+    "immutable_statuses": ["published", "archived"],
+    "current_status": "published"
+  },
+  "scoring": {
+    "total_points": 35,
+    "section_points": {
+      "history": 10,
+      "constitution": 10,
+      "language": 15
+    },
+    "minimum_per_section": {
+      "history_constitution_combined": 12,
+      "language": 9
+    },
+    "task_point_allocation": {
+      "history":      {"task1": 10},
+      "constitution": {"task1": 10},
+      "language":     {"task1": 5, "task2": 5, "task3": 5}
+    },
+    "pass_rule": {
+      "kind": "citizenship_dual_section",
+      "history_constitution_combined_min": 12,
+      "language_min": 9,
+      "total_points": 35,
+      "description": "Latvian naturalisation pass rule (T-071): candidate must score at least 12/20 in the combined history+constitution sections AND at least 9/15 in the language section. Failing either threshold fails the exam, regardless of total score."
+    }
+  },
+  "assets": {
+    "audio": []
+  },
+  "sections": [
+    {
+      "skill": "history",
+      "title": "Latvijas vēsture",
+      "points_max": 10,
+      "minutes": 20,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. uzdevums — Vēstures jautājumi",
+          "type": "citizenship_multiple_choice",
+          "scoring_mode": "objective",
+          "points_max": 10,
+          "instruction": "Atbildiet uz jautājumiem par Latvijas vēsturi. Katrai pareizajai atbildei viens punkts.",
+          "questions": [
+            {
+              "number": 1,
+              "kind": "multiple_choice",
+              "prompt": "Kurā gadā Latvija pasludināja neatkarību?",
+              "options": [
+                {"label": "a", "text": "1917. gada 7. novembrī"},
+                {"label": "b", "text": "1918. gada 18. novembrī"},
+                {"label": "c", "text": "1920. gada 11. augustā"},
+                {"label": "d", "text": "1922. gada 15. februārī"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            },
+            {
+              "number": 2,
+              "kind": "multiple_choice",
+              "prompt": "Kā sauca pirmo Latvijas Republikas prezidentu?",
+              "options": [
+                {"label": "a", "text": "Kārlis Ulmanis"},
+                {"label": "b", "text": "Gustavs Zemgals"},
+                {"label": "c", "text": "Jānis Čakste"},
+                {"label": "d", "text": "Alberts Kviesis"}
+              ],
+              "correct_answers": ["c"],
+              "correct_answer": "c"
+            },
+            {
+              "number": 3,
+              "kind": "multiple_choice",
+              "prompt": "Kurā gadā Latvija atguva neatkarību no Padomju Savienības?",
+              "options": [
+                {"label": "a", "text": "1989"},
+                {"label": "b", "text": "1990"},
+                {"label": "c", "text": "1991"},
+                {"label": "d", "text": "1993"}
+              ],
+              "correct_answers": ["c"],
+              "correct_answer": "c"
+            },
+            {
+              "number": 4,
+              "kind": "multiple_choice",
+              "prompt": "Kurā gadā Latvija iestājās Eiropas Savienībā?",
+              "options": [
+                {"label": "a", "text": "2002"},
+                {"label": "b", "text": "2004"},
+                {"label": "c", "text": "2007"},
+                {"label": "d", "text": "2014"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            },
+            {
+              "number": 5,
+              "kind": "multiple_choice",
+              "prompt": "Kā sauc 1991. gada janvāra notikumus Rīgā, kad cilvēki aizstāvēja neatkarību?",
+              "options": [
+                {"label": "a", "text": "Dziesmotā revolūcija"},
+                {"label": "b", "text": "Barikāžu laiks"},
+                {"label": "c", "text": "Baltijas ceļš"},
+                {"label": "d", "text": "Tautas fronte"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            },
+            {
+              "number": 6,
+              "kind": "multiple_choice",
+              "prompt": "Kurā gadā notika Baltijas ceļš?",
+              "options": [
+                {"label": "a", "text": "1987"},
+                {"label": "b", "text": "1988"},
+                {"label": "c", "text": "1989"},
+                {"label": "d", "text": "1991"}
+              ],
+              "correct_answers": ["c"],
+              "correct_answer": "c"
+            },
+            {
+              "number": 7,
+              "kind": "multiple_choice",
+              "prompt": "Kā sauc Latvijas himnu?",
+              "options": [
+                {"label": "a", "text": "Daugav' abas malas"},
+                {"label": "b", "text": "Dievs, svētī Latviju!"},
+                {"label": "c", "text": "Pūt, vējiņi!"},
+                {"label": "d", "text": "Lec, saulīte!"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            },
+            {
+              "number": 8,
+              "kind": "multiple_choice",
+              "prompt": "Kas ir Latvijas himnas autors (vārdi un mūzika)?",
+              "options": [
+                {"label": "a", "text": "Jānis Rainis"},
+                {"label": "b", "text": "Kārlis Baumanis"},
+                {"label": "c", "text": "Krišjānis Barons"},
+                {"label": "d", "text": "Andrejs Pumpurs"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            },
+            {
+              "number": 9,
+              "kind": "multiple_choice",
+              "prompt": "Kura ir Latvijas galvaspilsēta un kad tā tika dibināta?",
+              "options": [
+                {"label": "a", "text": "Rīga, 1201. gadā"},
+                {"label": "b", "text": "Rīga, 1158. gadā"},
+                {"label": "c", "text": "Daugavpils, 1275. gadā"},
+                {"label": "d", "text": "Liepāja, 1300. gadā"}
+              ],
+              "correct_answers": ["a"],
+              "correct_answer": "a"
+            },
+            {
+              "number": 10,
+              "kind": "multiple_choice",
+              "prompt": "Kā Latvija svin neatkarības dienu un kurā datumā?",
+              "options": [
+                {"label": "a", "text": "1. maijā — Darba diena"},
+                {"label": "b", "text": "18. novembrī — Latvijas Republikas proklamēšanas diena"},
+                {"label": "c", "text": "4. maijā — Neatkarības atjaunošanas diena"},
+                {"label": "d", "text": "11. novembrī — Lāčplēša diena"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "constitution",
+      "title": "Latvijas Satversme un valsts iekārta",
+      "points_max": 10,
+      "minutes": 20,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. uzdevums — Konstitucionālie jautājumi",
+          "type": "citizenship_multiple_choice",
+          "scoring_mode": "objective",
+          "points_max": 10,
+          "instruction": "Atbildiet uz jautājumiem par Latvijas Satversmi un valsts iekārtu. Katrai pareizajai atbildei viens punkts.",
+          "questions": [
+            {
+              "number": 1,
+              "kind": "multiple_choice",
+              "prompt": "Kā sauc Latvijas pamatlikumu?",
+              "options": [
+                {"label": "a", "text": "Konstitūcija"},
+                {"label": "b", "text": "Satversme"},
+                {"label": "c", "text": "Pamatlikums"},
+                {"label": "d", "text": "Civillikums"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            },
+            {
+              "number": 2,
+              "kind": "multiple_choice",
+              "prompt": "Kurā gadā tika pieņemta Latvijas Satversme?",
+              "options": [
+                {"label": "a", "text": "1918"},
+                {"label": "b", "text": "1922"},
+                {"label": "c", "text": "1934"},
+                {"label": "d", "text": "1990"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            },
+            {
+              "number": 3,
+              "kind": "multiple_choice",
+              "prompt": "Kā sauc Latvijas parlamentu?",
+              "options": [
+                {"label": "a", "text": "Saeima"},
+                {"label": "b", "text": "Sejma"},
+                {"label": "c", "text": "Augstākā Padome"},
+                {"label": "d", "text": "Dome"}
+              ],
+              "correct_answers": ["a"],
+              "correct_answer": "a"
+            },
+            {
+              "number": 4,
+              "kind": "multiple_choice",
+              "prompt": "Cik deputātu ir Saeimā?",
+              "options": [
+                {"label": "a", "text": "60"},
+                {"label": "b", "text": "100"},
+                {"label": "c", "text": "150"},
+                {"label": "d", "text": "200"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            },
+            {
+              "number": 5,
+              "kind": "multiple_choice",
+              "prompt": "Kas ievēl Latvijas Valsts prezidentu?",
+              "options": [
+                {"label": "a", "text": "Tauta tiešās vēlēšanās"},
+                {"label": "b", "text": "Ministru kabinets"},
+                {"label": "c", "text": "Saeima"},
+                {"label": "d", "text": "Konstitucionālā tiesa"}
+              ],
+              "correct_answers": ["c"],
+              "correct_answer": "c"
+            },
+            {
+              "number": 6,
+              "kind": "multiple_choice",
+              "prompt": "Uz cik gadiem ievēl Saeimu?",
+              "options": [
+                {"label": "a", "text": "2 gadiem"},
+                {"label": "b", "text": "4 gadiem"},
+                {"label": "c", "text": "5 gadiem"},
+                {"label": "d", "text": "6 gadiem"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            },
+            {
+              "number": 7,
+              "kind": "multiple_choice",
+              "prompt": "Kas ir Latvijas valsts valoda saskaņā ar Satversmes 4. pantu?",
+              "options": [
+                {"label": "a", "text": "Latviešu valoda"},
+                {"label": "b", "text": "Latviešu un krievu valoda"},
+                {"label": "c", "text": "Latviešu un angļu valoda"},
+                {"label": "d", "text": "Latviešu un lībiešu valoda"}
+              ],
+              "correct_answers": ["a"],
+              "correct_answer": "a"
+            },
+            {
+              "number": 8,
+              "kind": "multiple_choice",
+              "prompt": "Kas ir Latvijas Republikas valsts karoga krāsas?",
+              "options": [
+                {"label": "a", "text": "Sarkans–balts–sarkans"},
+                {"label": "b", "text": "Zaļs–balts–sarkans"},
+                {"label": "c", "text": "Karmīnsarkans–balts–karmīnsarkans"},
+                {"label": "d", "text": "Zils–dzeltens"}
+              ],
+              "correct_answers": ["c"],
+              "correct_answer": "c"
+            },
+            {
+              "number": 9,
+              "kind": "multiple_choice",
+              "prompt": "Kuras tiesības ir garantētas Satversmes 8. nodaļā (Cilvēka pamattiesības)?",
+              "options": [
+                {"label": "a", "text": "Tikai politiskās tiesības"},
+                {"label": "b", "text": "Tikai sociālās tiesības"},
+                {"label": "c", "text": "Pilsoniskās, politiskās, ekonomiskās, sociālās un kultūras tiesības"},
+                {"label": "d", "text": "Tikai īpašuma tiesības"}
+              ],
+              "correct_answers": ["c"],
+              "correct_answer": "c"
+            },
+            {
+              "number": 10,
+              "kind": "multiple_choice",
+              "prompt": "Kas Latvijā ir izpildvaras augstākā institūcija?",
+              "options": [
+                {"label": "a", "text": "Saeima"},
+                {"label": "b", "text": "Valsts prezidents"},
+                {"label": "c", "text": "Ministru kabinets"},
+                {"label": "d", "text": "Augstākā tiesa"}
+              ],
+              "correct_answers": ["c"],
+              "correct_answer": "c"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "language",
+      "title": "Latviešu valodas zināšanu minimums",
+      "points_max": 15,
+      "minutes": 45,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. uzdevums — Lasīšana ar izpratni",
+          "type": "language_reading",
+          "scoring_mode": "objective",
+          "points_max": 5,
+          "instruction": "Izlasiet tekstu un atbildiet uz jautājumiem. Katrai pareizajai atbildei viens punkts.",
+          "questions": [
+            {
+              "number": 1,
+              "kind": "reading_text_choice",
+              "passage": "Anna dzīvo Rīgā jau piecus gadus. Viņa strādā par medmāsu pilsētas slimnīcā. Katru rītu viņa ar autobusu brauc uz darbu. Brīvajā laikā Anna mācās latviešu valodu un apmeklē kursus, lai sagatavotos naturalizācijas eksāmenam.",
+              "prompt": "Cik ilgi Anna dzīvo Rīgā?",
+              "options": [
+                {"label": "a", "text": "Trīs gadus"},
+                {"label": "b", "text": "Piecus gadus"},
+                {"label": "c", "text": "Desmit gadus"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            },
+            {
+              "number": 2,
+              "kind": "reading_text_choice",
+              "prompt": "Kas ir Annas profesija?",
+              "options": [
+                {"label": "a", "text": "Skolotāja"},
+                {"label": "b", "text": "Medmāsa"},
+                {"label": "c", "text": "Šoferīte"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            },
+            {
+              "number": 3,
+              "kind": "reading_text_choice",
+              "prompt": "Ar ko Anna brauc uz darbu?",
+              "options": [
+                {"label": "a", "text": "Ar mašīnu"},
+                {"label": "b", "text": "Ar autobusu"},
+                {"label": "c", "text": "Ar vilcienu"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            },
+            {
+              "number": 4,
+              "kind": "reading_text_choice",
+              "prompt": "Ko Anna dara brīvajā laikā?",
+              "options": [
+                {"label": "a", "text": "Skatās televīziju"},
+                {"label": "b", "text": "Mācās latviešu valodu"},
+                {"label": "c", "text": "Spēlē sportu"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            },
+            {
+              "number": 5,
+              "kind": "reading_text_choice",
+              "prompt": "Kāpēc Anna apmeklē kursus?",
+              "options": [
+                {"label": "a", "text": "Lai atrastu jaunu darbu"},
+                {"label": "b", "text": "Lai sagatavotos naturalizācijas eksāmenam"},
+                {"label": "c", "text": "Lai iepazītu draugus"}
+              ],
+              "correct_answers": ["b"],
+              "correct_answer": "b"
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2. uzdevums — Vārdformu lietojums",
+          "type": "language_inflection",
+          "scoring_mode": "objective",
+          "points_max": 5,
+          "instruction": "Ielieciet iekavās doto vārdu pareizajā formā. Katrai pareizajai atbildei viens punkts.",
+          "questions": [
+            {
+              "number": 1,
+              "kind": "gap_fill",
+              "prompt": "Es dzīvoju ____ (Rīga) jau desmit gadus.",
+              "lemma": "Rīga",
+              "correct_answers": ["Rīgā"]
+            },
+            {
+              "number": 2,
+              "kind": "gap_fill",
+              "prompt": "Mani draugi ____ (strādāt) bankā.",
+              "lemma": "strādāt",
+              "correct_answers": ["strādā"]
+            },
+            {
+              "number": 3,
+              "kind": "gap_fill",
+              "prompt": "Vakar es ____ (iet) uz veikalu.",
+              "lemma": "iet",
+              "correct_answers": ["gāju"]
+            },
+            {
+              "number": 4,
+              "kind": "gap_fill",
+              "prompt": "Latvija ir ____ (skaists) zeme.",
+              "lemma": "skaists",
+              "correct_answers": ["skaista"]
+            },
+            {
+              "number": 5,
+              "kind": "gap_fill",
+              "prompt": "Rīt es ____ (braukt) uz Liepāju.",
+              "lemma": "braukt",
+              "correct_answers": ["braukšu"]
+            }
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3. uzdevums — Rakstīšana",
+          "type": "language_short_writing",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "Uzrakstiet īsu sacerējumu (vismaz 30 vārdu) par tēmu: 'Kāpēc es vēlos kļūt par Latvijas pilsoni'. Vērtēšana: saturs (2 punkti), valodas pareizība (2 punkti), apjoms (1 punkts).",
+          "requirements": [
+            "Vismaz 30 vārdi",
+            "Latviešu valodā",
+            "Skaidri argumenti",
+            "Pareiza pieturzīmju lietošana"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "Kāpēc es vēlos kļūt par Latvijas pilsoni? (vismaz 30 vārdi)",
+              "minimum_words": 30,
+              "required_sentence_count": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "answer_key": {
+    "history": {
+      "task1": ["b", "c", "c", "b", "b", "c", "b", "b", "a", "b"]
+    },
+    "constitution": {
+      "task1": ["b", "b", "a", "b", "c", "b", "a", "c", "c", "c"]
+    },
+    "language": {
+      "task1": ["b", "b", "b", "b", "b"],
+      "task2": ["Rīgā", "strādā", "gāju", "skaista", "braukšu"],
+      "task3": []
+    }
+  },
+  "references": {
+    "sources": [
+      "Latvijas Republikas Satversme (1922)",
+      "Pilsonības likums (1994)",
+      "Naturalizācijas pārvalde, naturalizācijas eksāmenu paraugi"
+    ]
+  }
+}
