@@ -14,5 +14,7 @@
     "exam.acme-school.example",
     "acme-school.lvcodex.com"
   ],
-  "_comment": "Sample white-label tenant — illustrates the per-tenant theme + custom-domain mapping consumed by T-044."
+  "data_region": "eu",
+  "portal_subdomain": "acme",
+  "_comment": "Sample white-label tenant — illustrates the per-tenant theme + custom-domain mapping (T-044) and EU residency + branded portal subdomain (T-065)."
 }
