@@ -31,6 +31,7 @@ fit the existing CI matrix.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -38,6 +39,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
@@ -133,10 +135,15 @@ class CiRunsCollectorTests(unittest.TestCase):
         )
 
     def test_collect_requires_repo(self) -> None:
-        with self.assertRaises(ci_runs.CIRunsCollectorError):
-            ci_runs.collect(
-                repo=None, now=_FIXED_NOW, runner=self._runner([])
-            )
+        # In CI the GITHUB_REPOSITORY env var is set by the runner, which
+        # would otherwise satisfy the fallback chain inside ``collect``.
+        # Clear it so we can assert the explicit "no repo" path raises.
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("GITHUB_REPOSITORY", None)
+            with self.assertRaises(ci_runs.CIRunsCollectorError):
+                ci_runs.collect(
+                    repo=None, now=_FIXED_NOW, runner=self._runner([])
+                )
 
 
 # ---------------------------------------------------------------------------
