@@ -6598,6 +6598,30 @@ except Exception:  # noqa: BLE001 - never break boot on a route-pkg bug
 
 
 # ============================================================================
+# T-033 — Mock-exam route hook installer
+# ============================================================================
+# Importing :mod:`server_app.routes.mock_exam` runs
+# ``install_mock_exam_routes()`` which wraps ``AppHandler.do_GET`` /
+# ``do_POST`` with the mock-exam dispatch (start, submit section,
+# result, history). The hook is idempotent via
+# ``AppHandler._t033_installed``. Installed BEFORE T-036 so the T-036
+# SPA static handler remains the outermost ``do_GET`` wrapper.
+# ----------------------------------------------------------------------------
+
+try:  # pragma: no cover - import-time side effect
+    from server_app.routes import mock_exam as _t033_mock_exam_routes  # noqa: F401
+except Exception:  # noqa: BLE001 - never break boot on a route-pkg bug
+    import logging as _t033_logging
+
+    _t033_logging.getLogger("lvcodex.mock_exam").exception(
+        "mock_exam_route_import_failed"
+    )
+# ============================================================================
+# end T-033 mock-exam route hook
+# ============================================================================
+
+
+# ============================================================================
 # T-040 SSO (OIDC) hook
 # ============================================================================
 # Wires the OIDC client service (server_app/services/sso.py) into the
