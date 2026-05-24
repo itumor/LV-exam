@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/itumor/LV-exam/schemas/exam.schema.json",
   "title": "Latvian Exam Manifest",
-  "description": "JSON Schema (Draft 2020-12) for exam manifests produced by exam_bank.import_exam_markdown(). Enforces structural integrity of exams that ship to learners: required identity fields, fixed level enum, four skill sections (listening/reading/writing/speaking), and the canonical 15-points-per-skill scoring rule. The 9/15 minimum-per-skill pass rule is preserved in scoring metadata. See docs/exam-content-schema.md for the human-readable contract.",
+  "description": "JSON Schema (Draft 2020-12) for exam manifests produced by exam_bank.import_exam_markdown(). Enforces structural integrity of exams that ship to learners: required identity fields, fixed level enum, four skill sections (listening/reading/writing/speaking), and the canonical 15-points-per-skill scoring rule. Per-level minimum-per-skill thresholds (A2=9, B1=12, B2=15) are enforced via conditional subschemas. See docs/exam-content-schema.md for the human-readable contract.",
   "type": "object",
   "required": [
     "schema_version",
@@ -16,6 +16,53 @@
     "sections"
   ],
   "additionalProperties": true,
+  "allOf": [
+    {
+      "if": {
+        "properties": {"level": {"const": "A2"}},
+        "required": ["level"]
+      },
+      "then": {
+        "properties": {
+          "scoring": {
+            "properties": {
+              "minimum_per_skill": {"const": 9}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"level": {"const": "B1"}},
+        "required": ["level"]
+      },
+      "then": {
+        "properties": {
+          "scoring": {
+            "properties": {
+              "minimum_per_skill": {"const": 12}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"level": {"const": "B2"}},
+        "required": ["level"]
+      },
+      "then": {
+        "properties": {
+          "scoring": {
+            "properties": {
+              "minimum_per_skill": {"const": 15}
+            }
+          }
+        }
+      }
+    }
+  ],
   "properties": {
     "schema_version": {
       "type": "string",
@@ -43,7 +90,7 @@
     "level": {
       "type": "string",
       "enum": ["A2", "B1", "B2"],
-      "description": "CEFR level. Currently only A2 is shipped; B1/B2 enum reserved for future content (T-060)."
+      "description": "CEFR level. A2 ships from codex/A2_Mock_Exam_*.md; B1 ships from content/exams/B1/*.exam.json (T-060). B2 reserved."
     },
     "language": {
       "type": "string",
@@ -96,7 +143,7 @@
         "total_points": {
           "type": "integer",
           "const": 60,
-          "description": "Sum of all skill_points. A2 exam is fixed at 60 points (4 skills x 15)."
+          "description": "Sum of all skill_points. Every level (A2/B1/B2) is fixed at 60 points (4 skills x 15)."
         },
         "skill_points": {
           "type": "object",
@@ -112,8 +159,8 @@
         },
         "minimum_per_skill": {
           "type": "integer",
-          "const": 9,
-          "description": "A2 9/15 pass rule: a learner must score at least 9 out of 15 in every skill."
+          "enum": [9, 12, 15],
+          "description": "Per-level pass threshold. A2 9/15 rule, B1 12/15 (T-060), B2 15/15. The exact value is pinned per level by the top-level allOf/if-then rules."
         },
         "task_point_allocation": {
           "type": "object",
@@ -170,7 +217,7 @@
         "points_max": {
           "type": "integer",
           "const": 15,
-          "description": "Every skill section is worth exactly 15 points (A2 9/15 rule preserved)."
+          "description": "Every skill section is worth exactly 15 points (per-level pass thresholds pinned by top-level allOf)."
         },
         "minutes": {
           "type": "integer",

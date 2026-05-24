@@ -1,0 +1,637 @@
+{
+  "schema_version": "1.0",
+  "version": "2026.05.0",
+  "exam_id": "b1-01",
+  "slug": "b1-01",
+  "title": "B1 Mock Exam 01 — Darbs un karjera",
+  "level": "B1",
+  "language": "lv",
+  "status": "draft",
+  "content_version": 1,
+  "is_immutable": false,
+  "source": {
+    "markdown_path": "content/exams/B1/B1_Mock_Exam_01.md",
+    "attachment_root": "content/exams/B1/audio"
+  },
+  "workflow": {
+    "status_values": ["draft", "review", "published", "archived"],
+    "immutable_statuses": ["published", "archived"],
+    "current_status": "draft"
+  },
+  "scoring": {
+    "total_points": 60,
+    "skill_points": {
+      "listening": 15,
+      "reading": 15,
+      "writing": 15,
+      "speaking": 15
+    },
+    "minimum_per_skill": 12,
+    "task_point_allocation": {
+      "listening": {"task1": 6, "task2": 5, "task3": 4},
+      "reading":   {"task1": 6, "task2": 5, "task3": 4},
+      "writing":   {"task1": 5, "task2": 4, "task3": 6},
+      "speaking":  {"task1": 5, "task2": 5, "task3": 5}
+    },
+    "pass_rule": {
+      "minimum_per_skill": 12,
+      "total_points": 60,
+      "description": "B1 pass rule: at least 12/15 in every skill (higher bar than A2)."
+    }
+  },
+  "assets": {
+    "audio": [
+      "content/exams/B1/audio/b1_01_klausisanas_1.mp3",
+      "content/exams/B1/audio/b1_01_klausisanas_2.mp3",
+      "content/exams/B1/audio/b1_01_klausisanas_3.mp3",
+      "content/exams/B1/audio/b1_01_runasana_1.mp3"
+    ]
+  },
+  "sections": [
+    {
+      "skill": "listening",
+      "title": "Klausīšanās prasmes pārbaude",
+      "points_max": 15,
+      "minutes": 30,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. uzdevums — Radio intervija",
+          "type": "listening_multiple_choice",
+          "scoring_mode": "objective",
+          "points_max": 6,
+          "instruction": "Klausieties radio interviju ar uzņēmēju Andri Bērziņu! Saruna skanēs divas reizes. Atzīmējiet pareizo atbildi!",
+          "audio_assets": [
+            {"path": "content/exams/B1/audio/b1_01_klausisanas_1.mp3", "label": "Radio intervija", "kind": "audio"}
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "multiple_choice",
+              "prompt": "Cik gadus Andris vada savu uzņēmumu?",
+              "options": [
+                {"label": "a", "text": "Piecus gadus"},
+                {"label": "b", "text": "Septiņus gadus"},
+                {"label": "c", "text": "Desmit gadus"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 2,
+              "kind": "multiple_choice",
+              "prompt": "Kāpēc Andris izvēlējās šo nozari?",
+              "options": [
+                {"label": "a", "text": "Ģimenes tradīciju dēļ"},
+                {"label": "b", "text": "Augstas algas dēļ"},
+                {"label": "c", "text": "Personīgās intereses dēļ"}
+              ],
+              "correct_answers": ["c"]
+            },
+            {
+              "number": 3,
+              "kind": "multiple_choice",
+              "prompt": "Cik darbinieku tagad strādā uzņēmumā?",
+              "options": [
+                {"label": "a", "text": "Aptuveni 12"},
+                {"label": "b", "text": "Aptuveni 25"},
+                {"label": "c", "text": "Aptuveni 40"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 4,
+              "kind": "multiple_choice",
+              "prompt": "Kāds ir Andra lielākais izaicinājums?",
+              "options": [
+                {"label": "a", "text": "Atrast jaunus klientus"},
+                {"label": "b", "text": "Atrast kvalificētus darbiniekus"},
+                {"label": "c", "text": "Sagatavot finanšu pārskatus"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 5,
+              "kind": "multiple_choice",
+              "prompt": "Kādus plānus uzņēmumam ir nākamajam gadam?",
+              "options": [
+                {"label": "a", "text": "Atvērt jaunu biroju Liepājā"},
+                {"label": "b", "text": "Eksportēt produkciju uz Lietuvu"},
+                {"label": "c", "text": "Sākt sadarbību ar universitāti"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 6,
+              "kind": "multiple_choice",
+              "prompt": "Kādu padomu Andris dod jauniešiem?",
+              "options": [
+                {"label": "a", "text": "Mācīties un nebaidīties no kļūdām"},
+                {"label": "b", "text": "Strādāt tikai lielos uzņēmumos"},
+                {"label": "c", "text": "Doties prom no Latvijas"}
+              ],
+              "correct_answers": ["a"]
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2. uzdevums — Darba sludinājumi",
+          "type": "listening_true_false",
+          "scoring_mode": "objective",
+          "points_max": 5,
+          "instruction": "Klausieties piecus darba sludinājumus radio! Pēc katra sludinājuma atzīmējiet, vai apgalvojums ir patiess (Jā) vai aplams (Nē).",
+          "audio_assets": [
+            {"path": "content/exams/B1/audio/b1_01_klausisanas_2.mp3", "label": "Darba sludinājumi", "kind": "audio"}
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "true_false",
+              "prompt": "Restorāns 'Rīgas vakars' meklē pavāru ar vismaz trīs gadu pieredzi.",
+              "options": [
+                {"label": "ja", "text": "Jā"},
+                {"label": "ne", "text": "Nē"}
+              ],
+              "correct_answers": ["ja"]
+            },
+            {
+              "number": 2,
+              "kind": "true_false",
+              "prompt": "Veikalā 'Maxima' brīva vieta ir tikai pilna laika darbam.",
+              "options": [
+                {"label": "ja", "text": "Jā"},
+                {"label": "ne", "text": "Nē"}
+              ],
+              "correct_answers": ["ne"]
+            },
+            {
+              "number": 3,
+              "kind": "true_false",
+              "prompt": "IT uzņēmums piedāvā strādāt no mājām.",
+              "options": [
+                {"label": "ja", "text": "Jā"},
+                {"label": "ne", "text": "Nē"}
+              ],
+              "correct_answers": ["ja"]
+            },
+            {
+              "number": 4,
+              "kind": "true_false",
+              "prompt": "Bērnudārzs Pārdaugavā meklē audzinātāju ar augstāko izglītību.",
+              "options": [
+                {"label": "ja", "text": "Jā"},
+                {"label": "ne", "text": "Nē"}
+              ],
+              "correct_answers": ["ja"]
+            },
+            {
+              "number": 5,
+              "kind": "true_false",
+              "prompt": "Transporta uzņēmums piedāvā darbu šoferiem bez pieredzes.",
+              "options": [
+                {"label": "ja", "text": "Jā"},
+                {"label": "ne", "text": "Nē"}
+              ],
+              "correct_answers": ["ne"]
+            }
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3. uzdevums — Telefonsaruna",
+          "type": "listening_gap_fill",
+          "scoring_mode": "objective",
+          "points_max": 4,
+          "instruction": "Klausieties telefonsarunu starp Lailu un personāla daļas vadītāju! Aizpildiet trūkstošo informāciju.",
+          "audio_assets": [
+            {"path": "content/exams/B1/audio/b1_01_klausisanas_3.mp3", "label": "Telefonsaruna", "kind": "audio"}
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "gap_fill",
+              "prompt": "Intervija notiks _____ datumā.",
+              "correct_answers": ["15. maijā"]
+            },
+            {
+              "number": 2,
+              "kind": "gap_fill",
+              "prompt": "Intervijas laiks ir pulksten _____.",
+              "correct_answers": ["10:30"]
+            },
+            {
+              "number": 3,
+              "kind": "gap_fill",
+              "prompt": "Birojs atrodas _____ ielā 12.",
+              "correct_answers": ["Brīvības"]
+            },
+            {
+              "number": 4,
+              "kind": "gap_fill",
+              "prompt": "Laila uz interviju paņem _____.",
+              "correct_answers": ["CV un diploma kopiju"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "reading",
+      "title": "Lasītprasmes pārbaude",
+      "points_max": 15,
+      "minutes": 40,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. uzdevums — Raksts par tāldarbu",
+          "type": "reading_text_choice",
+          "scoring_mode": "objective",
+          "points_max": 6,
+          "instruction": "Izlasiet rakstu un atbildiet uz jautājumiem!",
+          "prompt": "Tāldarbs Latvijā pēdējos gados ir kļuvis par parastu darba veidu. Aptaujas rāda, ka aptuveni 35% biroja darbinieku vismaz daļu nedēļas strādā no mājām. Eksperti uzskata, ka tāldarbs uzlabo darba un privātās dzīves līdzsvaru, taču tas prasa disciplīnu un labas digitālās prasmes. Lielākā problēma, ko min darbinieki, ir sociālā izolācija un grūtības atdalīt darbu no atpūtas. Darba devēji savukārt norāda, ka tāldarbs samazina biroja telpu izmaksas, bet apgrūtina jauno darbinieku apmācību. Daudzi uzņēmumi tagad piedāvā hibrīdmodeli — dažas dienas birojā, dažas no mājām. Nākotnē šī tendence varētu vēl pieaugt, jo jaunā darbinieku paaudze pieprasa elastīgākus darba apstākļus.",
+          "questions": [
+            {
+              "number": 1,
+              "kind": "reading_text_choice",
+              "prompt": "Cik procenti biroja darbinieku Latvijā vismaz daļēji strādā no mājām?",
+              "options": [
+                {"label": "a", "text": "Aptuveni 15%"},
+                {"label": "b", "text": "Aptuveni 35%"},
+                {"label": "c", "text": "Vairāk nekā 50%"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 2,
+              "kind": "reading_text_choice",
+              "prompt": "Kas tāldarbā uzlabojas, pēc ekspertu domām?",
+              "options": [
+                {"label": "a", "text": "Darba algas līmenis"},
+                {"label": "b", "text": "Darba un privātās dzīves līdzsvars"},
+                {"label": "c", "text": "Komunikācija ar klientiem"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 3,
+              "kind": "reading_text_choice",
+              "prompt": "Kāda ir darbinieku lielākā problēma?",
+              "options": [
+                {"label": "a", "text": "Sociālā izolācija"},
+                {"label": "b", "text": "Slikta interneta kvalitāte"},
+                {"label": "c", "text": "Maza alga"}
+              ],
+              "correct_answers": ["a"]
+            },
+            {
+              "number": 4,
+              "kind": "reading_text_choice",
+              "prompt": "Ko apgrūtina tāldarbs darba devējiem?",
+              "options": [
+                {"label": "a", "text": "Klientu piesaisti"},
+                {"label": "b", "text": "Jauno darbinieku apmācību"},
+                {"label": "c", "text": "Finanšu plānošanu"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 5,
+              "kind": "reading_text_choice",
+              "prompt": "Kas ir hibrīdmodelis?",
+              "options": [
+                {"label": "a", "text": "Pilnas dienas birojā"},
+                {"label": "b", "text": "Tikai darbs no mājām"},
+                {"label": "c", "text": "Dažas dienas birojā, dažas no mājām"}
+              ],
+              "correct_answers": ["c"]
+            },
+            {
+              "number": 6,
+              "kind": "reading_text_choice",
+              "prompt": "Ko sagaida jaunā paaudze?",
+              "options": [
+                {"label": "a", "text": "Lielāku algu"},
+                {"label": "b", "text": "Elastīgākus darba apstākļus"},
+                {"label": "c", "text": "Atgriešanos pilnībā birojā"}
+              ],
+              "correct_answers": ["b"]
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2. uzdevums — Sludinājumu sapārošana",
+          "type": "reading_matching",
+          "scoring_mode": "objective",
+          "points_max": 5,
+          "instruction": "Sapāro situācijas ar piemērotākajiem sludinājumiem!",
+          "questions": [
+            {
+              "number": 1,
+              "kind": "matching",
+              "prompt": "Jānis meklē kursus, lai uzlabotu vadības prasmes pirms paaugstinājuma.",
+              "options": [
+                {"label": "A", "text": "BiznesAcademy — līderības kurss vadītājiem, 8 nedēļas, vakaros."},
+                {"label": "B", "text": "Sporta klubs — fitnesa nodarbības darbiniekiem ar atlaidi."},
+                {"label": "C", "text": "Valodu skola — angļu valoda biznesam, A1 līmenis."},
+                {"label": "D", "text": "Mākslas studija — gleznošanas kursi iesācējiem."},
+                {"label": "E", "text": "Skola 'IT Master' — programmēšanas pamati no nulles."}
+              ],
+              "correct_answers": ["A"]
+            },
+            {
+              "number": 2,
+              "kind": "matching",
+              "prompt": "Anna vēlas mainīt karjeru un sākt strādāt IT nozarē, bet nav pieredzes.",
+              "options": [
+                {"label": "A", "text": "BiznesAcademy — līderības kurss vadītājiem, 8 nedēļas, vakaros."},
+                {"label": "B", "text": "Sporta klubs — fitnesa nodarbības darbiniekiem ar atlaidi."},
+                {"label": "C", "text": "Valodu skola — angļu valoda biznesam, A1 līmenis."},
+                {"label": "D", "text": "Mākslas studija — gleznošanas kursi iesācējiem."},
+                {"label": "E", "text": "Skola 'IT Master' — programmēšanas pamati no nulles."}
+              ],
+              "correct_answers": ["E"]
+            },
+            {
+              "number": 3,
+              "kind": "matching",
+              "prompt": "Pēteris grib labāk atpūsties pēc darba un saglabāt veselību.",
+              "options": [
+                {"label": "A", "text": "BiznesAcademy — līderības kurss vadītājiem, 8 nedēļas, vakaros."},
+                {"label": "B", "text": "Sporta klubs — fitnesa nodarbības darbiniekiem ar atlaidi."},
+                {"label": "C", "text": "Valodu skola — angļu valoda biznesam, A1 līmenis."},
+                {"label": "D", "text": "Mākslas studija — gleznošanas kursi iesācējiem."},
+                {"label": "E", "text": "Skola 'IT Master' — programmēšanas pamati no nulles."}
+              ],
+              "correct_answers": ["B"]
+            },
+            {
+              "number": 4,
+              "kind": "matching",
+              "prompt": "Liene gatavojas komandējumam uz Vāciju un grib mācīties valodu darbam.",
+              "options": [
+                {"label": "A", "text": "BiznesAcademy — līderības kurss vadītājiem, 8 nedēļas, vakaros."},
+                {"label": "B", "text": "Sporta klubs — fitnesa nodarbības darbiniekiem ar atlaidi."},
+                {"label": "C", "text": "Valodu skola — angļu valoda biznesam, A1 līmenis."},
+                {"label": "D", "text": "Mākslas studija — gleznošanas kursi iesācējiem."},
+                {"label": "E", "text": "Skola 'IT Master' — programmēšanas pamati no nulles."}
+              ],
+              "correct_answers": ["C"]
+            },
+            {
+              "number": 5,
+              "kind": "matching",
+              "prompt": "Mārtiņš nesen pārcēlies uz Rīgu un meklē jaunu vaļasprieku, lai iepazītu cilvēkus.",
+              "options": [
+                {"label": "A", "text": "BiznesAcademy — līderības kurss vadītājiem, 8 nedēļas, vakaros."},
+                {"label": "B", "text": "Sporta klubs — fitnesa nodarbības darbiniekiem ar atlaidi."},
+                {"label": "C", "text": "Valodu skola — angļu valoda biznesam, A1 līmenis."},
+                {"label": "D", "text": "Mākslas studija — gleznošanas kursi iesācējiem."},
+                {"label": "E", "text": "Skola 'IT Master' — programmēšanas pamati no nulles."}
+              ],
+              "correct_answers": ["D"]
+            }
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3. uzdevums — Teksts ar trūkstošiem vārdiem",
+          "type": "reading_gap_choice",
+          "scoring_mode": "objective",
+          "points_max": 4,
+          "instruction": "Izlasiet tekstu un izvēlieties pareizo vārdu katrā tukšumā!",
+          "prompt": "Vakar es _____ (1) intervijā jaunā uzņēmumā. Personāla daļas vadītājs bija ļoti _____ (2) un uzdeva daudz jautājumu par manu pieredzi. Es _____ (3) ka atbildēju labi, bet rezultātu zinu tikai pēc nedēļas. Ja saņemšu piedāvājumu, _____ (4) to ar manu ģimeni.",
+          "questions": [
+            {
+              "number": 1,
+              "kind": "reading_text_choice",
+              "prompt": "Vārds (1)",
+              "options": [
+                {"label": "a", "text": "biju"},
+                {"label": "b", "text": "esmu"},
+                {"label": "c", "text": "būšu"}
+              ],
+              "correct_answers": ["a"]
+            },
+            {
+              "number": 2,
+              "kind": "reading_text_choice",
+              "prompt": "Vārds (2)",
+              "options": [
+                {"label": "a", "text": "draudzīgu"},
+                {"label": "b", "text": "draudzīgi"},
+                {"label": "c", "text": "draudzīgs"}
+              ],
+              "correct_answers": ["c"]
+            },
+            {
+              "number": 3,
+              "kind": "reading_text_choice",
+              "prompt": "Vārds (3)",
+              "options": [
+                {"label": "a", "text": "domāju"},
+                {"label": "b", "text": "domā"},
+                {"label": "c", "text": "domāsim"}
+              ],
+              "correct_answers": ["a"]
+            },
+            {
+              "number": 4,
+              "kind": "reading_text_choice",
+              "prompt": "Vārds (4)",
+              "options": [
+                {"label": "a", "text": "apspriedīšu"},
+                {"label": "b", "text": "apspriedu"},
+                {"label": "c", "text": "apspriežu"}
+              ],
+              "correct_answers": ["a"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "writing",
+      "title": "Rakstītprasmes pārbaude",
+      "points_max": 15,
+      "minutes": 45,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. uzdevums — Formāla e-pasta vēstule",
+          "type": "writing_formal_email",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "Uzrakstiet formālu e-pasta vēstuli (apmēram 80–100 vārdu) uzņēmumam, kurā pieteicāties darbā. Lūdziet papildu informāciju par interviju, darba apstākļiem un algu. Izmantojiet pieklājīgu valodu.",
+          "requirements": [
+            "pieklājīga uzruna un noslēgums",
+            "vismaz trīs konkrēti jautājumi",
+            "80–100 vārdu apjoms",
+            "atbilstoša formāla valodas reģistrs"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "Uzrakstiet formālu e-pasta vēstuli atbilstoši instrukcijai.",
+              "minimum_words": 80
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2. uzdevums — Vārdu locīšana",
+          "type": "writing_inflection",
+          "scoring_mode": "objective",
+          "points_max": 4,
+          "instruction": "Ielieciet iekavās doto vārdu pareizajā formā!",
+          "questions": [
+            {
+              "number": 1,
+              "kind": "inflection",
+              "prompt": "Vakar es runāju ar _____ (direktors) par paaugstinājumu.",
+              "lemma": "direktors",
+              "correct_answers": ["direktoru"]
+            },
+            {
+              "number": 2,
+              "kind": "inflection",
+              "prompt": "Mēs strādājam pie šī projekta jau _____ (trīs) mēnešus.",
+              "lemma": "trīs",
+              "correct_answers": ["trīs"]
+            },
+            {
+              "number": 3,
+              "kind": "inflection",
+              "prompt": "Viņa atnāca uz interviju ar _____ (savs) CV un diploma kopiju.",
+              "lemma": "savs",
+              "correct_answers": ["savu"]
+            },
+            {
+              "number": 4,
+              "kind": "inflection",
+              "prompt": "Ja es _____ (saņemt) piedāvājumu, pieņemšu to ar prieku.",
+              "lemma": "saņemt",
+              "correct_answers": ["saņemtu"]
+            }
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3. uzdevums — Viedokļa raksts",
+          "type": "writing_opinion_essay",
+          "scoring_mode": "subjective",
+          "points_max": 6,
+          "instruction": "Uzrakstiet īsu viedokļa rakstu (apmēram 120–150 vārdu) par tēmu: 'Vai tāldarbs ir labāks par darbu birojā?'. Pamatojiet savu viedokli ar vismaz divām priekšrocībām un vienu trūkumu. Izmantojiet saistītājus (piemēram, 'no vienas puses', 'no otras puses', 'tāpēc', 'tomēr').",
+          "requirements": [
+            "skaidrs personiskais viedoklis",
+            "vismaz divas priekšrocības un viens trūkums",
+            "120–150 vārdu apjoms",
+            "vismaz trīs dažādi saistītāji"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "Uzrakstiet viedokļa rakstu atbilstoši instrukcijai.",
+              "minimum_words": 120
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "speaking",
+      "title": "Runātprasmes pārbaude",
+      "points_max": 15,
+      "minutes": 20,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. uzdevums — Monologs par sevi",
+          "type": "speaking_monologue",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "Pastāstiet par sevi, savu darba pieredzi un karjeras mērķiem. Runājiet apmēram 2 minūtes. Pieskariet vismaz šādiem aspektiem: izglītība, pašreizējais vai pēdējais darbs, prasmes, kuras vēlaties attīstīt, un karjeras plāni nākamajiem trim gadiem.",
+          "audio_assets": [
+            {"path": "content/exams/B1/audio/b1_01_runasana_1.mp3", "label": "Eksaminētāja jautājumi (monologs)", "kind": "audio"}
+          ],
+          "requirements": [
+            "vismaz 2 minūtes runas",
+            "skaidra stāstījuma struktūra",
+            "konkrēti piemēri",
+            "vismaz 5 dažādi laika izteicieni"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "Sniedziet monologu par savu darba pieredzi un karjeras mērķiem."
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2. uzdevums — Lomu spēle: darba intervija",
+          "type": "speaking_dialogue",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "Iedomājieties, ka esat darba intervijā. Eksaminētājs spēlē personāla daļas vadītāja lomu un uzdod jautājumus. Atbildiet pilnos teikumos un uzdodiet vismaz 2 jautājumus pretī par darba apstākļiem.",
+          "requirements": [
+            "atbildes pilnos teikumos",
+            "vismaz 2 pretjautājumi",
+            "pieklājīga valoda",
+            "konkrēti piemēri no pieredzes"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "Piedalieties darba intervijas lomu spēlē ar eksaminētāju."
+            }
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3. uzdevums — Viedokļa izklāsts",
+          "type": "speaking_opinion",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "Izsakiet savu viedokli par šādu apgalvojumu un pamatojiet to: 'Mūsdienās jauniešiem vajadzētu mācīties tikai praktiskās profesijas, nevis humanitāras zinātnes.' Runājiet apmēram 1–2 minūtes. Sniedziet vismaz divus argumentus par un vienu pret.",
+          "requirements": [
+            "skaidrs personiskais viedoklis",
+            "vismaz 2 argumenti par",
+            "vismaz 1 arguments pret",
+            "noslēguma secinājums"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "Izsakiet un argumentējiet savu viedokli par doto apgalvojumu."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "answer_key": {
+    "listening": {
+      "task1": ["b", "c", "b", "b", "b", "a"],
+      "task2": ["ja", "ne", "ja", "ja", "ne"],
+      "task3": ["15. maijā", "10:30", "Brīvības", "CV un diploma kopiju"]
+    },
+    "reading": {
+      "task1": ["b", "b", "a", "b", "c", "b"],
+      "task2": ["A", "E", "B", "C", "D"],
+      "task3": ["a", "c", "a", "a"]
+    },
+    "writing": {
+      "task2": ["direktoru", "trīs", "savu", "saņemtu"]
+    }
+  },
+  "references": {
+    "listening_transcripts_path": "content/exams/B1/B1_Mock_Exam_01_transcripts.md",
+    "writing_model_answers_path": "content/exams/B1/B1_Mock_Exam_01_model_answers.md"
+  }
+}
