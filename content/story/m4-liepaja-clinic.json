@@ -1,0 +1,76 @@
+{
+  "id": "m4-liepaja-clinic",
+  "order": 4,
+  "city": "Liepaja",
+  "city_lv": "Liepāja",
+  "title": "Mission 4 — A doctor's visit in Liepāja",
+  "title_lv": "4. misija — Vizīte pie ārsta Liepājā",
+  "summary": "You travel west to Liepāja for work and catch a cold. Visit doctor Agnese, describe your symptoms, and ask about medicine.",
+  "summary_lv": "Tu dodies darba braucienā uz Liepāju un saaukstējies. Apmeklē ārsti Agnesi, apraksti simptomus un pajautā par zālēm.",
+  "language_level": "A2",
+  "estimated_duration_minutes": 18,
+  "xp_on_complete": 80,
+  "unlock_criteria": {
+    "requires_missions": ["m3-jurmala-beach"],
+    "min_total_xp": 160,
+    "min_streak_days": 0
+  },
+  "map_position": {"lat": 56.5046, "lng": 21.0108},
+  "scenes": [
+    {
+      "id": "s1-checkin-reception",
+      "order": 1,
+      "title": "Check in at reception",
+      "title_lv": "Reģistrējies reģistratūrā",
+      "location_lv": "Liepājas poliklīnika",
+      "instruction": "Tell doctor Agnese (acting as the front-desk nurse) you have an appointment.",
+      "instruction_lv": "Pasaki Agnesei reģistratūrā, ka tev ir pieraksts.",
+      "npc_id": "doctor-agnese",
+      "objective": "checkin",
+      "target_phrases": [
+        "Labdien! Man ir pieraksts.",
+        "Mans uzvārds ir...",
+        "Pieraksts ir uz pulksten desmitiem."
+      ],
+      "xp": 20
+    },
+    {
+      "id": "s2-describe-symptoms",
+      "order": 2,
+      "title": "Describe your symptoms",
+      "title_lv": "Apraksti simptomus",
+      "location_lv": "Ārsta kabinets",
+      "instruction": "Tell Agnese what hurts and how long you have felt unwell.",
+      "instruction_lv": "Pasaki Agnesei, kas sāp un cik ilgi tu jūties slikti.",
+      "npc_id": "doctor-agnese",
+      "objective": "symptoms",
+      "target_phrases": [
+        "Man sāp galva.",
+        "Man ir klepus.",
+        "Es jūtos slikti jau trīs dienas."
+      ],
+      "xp": 25
+    },
+    {
+      "id": "s3-ask-prescription",
+      "order": 3,
+      "title": "Ask about medicine",
+      "title_lv": "Pajautā par zālēm",
+      "location_lv": "Ārsta kabinets",
+      "instruction": "Ask Agnese whether you need medicine and how often to take it.",
+      "instruction_lv": "Pajautā Agnesei, vai vajag zāles un cik bieži tās lietot.",
+      "npc_id": "doctor-agnese",
+      "objective": "treatment",
+      "target_phrases": [
+        "Vai man ir vajadzīgas zāles?",
+        "Cik reizes dienā?",
+        "Cik dienas man jāatpūšas?"
+      ],
+      "xp": 25
+    }
+  ],
+  "rewards": {
+    "title_unlock": "Liepāja Visitor",
+    "title_unlock_lv": "Liepājas viesis"
+  }
+}
