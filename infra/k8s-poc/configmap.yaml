@@ -1,0 +1,26 @@
+# T-072 — reference-only PoC. Not applied to any cluster.
+#
+# Non-secret env mirrored from fly.toml [env]. Secrets (DATABASE_URL,
+# STRIPE_*, GROQ_API_KEY, …) live in secret.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lvcodex-config
+  namespace: lvcodex
+  labels:
+    app.kubernetes.io/name: lvcodex
+    app.kubernetes.io/component: web
+data:
+  PORT: "80"
+  APP_ENV: "production"
+  AUTH_DB_PATH: "/app/data/auth.sqlite3"
+  BILLING_DB_PATH: "/app/data/billing.sqlite3"
+  # T-021 Postgres flags. Same defaults as fly.toml — keep SQLite reads
+  # until we run the Postgres cutover (see docs/postgres-migration.md).
+  LVCODEX_DB_DUAL_WRITE: "0"
+  LVCODEX_DB_READ_FROM: "sqlite"
+  # T-028 — set to 1 when running a warm-standby cluster.
+  LVCODEX_MULTI_REGION: "0"
+  # On Fly, FLY_REGION is auto-injected. On K8s we have to set our own
+  # region tag for /healthz to populate the region field.
+  LVCODEX_REGION: "eu-west-1"

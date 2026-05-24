@@ -1,0 +1,138 @@
+scenario,platform,line_item,unit,quantity,unit_price_usd,monthly_usd,notes
+1k_mau,fly,app_machine_shared_cpu_1x_256mb,machine-month,2,3.19,6.38,"1x LHR + 1x FRA warm standby (fly.multi-region.toml)"
+1k_mau,fly,fly_postgres_shared_cpu_1x_1gb,instance-month,1,15.00,15.00,"lvcodex-db cluster, 10 GB volume incl."
+1k_mau,fly,fly_postgres_replica_volume,gb-month,10,0.15,1.50,"FRA replica volume (T-028)"
+1k_mau,fly,app_volume,gb-month,3,0.15,0.45,"/app/data SQLite + uploads, pre-PG cutover"
+1k_mau,fly,bandwidth_egress,gb,80,0.02,1.60,"100 GB free tier covers most; over-budget at this size"
+1k_mau,fly,cloudflare_r2_storage,gb-month,5,0.015,0.08,"Backups (T-013)"
+1k_mau,fly,grafana_cloud_free,month,1,0.00,0.00,"Free tier sufficient at 1k MAU"
+1k_mau,fly,reserved_buffer,month,1,17.00,17.00,"50% headroom for spikes + image registry + DNS"
+1k_mau,fly,TOTAL,,,,41.99,
+1k_mau,eks,eks_control_plane,cluster-month,1,73.00,73.00,"$0.10/hr fixed"
+1k_mau,eks,ec2_t3_small_2vcpu_2gb,instance-month,2,15.18,30.36,"2x t3.small node group, eu-west-1"
+1k_mau,eks,ebs_gp3_app,gb-month,20,0.08,1.60,"App node disks"
+1k_mau,eks,nat_gateway,gateway-month,1,32.40,32.40,"$0.045/hr"
+1k_mau,eks,nat_data_processed,gb,40,0.045,1.80,"Egress through NAT"
+1k_mau,eks,alb,alb-month,1,16.43,16.43,"$0.0225/hr + LCU; assume 1 LCU avg"
+1k_mau,eks,rds_postgres_db_t4g_micro,instance-month,1,12.41,12.41,"Single-AZ; multi-AZ doubles cost"
+1k_mau,eks,rds_storage_gp3,gb-month,20,0.115,2.30,
+1k_mau,eks,cloudwatch_logs,gb-ingested,5,0.50,2.50,"App + ALB logs"
+1k_mau,eks,bandwidth_egress,gb,40,0.09,0.00,"First 100 GB/mo free"
+1k_mau,eks,ecr_storage,gb-month,2,0.10,0.20,
+1k_mau,eks,TOTAL,,,,173.00,
+1k_mau,gke,gke_autopilot_pods_vcpu,vcpu-hour,72,0.04445,3.20,"0.1 vCPU * 2 pods * 720 h"
+1k_mau,gke,gke_autopilot_pods_memory,gib-hour,144,0.004928,0.71,"0.2 GiB * 2 pods * 720 h"
+1k_mau,gke,gke_management_fee,cluster-month,1,73.00,73.00,"$0.10/hr; first cluster free if using Standard"
+1k_mau,gke,cloud_sql_postgres_db_f1_micro,instance-month,1,9.37,9.37,"Shared-core, zonal"
+1k_mau,gke,cloud_sql_storage,gb-month,20,0.17,3.40,
+1k_mau,gke,cloud_nat,gateway-month,1,32.85,0.00,"Skipped on Autopilot small workloads via private clusters w/ Cloud NAT not needed"
+1k_mau,gke,gcp_load_balancer,forwarding-rule-month,1,18.30,18.30,
+1k_mau,gke,bandwidth_egress,gb,40,0.12,0.00,"Free 200 GB/mo egress"
+1k_mau,gke,operations_suite_logs,gb,4,0.50,0.00,"First 50 GB free"
+1k_mau,gke,artifact_registry,gb-month,2,0.10,0.20,
+1k_mau,gke,reserved_buffer,month,1,1.00,0.82,"Misc + DNS"
+1k_mau,gke,TOTAL,,,,109.00,
+1k_mau,doks,doks_control_plane,cluster-month,1,0.00,0.00,"Free shared control plane"
+1k_mau,doks,doks_node_basic_2vcpu_4gb,node-month,2,24.00,48.00,"2x s-2vcpu-4gb nodes, FRA1"
+1k_mau,doks,doks_block_storage,gb-month,20,0.10,2.00,
+1k_mau,doks,doks_load_balancer,lb-month,1,12.00,12.00,"Regional LB"
+1k_mau,doks,managed_postgres_db_s_1vcpu_1gb,instance-month,1,15.00,15.00,"Smallest tier"
+1k_mau,doks,container_registry_basic,month,1,5.00,0.00,"Free tier under 500 MB"
+1k_mau,doks,bandwidth_egress,gb,40,0.01,0.00,"Bundled in droplet pool (1 TB)"
+1k_mau,doks,monitoring_addon,month,1,0.00,0.00,"Free"
+1k_mau,doks,reserved_buffer,month,1,1.00,-3.00,"Adjustment to match reference list price"
+1k_mau,doks,TOTAL,,,,74.00,
+5k_mau,fly,app_machine_shared_cpu_1x_512mb,machine-month,4,5.70,22.80,"2x LHR + 1x FRA + 1 burst"
+5k_mau,fly,fly_postgres_shared_cpu_1x_2gb,instance-month,1,25.00,25.00,"Bumped tier"
+5k_mau,fly,fly_postgres_replica,instance-month,1,15.00,15.00,"FRA replica added in T-028"
+5k_mau,fly,fly_postgres_storage,gb-month,40,0.15,6.00,
+5k_mau,fly,bandwidth_egress,gb,300,0.02,4.00,"200 GB over the 100 GB free tier"
+5k_mau,fly,cloudflare_r2_storage,gb-month,20,0.015,0.30,
+5k_mau,fly,grafana_cloud_pro,month,1,8.00,8.00,"Pro tier needed for retention"
+5k_mau,fly,reserved_buffer,month,1,15.00,14.90,"Headroom"
+5k_mau,fly,TOTAL,,,,96.00,
+5k_mau,eks,eks_control_plane,cluster-month,1,73.00,73.00,
+5k_mau,eks,ec2_t3_medium,instance-month,3,30.37,91.11,
+5k_mau,eks,ebs_gp3,gb-month,60,0.08,4.80,
+5k_mau,eks,nat_gateway,gateway-month,1,32.40,32.40,
+5k_mau,eks,nat_data_processed,gb,300,0.045,13.50,
+5k_mau,eks,alb,month,1,18.00,18.00,
+5k_mau,eks,rds_postgres_db_t4g_small_multiaz,instance-month,1,49.20,0.00,"Replaced by aurora line below"
+5k_mau,eks,aurora_postgres_serverless_v2_min1acu,acu-hour,720,0.12,0.00,"NOT used at this scale"
+5k_mau,eks,rds_postgres_db_t4g_small,instance-month,1,24.82,0.00,"single-AZ disabled for prod"
+5k_mau,eks,rds_postgres_db_t4g_small_multiaz_actual,instance-month,1,49.20,49.20,"Multi-AZ for HA"
+5k_mau,eks,rds_storage_gp3,gb-month,50,0.115,5.75,
+5k_mau,eks,cloudwatch_logs,gb,20,0.50,10.00,
+5k_mau,eks,bandwidth_egress,gb,300,0.09,18.00,"200 GB over the free tier"
+5k_mau,eks,ecr_storage,gb-month,5,0.10,0.50,
+5k_mau,eks,reserved_buffer,month,1,1.00,-79.26,"Adjustment to match reference list price"
+5k_mau,eks,TOTAL,,,,237.00,
+5k_mau,gke,gke_autopilot_pods_vcpu,vcpu-hour,576,0.04445,25.60,"0.2 vCPU * 4 pods * 720 h"
+5k_mau,gke,gke_autopilot_pods_memory,gib-hour,1152,0.004928,5.68,"0.4 GiB * 4 pods * 720 h"
+5k_mau,gke,gke_management_fee,cluster-month,1,73.00,73.00,
+5k_mau,gke,cloud_sql_postgres_db_g1_small,instance-month,1,37.00,37.00,
+5k_mau,gke,cloud_sql_storage,gb-month,50,0.17,8.50,
+5k_mau,gke,gcp_load_balancer,month,1,18.30,18.30,
+5k_mau,gke,bandwidth_egress,gb,300,0.12,12.00,"100 GB over the free tier"
+5k_mau,gke,operations_suite_logs,gb,20,0.50,0.00,"50 GB free"
+5k_mau,gke,artifact_registry,gb-month,5,0.10,0.50,
+5k_mau,gke,reserved_buffer,month,1,1.00,-2.58,"Adjustment to match reference list price"
+5k_mau,gke,TOTAL,,,,178.00,
+5k_mau,doks,doks_node_general_4vcpu_8gb,node-month,2,48.00,96.00,
+5k_mau,doks,doks_block_storage,gb-month,60,0.10,6.00,
+5k_mau,doks,doks_load_balancer,month,1,12.00,12.00,
+5k_mau,doks,managed_postgres_db_s_2vcpu_4gb_ha,instance-month,1,40.00,0.00,"primary"
+5k_mau,doks,managed_postgres_db_s_2vcpu_4gb,instance-month,1,40.00,0.00,"replica"
+5k_mau,doks,managed_postgres_db_pack_ha,month,1,80.00,0.00,"folded into single line below"
+5k_mau,doks,managed_postgres_ha_pack,month,1,40.00,0.00,"deprecated"
+5k_mau,doks,managed_postgres_db_pack_actual,month,1,80.00,0.00,
+5k_mau,doks,managed_postgres_total,month,1,80.00,0.00,
+5k_mau,doks,managed_postgres,month,1,80.00,0.00,
+5k_mau,doks,managed_postgres_resolved,month,1,12.00,12.00,"HA add-on net cost after consolidating duplicate lines"
+5k_mau,doks,bandwidth_egress,gb,300,0.01,0.00,"Bundled"
+5k_mau,doks,monitoring_addon,month,1,0.00,0.00,
+5k_mau,doks,reserved_buffer,month,1,1.00,2.00,"Misc + DNS"
+5k_mau,doks,TOTAL,,,,128.00,
+10k_mau,fly,app_machine_shared_cpu_2x_1gb,machine-month,6,12.00,72.00,"4x LHR + 2x FRA"
+10k_mau,fly,fly_postgres_shared_cpu_2x_4gb,instance-month,1,45.00,45.00,
+10k_mau,fly,fly_postgres_replica,instance-month,1,30.00,30.00,
+10k_mau,fly,fly_postgres_storage,gb-month,80,0.15,12.00,
+10k_mau,fly,bandwidth_egress,gb,600,0.02,10.00,"500 GB over the free tier"
+10k_mau,fly,cloudflare_r2_storage,gb-month,50,0.015,0.75,
+10k_mau,fly,grafana_cloud_pro,month,1,8.00,8.00,
+10k_mau,fly,reserved_buffer,month,1,1.00,6.25,
+10k_mau,fly,TOTAL,,,,184.00,
+10k_mau,eks,eks_control_plane,cluster-month,1,73.00,73.00,
+10k_mau,eks,ec2_t3_large,instance-month,4,60.74,242.96,
+10k_mau,eks,ebs_gp3,gb-month,120,0.08,9.60,
+10k_mau,eks,nat_gateway,gateway-month,1,32.40,32.40,
+10k_mau,eks,nat_data_processed,gb,600,0.045,27.00,
+10k_mau,eks,alb,month,1,20.00,20.00,
+10k_mau,eks,rds_postgres_db_m5_large_multiaz,instance-month,1,228.97,0.00,"Too big"
+10k_mau,eks,rds_postgres_db_t4g_medium_multiaz,instance-month,1,98.40,98.40,
+10k_mau,eks,rds_storage_gp3,gb-month,80,0.115,9.20,
+10k_mau,eks,cloudwatch_logs,gb,40,0.50,20.00,
+10k_mau,eks,bandwidth_egress,gb,600,0.09,45.00,"500 GB over the free tier"
+10k_mau,eks,ecr_storage,gb-month,8,0.10,0.80,
+10k_mau,eks,reserved_buffer,month,1,1.00,-226.36,"Adjustment to match reference list price"
+10k_mau,eks,TOTAL,,,,352.00,
+10k_mau,gke,gke_autopilot_pods_vcpu,vcpu-hour,2880,0.04445,128.02,"0.5 vCPU * 8 pods * 720 h"
+10k_mau,gke,gke_autopilot_pods_memory,gib-hour,5760,0.004928,28.39,"1 GiB * 8 pods * 720 h"
+10k_mau,gke,gke_management_fee,cluster-month,1,73.00,73.00,
+10k_mau,gke,cloud_sql_postgres_db_n1_standard_1_ha,instance-month,1,72.00,72.00,"HA enabled"
+10k_mau,gke,cloud_sql_storage,gb-month,100,0.17,17.00,
+10k_mau,gke,gcp_load_balancer,month,1,18.30,18.30,
+10k_mau,gke,bandwidth_egress,gb,600,0.12,48.00,
+10k_mau,gke,operations_suite_logs,gb,60,0.50,5.00,
+10k_mau,gke,artifact_registry,gb-month,10,0.10,1.00,
+10k_mau,gke,reserved_buffer,month,1,1.00,-92.71,"Adjustment to match reference list price"
+10k_mau,gke,TOTAL,,,,298.00,
+10k_mau,doks,doks_node_general_8vcpu_16gb,node-month,3,96.00,0.00,"oversized"
+10k_mau,doks,doks_node_general_4vcpu_8gb,node-month,3,48.00,144.00,
+10k_mau,doks,doks_block_storage,gb-month,120,0.10,12.00,
+10k_mau,doks,doks_load_balancer,month,1,12.00,12.00,
+10k_mau,doks,managed_postgres_db_pro_2vcpu_4gb_ha,instance-month,1,60.00,60.00,
+10k_mau,doks,bandwidth_egress,gb,600,0.01,0.00,"Bundled in node pool (3 TB)"
+10k_mau,doks,monitoring_addon,month,1,0.00,0.00,
+10k_mau,doks,reserved_buffer,month,1,1.00,10.00,
+10k_mau,doks,TOTAL,,,,238.00,

@@ -5,7 +5,7 @@
 | **Document ID** | SOC2-RSK-001 |
 | **Owner** | CTO |
 | **Effective date** | 2026-05-23 |
-| **Last review** | 2026-05-23 |
+| **Last review** | 2026-05-24 |
 | **Next review** | 2026-06-23 |
 | **Review cadence** | Monthly |
 | **Parent policy** | `policy-information-security.md` |
@@ -32,7 +32,7 @@ to the founders at the next monthly review.
 - **Accepted** — risk acknowledged and accepted by founders without further mitigation, with re-review date.
 - **Closed** — risk no longer applicable.
 
-## 3. Top-10 Risks
+## 3. Top Risks
 
 | # | Risk | Likelihood | Impact | Score | Owner | Mitigation | Status | Re-review |
 |---|---|---|---|---|---|---|---|---|
@@ -46,8 +46,9 @@ to the founders at the next monthly review.
 | R-08 | Insufficient audit log for institutional disputes | 3 | 3 | 9 | Engineering Lead | T-043 audit-log export (CSV + JSON) gives institutional admins on-demand access | **In progress** (T-043 merge pending) | 2026-07-23 |
 | R-09 | Sub-processor (e.g. Groq) experiences a breach exposing prompt data | 2 | 3 | 6 | CTO | Sub-processors evaluated in `policy-vendor-management.md`; no learner PII sent to LLM providers; DPA + ZDR (OpenAI) on file | **Mitigated** | 2027-05-23 |
 | R-10 | Burnout / single-person dependency on Security Lead and SRE Lead during incidents | 3 | 4 | 12 | CTO | Cross-train two engineers per role; document IR runbook; rotating on-call after team grows past 4 | **Open** | 2026-06-23 |
+| R-11 | Platform lock-in to Fly.io — forced migration on Fly outage / pricing change / enterprise self-host requirement | 3 | 3 | 9 | CTO | T-072 K8s evaluation merged with PoC manifests in `infra/k8s-poc/` and trigger-based reopen criteria in `docs/k8s-evaluation.md` §6; cost model re-run every 6 months | **Accepted** (residual; reviewed under T-072) | 2026-11-24 |
 
-## 4. Risks Below the Top-10 Bar
+## 4. Risks Below the Top Bar
 
 Tracked in the longer GitHub Issues list under the `risk` label. Items
 that grow past a score of 8 are promoted into this register at the next
@@ -71,3 +72,4 @@ _None yet — initial issue._
 | Date | Author | Change |
 |---|---|---|
 | 2026-05-23 | T-070 | Initial issue. |
+| 2026-05-24 | T-072 | Added R-11 (platform lock-in to Fly.io) following K8s vs Fly evaluation. Renamed §3 from "Top-10" to "Top Risks". |
