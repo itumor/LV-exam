@@ -1,0 +1,159 @@
+{
+  "title": "lvcodex — attempts funnel",
+  "uid": "lvcodex-attempts-funnel",
+  "tags": ["lvcodex", "product", "funnel"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {
+          "selected": false,
+          "text": "Prometheus",
+          "value": "Prometheus"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Attempts started (24h)",
+      "description": "Successful POST /api/attempts requests (2xx).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(increase(http_requests_total{route=\"/api/attempts\",status=~\"2..\"}[24h]))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Submissions (24h)",
+      "description": "Successful POST /api/score submissions (2xx).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(increase(http_requests_total{route=\"/api/score\",status=~\"2..\"}[24h]))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Submissions scored OK (24h)",
+      "description": "Total /api/score 2xx responses excluding 202 pending.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(increase(http_requests_total{route=\"/api/score\",status=\"200\"}[24h]))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Funnel rate over time",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 4},
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{route=\"/api/attempts\",status=~\"2..\"}[15m]))",
+          "legendFormat": "attempts started",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{route=\"/api/score\",status=~\"2..\"}[15m]))",
+          "legendFormat": "submitted",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{route=\"/api/score\",status=\"200\"}[15m]))",
+          "legendFormat": "scored ok",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "p95 scoring latency",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{route=\"/api/score\"}[5m])) by (le))",
+          "legendFormat": "p95 score",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Scoring error rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+      "targets": [
+        {
+          "expr": "sum(rate(http_request_errors_total{route=\"/api/score\"}[5m])) / clamp_min(sum(rate(http_requests_total{route=\"/api/score\"}[5m])), 0.0001)",
+          "legendFormat": "5xx ratio",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        }
+      }
+    }
+  ]
+}

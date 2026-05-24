@@ -1,0 +1,19 @@
+name: CI — develop
+
+on:
+  push:
+    branches: [develop]
+
+concurrency:
+  group: ci-develop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  security:
+    uses: ./.github/workflows/reusable-security.yml
+
+  tests:
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      e2e_grep: "@smoke"
+      full_regression: false

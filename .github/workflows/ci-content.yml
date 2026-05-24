@@ -1,0 +1,81 @@
+name: Content validation
+
+# T-017 — Exam-bank content validation gate.
+# Runs the JSON-schema validator against every exam manifest the repo can
+# produce, and fails the PR on any new violation. Pre-existing grandfathered
+# exam IDs are allowed to emit warnings without failing (see
+# scripts/validate_exam_content.py :: GRANDFATHERED_EXAM_IDS).
+#
+# Security note: this workflow does not interpolate any untrusted
+# `github.event.*` fields (issue/PR titles, comment bodies, commit messages,
+# head refs, etc.) into `run:` steps. The only contexts read are
+# `github.ref` (a controlled branch identifier) and pinned action SHAs.
+# All actions are SHA-pinned per the repo convention.
+
+on:
+  pull_request:
+    paths:
+      - "exam_bank.py"
+      - "schemas/exam.schema.json"
+      - "scripts/validate_exam_content.py"
+      - "scripts/build_b1_markdown.py"
+      - "**/*.exam.json"
+      - "codex/A2_Mock_Exam_*.md"
+      - "content/exams/**"
+      - "tests/server/test_b1_content_pack.py"
+      - "tests/server/test_exam_content_validation.py"
+      - ".github/workflows/ci-content.yml"
+      - "requirements.txt"
+  push:
+    branches: [develop, main]
+    paths:
+      - "exam_bank.py"
+      - "schemas/exam.schema.json"
+      - "scripts/validate_exam_content.py"
+      - "scripts/build_b1_markdown.py"
+      - "**/*.exam.json"
+      - "codex/A2_Mock_Exam_*.md"
+      - "content/exams/**"
+
+concurrency:
+  group: ci-content-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate-content:
+    name: Validate exam content against JSON schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PYTHON_VERSION: "3.12"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38  # v5.4.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install validator dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: List discovered exam sources
+        run: python scripts/validate_exam_content.py --list
+
+      - name: Run content validator
+        run: python scripts/validate_exam_content.py
+
+      - name: Run content-validation unit tests
+        run: python -m unittest tests.server.test_exam_content_validation -v
+
+      - name: Run B1 content-pack unit tests (T-060)
+        run: python -m unittest tests.server.test_b1_content_pack -v
+
+      - name: Verify generated B1 student markdown is in sync
+        run: python scripts/build_b1_markdown.py --check

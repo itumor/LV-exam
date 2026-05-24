@@ -1,0 +1,353 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/itumor/LV-exam/schemas/exam.schema.json",
+  "title": "Latvian Exam Manifest",
+  "description": "JSON Schema (Draft 2020-12) for exam manifests produced by exam_bank.import_exam_markdown(). Enforces structural integrity of exams that ship to learners: required identity fields, fixed level enum, four skill sections (listening/reading/writing/speaking), and the canonical 15-points-per-skill scoring rule. Per-level minimum-per-skill thresholds (A2=9, B1=12, B2=15) are enforced via conditional subschemas. See docs/exam-content-schema.md for the human-readable contract.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "exam_id",
+    "title",
+    "level",
+    "language",
+    "status",
+    "content_version",
+    "scoring",
+    "sections"
+  ],
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": {
+        "properties": {"level": {"const": "A2"}},
+        "required": ["level"]
+      },
+      "then": {
+        "properties": {
+          "scoring": {
+            "properties": {
+              "minimum_per_skill": {"const": 9}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"level": {"const": "B1"}},
+        "required": ["level"]
+      },
+      "then": {
+        "properties": {
+          "scoring": {
+            "properties": {
+              "minimum_per_skill": {"const": 12}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"level": {"const": "B2"}},
+        "required": ["level"]
+      },
+      "then": {
+        "properties": {
+          "scoring": {
+            "properties": {
+              "minimum_per_skill": {"const": 15}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Manifest schema version. Currently '1.0'.",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "version": {
+      "type": "string",
+      "description": "T-037 semantic content version in calendar-versioned YYYY.MM.N format (e.g. '2026.05.0'). Optional for backward compatibility — exams that omit this field are grandfathered to the legacy '1.0.0' baseline and continue to ship from the static catalog. New or updated exams MUST set this field so the exam_versions pipeline can drive draft/published transitions.",
+      "pattern": "^[0-9]{4}\\.(0[1-9]|1[0-2])\\.[0-9]+$"
+    },
+    "exam_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for the exam (e.g. '01')."
+    },
+    "slug": {
+      "type": "string",
+      "description": "URL-safe slug derived from exam_id."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "level": {
+      "type": "string",
+      "enum": ["A2", "B1", "B2"],
+      "description": "CEFR level. A2 ships from codex/A2_Mock_Exam_*.md; B1 ships from content/exams/B1/*.exam.json (T-060). B2 reserved."
+    },
+    "language": {
+      "type": "string",
+      "minLength": 2,
+      "description": "ISO 639-1 language code, e.g. 'lv'."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "review", "published", "archived"],
+      "description": "Workflow status. Mirrors exam_bank.WORKFLOW_STATUSES."
+    },
+    "content_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "is_immutable": {
+      "type": "boolean"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "markdown_path": {"type": "string"},
+        "attachment_root": {"type": "string"}
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "status_values": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1
+        },
+        "immutable_statuses": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "current_status": {
+          "type": "string"
+        }
+      }
+    },
+    "scoring": {
+      "type": "object",
+      "required": ["total_points", "skill_points", "minimum_per_skill"],
+      "additionalProperties": true,
+      "properties": {
+        "total_points": {
+          "type": "integer",
+          "const": 60,
+          "description": "Sum of all skill_points. Every level (A2/B1/B2) is fixed at 60 points (4 skills x 15)."
+        },
+        "skill_points": {
+          "type": "object",
+          "description": "Each skill must be worth exactly 15 points.",
+          "required": ["listening", "reading", "writing", "speaking"],
+          "additionalProperties": false,
+          "properties": {
+            "listening": {"type": "integer", "const": 15},
+            "reading":   {"type": "integer", "const": 15},
+            "writing":   {"type": "integer", "const": 15},
+            "speaking":  {"type": "integer", "const": 15}
+          }
+        },
+        "minimum_per_skill": {
+          "type": "integer",
+          "enum": [9, 12, 15],
+          "description": "Per-level pass threshold. A2 9/15 rule, B1 12/15 (T-060), B2 15/15. The exact value is pinned per level by the top-level allOf/if-then rules."
+        },
+        "task_point_allocation": {
+          "type": "object",
+          "description": "Per-skill, per-task point allocation. Each skill's task points must sum to 15.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {"type": "integer", "minimum": 1}
+          }
+        },
+        "pass_rule": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "sections": {
+      "type": "array",
+      "description": "Skill sections. Exactly 4 are required, one per CEFR skill.",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/section"}
+    },
+    "answer_key": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "references": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "section": {
+      "type": "object",
+      "required": ["skill", "title", "points_max", "tasks"],
+      "additionalProperties": true,
+      "properties": {
+        "skill": {
+          "type": "string",
+          "enum": ["listening", "reading", "writing", "speaking"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "points_max": {
+          "type": "integer",
+          "const": 15,
+          "description": "Every skill section is worth exactly 15 points (per-level pass thresholds pinned by top-level allOf)."
+        },
+        "minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tasks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/task"}
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "required": ["task_key", "points_max", "scoring_mode"],
+      "additionalProperties": true,
+      "properties": {
+        "task_key": {
+          "type": "string",
+          "pattern": "^task[0-9]+$"
+        },
+        "title": {"type": "string"},
+        "type": {"type": "string"},
+        "task_type": {"type": "string"},
+        "scoring_mode": {
+          "type": "string",
+          "enum": ["objective", "subjective", "mixed"]
+        },
+        "points_max": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 15
+        },
+        "instruction": {"type": "string"},
+        "prompt": {"type": "string"},
+        "assets": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/asset"}
+        },
+        "audio_assets": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/asset"}
+        },
+        "questions": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/question"}
+        },
+        "choices": {
+          "type": "array",
+          "items": {"type": "object"}
+        },
+        "requirements": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "required": ["path"],
+      "additionalProperties": true,
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "label": {"type": "string"},
+        "kind": {"type": "string"}
+      }
+    },
+    "question": {
+      "type": "object",
+      "required": ["number", "kind"],
+      "additionalProperties": true,
+      "properties": {
+        "number": {"type": "integer", "minimum": 1},
+        "prompt": {"type": "string"},
+        "passage": {"type": "string"},
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Question kind. Examples: objective, multiple_choice, true_false, matching, gap_fill, reading_text_choice, inflection, subjective_sentence, subjective."
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label", "text"],
+            "additionalProperties": true,
+            "properties": {
+              "label": {"type": "string", "minLength": 1},
+              "text": {"type": "string"}
+            }
+          }
+        },
+        "correct_answer": {
+          "type": ["string", "number", "boolean", "null"]
+        },
+        "correct_answers": {
+          "type": "array",
+          "items": {"type": ["string", "number", "boolean"]}
+        },
+        "image": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/asset"}
+          ]
+        },
+        "lemma": {"type": "string"},
+        "required_sentence_count": {"type": "integer", "minimum": 1},
+        "minimum_words": {"type": "integer", "minimum": 1}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": ["objective", "multiple_choice", "true_false", "matching", "gap_fill", "reading_text_choice", "inflection"]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["correct_answers"],
+            "properties": {
+              "correct_answers": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

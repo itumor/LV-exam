@@ -1,0 +1,26 @@
+name: CI — release
+
+on:
+  push:
+    branches:
+      - "release/**"
+  pull_request:
+    branches:
+      - "release/**"
+
+concurrency:
+  group: ci-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  security:
+    uses: ./.github/workflows/reusable-security.yml
+
+  full-regression:
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      full_regression: true
+
+  # NOTE: k6 load smoke is wired in by T-006. When tests/load/smoke.js lands,
+  # add a job here that runs `k6 run tests/load/smoke.js` against a
+  # short-lived preview deployment.

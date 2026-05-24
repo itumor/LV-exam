@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NPC Roleplay — Latvian A2</title>
+  <meta name="description" content="Practise Latvian with AI NPCs — cashier, waiter, taxi driver, doctor, neighbour, and teacher." />
+  <link rel="stylesheet" href="./styles.css" />
+  <style>
+    .npc-shell {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 1rem;
+      max-width: 1100px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    @media (max-width: 720px) {
+      .npc-shell { grid-template-columns: 1fr; }
+    }
+    .npc-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .npc-card {
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      padding: 0.75rem;
+      background: #ffffff;
+      cursor: pointer;
+      transition: border-color 120ms ease, background 120ms ease;
+    }
+    .npc-card:hover { border-color: #0969da; }
+    .npc-card.is-active {
+      border-color: #0969da;
+      background: #ddf4ff;
+    }
+    .npc-card .name { font-weight: 600; font-size: 1rem; }
+    .npc-card .role { font-size: 0.85rem; color: #57606a; }
+    .npc-card .location { font-size: 0.75rem; color: #6e7781; }
+
+    .chat-panel {
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      min-height: 520px;
+    }
+    .chat-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #d0d7de;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .chat-header h2 { margin: 0; font-size: 1.1rem; }
+    .chat-header .meta { font-size: 0.8rem; color: #6e7781; }
+    .chat-history {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      background: #f6f8fa;
+    }
+    .chat-message {
+      max-width: 78%;
+      padding: 0.6rem 0.8rem;
+      border-radius: 12px;
+      line-height: 1.4;
+      font-size: 0.95rem;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .chat-message.user {
+      align-self: flex-end;
+      background: #0969da;
+      color: #ffffff;
+      border-bottom-right-radius: 2px;
+    }
+    .chat-message.assistant {
+      align-self: flex-start;
+      background: #ffffff;
+      border: 1px solid #d0d7de;
+      border-bottom-left-radius: 2px;
+    }
+    .chat-empty {
+      text-align: center;
+      color: #6e7781;
+      padding: 2rem 1rem;
+    }
+    .chat-form {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid #d0d7de;
+      display: flex;
+      gap: 0.5rem;
+    }
+    .chat-form input {
+      flex: 1;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+    .chat-form button {
+      padding: 0.55rem 1rem;
+      border: 0;
+      border-radius: 6px;
+      background: #1f883d;
+      color: #ffffff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .chat-form button[disabled] { opacity: 0.6; cursor: progress; }
+    .chat-error {
+      color: #cf222e;
+      font-size: 0.85rem;
+      padding: 0.5rem 1rem;
+    }
+    .chat-status {
+      padding: 0.4rem 1rem;
+      font-size: 0.8rem;
+      color: #6e7781;
+      border-top: 1px solid #d0d7de;
+      background: #f6f8fa;
+    }
+    .skip-link {
+      position: absolute;
+      left: -9999px;
+      top: auto;
+    }
+    .skip-link:focus { left: 1rem; top: 1rem; background: #ffffff; padding: 0.5rem; }
+  </style>
+</head>
+<body>
+  <a href="#chat-input" class="skip-link">Skip to chat input</a>
+  <header class="exam-appbar" role="banner">
+    <div class="exam-appbar-inner container-xxl">
+      <a href="./index.html" class="exam-brand-title" style="color: inherit; text-decoration: none;">A2 State Language Exam Simulator</a>
+      <nav aria-label="NPC roleplay">
+        <strong>NPC Roleplay (T-045)</strong>
+      </nav>
+    </div>
+  </header>
+
+  <main class="npc-shell" id="main">
+    <aside aria-label="NPC selector">
+      <h1 style="font-size: 1.1rem; margin: 0 0 0.5rem;">Choose a character</h1>
+      <ul class="npc-list" id="npc-list" role="listbox" aria-label="Available NPCs">
+        <li class="chat-empty" id="npc-empty">Loading NPCs…</li>
+      </ul>
+    </aside>
+
+    <section class="chat-panel" aria-labelledby="chat-title">
+      <div class="chat-header">
+        <h2 id="chat-title">Select a character to start</h2>
+        <span class="meta" id="chat-meta" aria-live="polite"></span>
+      </div>
+      <div class="chat-history" id="chat-history" aria-live="polite" aria-label="Conversation history">
+        <div class="chat-empty" id="chat-empty">Pick an NPC on the left to begin a roleplay in Latvian.</div>
+      </div>
+      <div class="chat-error" id="chat-error" role="alert" hidden></div>
+      <form class="chat-form" id="chat-form" autocomplete="off">
+        <label for="chat-input" class="sr-only" style="position: absolute; left: -9999px;">Your message</label>
+        <input
+          id="chat-input"
+          name="message"
+          type="text"
+          placeholder="Rakstiet ziņojumu (write a message in Latvian)…"
+          maxlength="800"
+          disabled
+          aria-describedby="chat-status"
+        />
+        <button type="submit" id="chat-send" disabled>Send</button>
+      </form>
+      <div class="chat-status" id="chat-status">Quota: —</div>
+    </section>
+  </main>
+
+  <script src="./npc-chat.js" defer></script>
+</body>
+</html>

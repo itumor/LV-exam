@@ -1,0 +1,100 @@
+# T-028 — Multi-region Fly warm-standby configuration.
+#
+# This file is the **sibling** of ``fly.toml`` used when rolling out the
+# multi-region topology described in ``docs/multi-region.md``. It is NOT
+# auto-deployed by CI; promote with:
+#
+#     flyctl deploy --config fly.multi-region.toml --app latvian-a2-exam
+#
+# Topology
+# --------
+# * ``lhr`` — primary region. Reads + writes hit the primary Fly Postgres
+#   leader. Min 1, max 2 machines.
+# * ``fra`` — warm standby. Min 1 machine, throttled to a read-only PG
+#   replica until DR cutover flips it. Max 2 machines for burst capacity.
+#
+# Both regions run identical images and share the same secrets. The only
+# difference is the ``FLY_REGION`` env var (set automatically per machine)
+# and which Postgres replica each machine talks to via PGBouncer Flycast.
+#
+# DR cutover steps live in ``docs/multi-region.md``. The
+# ``scripts/region-failover.sh`` script walks an operator through them
+# interactively.
+
+app = 'latvian-a2-exam'
+primary_region = 'lhr'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  PORT = '80'
+  APP_ENV = 'production'
+  AUTH_DB_PATH = '/app/data/auth.sqlite3'
+  BILLING_DB_PATH = '/app/data/billing.sqlite3'
+  # T-021 Postgres flags — see docs/postgres-migration.md.
+  LVCODEX_DB_DUAL_WRITE = '0'
+  LVCODEX_DB_READ_FROM = 'sqlite'
+  # T-028: explicit warm-standby flag. fra machines should read from the
+  # streaming replica (PG sets FLY_REGION; the app picks the right DSN).
+  # DATABASE_URL is **not** set here — it must be a secret. The replica
+  # DSN is set as ``DATABASE_REPLICA_URL`` and is picked up only when
+  # ``FLY_REGION != primary_region``.
+  LVCODEX_MULTI_REGION = '1'
+
+[[mounts]]
+  source = 'data'
+  destination = '/app/data'
+
+[http_service]
+  internal_port = 80
+  force_https = true
+  # Multi-region: each machine stays warm. We do NOT autostop because we
+  # want the standby to be hot-ready for sub-30 s failover.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = 'connections'
+    hard_limit = 50
+    soft_limit = 25
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/healthz'
+
+# Pin scaling: 1 machine per region by default, burst to 2.
+#
+# Apply with:
+#     flyctl scale count 2 --region lhr --max-per-region 2 --app latvian-a2-exam
+#     flyctl scale count 1 --region fra --max-per-region 2 --app latvian-a2-exam
+#
+# ``[[regions]]`` blocks document the intended baseline so ``flyctl deploy``
+# preserves multi-region distribution. Fly's TOML doesn't currently honour
+# per-region machine counts inside the config (that lives in
+# ``flyctl scale count --region``), so these stanzas are advisory.
+[[regions]]
+  code = 'lhr'
+  role = 'primary'
+  min_machines = 1
+  max_machines = 2
+
+[[regions]]
+  code = 'fra'
+  role = 'warm-standby'
+  min_machines = 1
+  max_machines = 2
+
+[[vm]]
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256
+
+# Deploy strategy — rolling so we never take both regions down together.
+[deploy]
+  strategy = 'rolling'
+  wait_timeout = '5m'

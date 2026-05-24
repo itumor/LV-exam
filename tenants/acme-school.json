@@ -1,0 +1,18 @@
+{
+  "$schema": "../schemas/tenant.schema.json",
+  "id": "acme-school",
+  "name": "ACME Language School",
+  "primary_color": "#dc2626",
+  "secondary_color": "#b91c1c",
+  "background_color": "#0c0a09",
+  "text_color": "#fafaf9",
+  "logo_url": "/assets/logo-acme-school.svg",
+  "favicon_url": "/assets/favicon-acme.ico",
+  "support_email": "support@acme-school.example",
+  "custom_domain": "exam.acme-school.example",
+  "host_aliases": [
+    "exam.acme-school.example",
+    "acme-school.lvcodex.com"
+  ],
+  "_comment": "Sample white-label tenant — illustrates the per-tenant theme + custom-domain mapping consumed by T-044."
+}

@@ -1,0 +1,1848 @@
+openapi: 3.1.0
+info:
+  title: lvcodex Public API
+  version: "1.0.0"
+  summary: Latvian A2 exam simulator — public HTTP surface
+  description: |
+    Comprehensive OpenAPI 3.1 specification for the public HTTP routes exposed
+    by `server_app/routes/*` (T-020 modular layout). This document is the
+    authoritative external contract used for:
+
+    * external pen-test scoping (T-029 — see `docs/pentest-scope-of-work.md`).
+    * partner / institutional procurement reviews (B2B, T-040..T-043).
+    * client SDK generation (Vue3 + TS frontend migration, T-036).
+    * OpenAPI contract diff on the `develop` → `release/*` merge edge
+      (`docs/release-checklist.md`).
+
+    Routes that are intentionally internal (Sentry tunnel, internal Fly health
+    probes, lefthook hook URLs) are deliberately **not** documented here. Any
+    addition or change to a public route must update this spec in the same PR
+    (enforced by `.github/workflows/ci-openapi.yml`).
+  contact:
+    name: lvcodex Maintainers
+    url: https://github.com/itumor/LV-exam
+  license:
+    name: Proprietary
+servers:
+  - url: https://lvcodex.fly.dev
+    description: Production (Fly.io)
+  - url: https://lvcodex-staging.fly.dev
+    description: Staging (Fly.io preview environment)
+  - url: http://127.0.0.1:8080
+    description: Local development
+tags:
+  - name: health
+    description: Liveness / readiness probes consumed by Fly.io
+  - name: metrics
+    description: Prometheus scrape target (T-014)
+  - name: auth
+    description: Session-cookie authentication and profile management
+  - name: exams
+    description: Exam catalog + content + answer-key endpoints
+  - name: attempts
+    description: Attempt lifecycle, dashboard, and learner evaluator
+  - name: billing
+    description: Stripe checkout, entitlement, webhook, refunds
+  - name: admin
+    description: Admin-only console endpoints (RBAC enforced server-side)
+  - name: uploads
+    description: Speaking-task audio uploads (T-018)
+  - name: voice
+    description: Voice STT + pronunciation scoring (T-046)
+  - name: legal
+    description: Static legal page bundle (Terms / Privacy / Cookies / Refund / DPA)
+  - name: debug
+    description: Internal debug-tunnel routes (gated by `?debug=1` + admin role, T-010)
+  - name: sso
+    description: Single sign-on (OIDC) for institutional accounts (T-040)
+security:
+  - sessionCookie: []
+paths:
+  /healthz:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      description: |
+        Returns `200` with `{"status":"ok","region":"<fly-region>"}` once the
+        server's HTTP listener is accepting connections. Consumed by Fly.io's
+        TCP and HTTP health checks and by the multi-region monitor (T-028)
+        which verifies that the `region` field matches the per-region URL it
+        probed. **No authentication required.**
+      security: []
+      responses:
+        "200":
+          description: Server is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /metrics:
+    get:
+      tags: [metrics]
+      summary: Prometheus scrape endpoint (T-014)
+      description: |
+        Returns the in-process Prometheus text exposition format. Bound only
+        on the internal Fly.io address by `MetricsScrapeAuth` in production
+        (basic-auth shared secret), but documented here so partners scraping
+        a private mirror know the response shape.
+      security:
+        - metricsBasic: []
+      responses:
+        "200":
+          description: Prometheus exposition format.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP http_requests_total Total HTTP requests
+                  # TYPE http_requests_total counter
+                  http_requests_total{method="GET",code="200"} 42
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/auth/register:
+    post:
+      tags: [auth]
+      summary: Register a new learner account
+      description: |
+        Creates a new account, hashes the password with `bcrypt`, opens a
+        session, and returns a `Set-Cookie: a2_session=...; HttpOnly; SameSite=Lax`.
+        Rate-limited per IP by the T-015 middleware.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: Account created and session opened.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Log in an existing account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful; session cookie is set.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: Log out the current session
+      description: Clears the session cookie and revokes the session token.
+      responses:
+        "200":
+          description: Session cleared.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/ExpiredSessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+  /api/session:
+    get:
+      tags: [auth]
+      summary: Inspect current session
+      description: Returns the active session record or an empty payload if anonymous.
+      security:
+        - sessionCookie: []
+        - {}
+      responses:
+        "200":
+          description: Session info (possibly anonymous).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+  /api/profile:
+    post:
+      tags: [auth]
+      summary: Update profile attributes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdateRequest"
+      responses:
+        "200":
+          description: Profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/webhooks/auth:
+    post:
+      tags: [auth]
+      summary: External identity-provider webhook
+      description: |
+        Used by the SSO provider (T-040) and the legacy magic-link mailer to
+        provision accounts. Authenticated by HMAC signature header, not by
+        session cookie.
+      security:
+        - webhookSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Webhook accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/account/export:
+    get:
+      tags: [auth]
+      summary: Export the authenticated account's personal data (GDPR Art. 15)
+      responses:
+        "200":
+          description: ZIP bundle of personal data.
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/account/delete:
+    post:
+      tags: [auth]
+      summary: Delete the authenticated account (GDPR Art. 17)
+      responses:
+        "200":
+          description: Account scheduled for deletion.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/exams/catalog:
+    get:
+      tags: [exams]
+      summary: List published exams visible to the caller
+      responses:
+        "200":
+          description: Exam catalog.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExamCatalogEntry"
+  /api/exams/{exam_id}/content:
+    get:
+      tags: [exams]
+      summary: Fetch one exam's content (questions, audio, prompts)
+      parameters:
+        - $ref: "#/components/parameters/ExamId"
+      responses:
+        "200":
+          description: Exam content.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExamContent"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/exams/{exam_id}/answer-key:
+    get:
+      tags: [exams]
+      summary: Fetch the server-side answer key (admin or post-submission)
+      parameters:
+        - $ref: "#/components/parameters/ExamId"
+      responses:
+        "200":
+          description: Answer key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnswerKey"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/practice-feed:
+    get:
+      tags: [exams]
+      summary: Vertical practice feed (T-035)
+      responses:
+        "200":
+          description: Ranked practice items.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PracticeFeedItem"
+  /api/attempts:
+    get:
+      tags: [attempts]
+      summary: List attempts owned by the caller
+      responses:
+        "200":
+          description: Attempt list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Attempt"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/attempts/{attempt_id}:
+    get:
+      tags: [attempts]
+      summary: Fetch one attempt
+      parameters:
+        - $ref: "#/components/parameters/AttemptId"
+      responses:
+        "200":
+          description: Attempt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attempt"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/attempts/start:
+    post:
+      tags: [attempts]
+      summary: Start a new attempt for an exam (consumes one entitlement)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartAttemptRequest"
+      responses:
+        "200":
+          description: Attempt created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attempt"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/attempts/{attempt_id}/answers:
+    post:
+      tags: [attempts]
+      summary: Save answers for an in-progress attempt
+      parameters:
+        - $ref: "#/components/parameters/AttemptId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveAnswersRequest"
+      responses:
+        "200":
+          description: Answers persisted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/attempts/{attempt_id}/submit:
+    post:
+      tags: [attempts]
+      summary: Submit an attempt for final scoring
+      parameters:
+        - $ref: "#/components/parameters/AttemptId"
+      responses:
+        "200":
+          description: Submission scored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttemptScore"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/attempts/{attempt_id}/expire:
+    post:
+      tags: [attempts]
+      summary: Mark an attempt as expired (server-side timer)
+      parameters:
+        - $ref: "#/components/parameters/AttemptId"
+      responses:
+        "200":
+          description: Attempt expired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/attempts/history:
+    post:
+      tags: [attempts]
+      summary: Bulk-fetch attempt history (paginated)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HistoryRequest"
+      responses:
+        "200":
+          description: Attempt history page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoryResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/attempts/analytics:
+    post:
+      tags: [attempts]
+      summary: Emit a single analytics event linked to an attempt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyticsEvent"
+      responses:
+        "200":
+          description: Event recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/dashboard:
+    get:
+      tags: [attempts]
+      summary: Learner dashboard rollup
+      responses:
+        "200":
+          description: Dashboard.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/evaluate:
+    post:
+      tags: [attempts]
+      summary: LLM evaluation of an open-ended answer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvaluateRequest"
+      responses:
+        "200":
+          description: Evaluation result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvaluateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/billing/config:
+    get:
+      tags: [billing]
+      summary: Public Stripe publishable key + pricing
+      security: []
+      responses:
+        "200":
+          description: Billing config.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingConfig"
+  /api/billing/state:
+    get:
+      tags: [billing]
+      summary: Caller's entitlement state (exam credits, AI credits, plan)
+      responses:
+        "200":
+          description: Entitlement state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/billing/audit:
+    get:
+      tags: [billing]
+      summary: Caller's recent billing-event audit log
+      responses:
+        "200":
+          description: Audit log.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BillingAuditEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/billing/checkout-session:
+    post:
+      tags: [billing]
+      summary: Open a Stripe Checkout session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutSessionRequest"
+      responses:
+        "200":
+          description: Checkout session URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutSessionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/billing/consume-exam:
+    post:
+      tags: [billing]
+      summary: Atomically decrement one exam credit
+      responses:
+        "200":
+          description: Credit consumed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
+  /api/billing/consume-ai-credit:
+    post:
+      tags: [billing]
+      summary: Atomically decrement one AI credit
+      responses:
+        "200":
+          description: Credit consumed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
+  /api/billing/refund:
+    post:
+      tags: [billing]
+      summary: Self-serve 7-day refund (T-016)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefundRequest"
+      responses:
+        "200":
+          description: Refund initiated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefundResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/stripe/webhook:
+    post:
+      tags: [billing]
+      summary: Stripe webhook receiver
+      description: |
+        Authenticated by `Stripe-Signature` header (HMAC over body, verified
+        against `STRIPE_WEBHOOK_SECRET`). All events idempotently processed
+        and persisted in the billing audit log.
+      security:
+        - stripeSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Event accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/admin/overview:
+    get:
+      tags: [admin]
+      summary: Admin console overview metrics
+      security:
+        - sessionCookie: [admin]
+      responses:
+        "200":
+          description: Overview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/admin/accounts:
+    get:
+      tags: [admin]
+      summary: List learner accounts
+      security:
+        - sessionCookie: [admin]
+      responses:
+        "200":
+          description: Accounts.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminAccount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/admin/accounts/{account_id}:
+    post:
+      tags: [admin]
+      summary: Update one account (role, status)
+      security:
+        - sessionCookie: [admin]
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAccountUpdate"
+      responses:
+        "200":
+          description: Account updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAccount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/admin/exams:
+    get:
+      tags: [admin]
+      summary: List exams (including drafts)
+      security:
+        - sessionCookie: [admin]
+      responses:
+        "200":
+          description: Exams.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExamCatalogEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [admin]
+      summary: Create a new exam
+      security:
+        - sessionCookie: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExamCatalogEntry"
+      responses:
+        "200":
+          description: Exam created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExamCatalogEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/admin/exams/{exam_id}:
+    get:
+      tags: [admin]
+      summary: Fetch one exam's editable representation
+      security:
+        - sessionCookie: [admin]
+      parameters:
+        - $ref: "#/components/parameters/ExamId"
+      responses:
+        "200":
+          description: Exam.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExamContent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [admin]
+      summary: Update one exam
+      security:
+        - sessionCookie: [admin]
+      parameters:
+        - $ref: "#/components/parameters/ExamId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExamContent"
+      responses:
+        "200":
+          description: Exam updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExamContent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/admin/exams/{exam_id}/status:
+    post:
+      tags: [admin]
+      summary: Publish / unpublish / archive an exam
+      security:
+        - sessionCookie: [admin]
+      parameters:
+        - $ref: "#/components/parameters/ExamId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [draft, published, archived]
+              required: [status]
+      responses:
+        "200":
+          description: Status updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/admin/exams/{exam_id}/delete:
+    post:
+      tags: [admin]
+      summary: Soft-delete an exam (admin only)
+      security:
+        - sessionCookie: [admin]
+      parameters:
+        - $ref: "#/components/parameters/ExamId"
+      responses:
+        "200":
+          description: Exam deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/admin/attempts:
+    get:
+      tags: [admin]
+      summary: List recent attempts across all accounts
+      security:
+        - sessionCookie: [admin]
+      responses:
+        "200":
+          description: Attempts.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Attempt"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/admin/settings:
+    get:
+      tags: [admin]
+      summary: List runtime settings
+      security:
+        - sessionCookie: [admin]
+      responses:
+        "200":
+          description: Settings.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [admin]
+      summary: Update runtime settings
+      security:
+        - sessionCookie: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Settings persisted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /sso/oidc/login:
+    get:
+      tags: [sso]
+      summary: Begin OIDC SSO sign-in for an institutional org (T-040)
+      description: |
+        Looks up the provider record for `org`, fetches the IdP's discovery
+        document (cached), generates `state` + `nonce`, persists both in the
+        `sso_nonces` ledger, sets a signed HttpOnly cookie (`sso_state`,
+        Path=/sso), and `302`-redirects the browser to the IdP's
+        `authorization_endpoint`. On callback the cookie and ledger together
+        provide CSRF + replay protection.
+      security: []
+      parameters:
+        - name: org
+          in: query
+          required: true
+          schema: { type: string }
+          description: Institutional org slug previously registered via the admin route.
+        - name: return_to
+          in: query
+          required: false
+          schema: { type: string, default: "/" }
+      responses:
+        "302":
+          description: Redirect to the IdP's authorization endpoint.
+        "400":
+          description: Unknown org, invalid discovery document, or missing parameter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /sso/oidc/callback:
+    get:
+      tags: [sso]
+      summary: Complete OIDC SSO sign-in (T-040)
+      description: |
+        Validates the `state` + `sso_state` cookie pair, exchanges the
+        `code` at the IdP's `token_endpoint`, verifies the `id_token`
+        (RS256 against JWKS; `iss`, `aud`, `exp`, `nonce` checks), then
+        links the email claim to an existing account or — if
+        `auto_provision=true` for the org — creates a new account. On
+        success, sets the standard `a2_session` cookie and `302`-redirects
+        to the `return_to` value remembered from `/sso/oidc/login`.
+      security: []
+      parameters:
+        - name: state
+          in: query
+          required: true
+          schema: { type: string }
+        - name: code
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "302":
+          description: Sign-in succeeded; `a2_session` cookie set.
+        "400":
+          description: |
+            State mismatch, nonce replay, expired token, wrong issuer,
+            token-endpoint failure, or any other OIDC verification error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/admin/sso/providers:
+    get:
+      tags: [admin, sso]
+      summary: List registered OIDC providers (T-040)
+      security:
+        - sessionCookie: [admin]
+      responses:
+        "200":
+          description: Provider list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [providers]
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, org_id, type, client_id, issuer_url, scopes]
+                      properties:
+                        id: { type: string }
+                        org_id: { type: string }
+                        type: { type: string, enum: [oidc] }
+                        client_id: { type: string }
+                        client_secret_env: { type: string }
+                        issuer_url: { type: string, format: uri }
+                        scopes: { type: string }
+                        redirect_path: { type: string }
+                        auto_provision: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [admin, sso]
+      summary: Register or update an OIDC provider (T-040)
+      description: |
+        Idempotent on `org_id`. The `client_secret_env` field is the
+        *name* of an environment variable that holds the actual OIDC
+        client secret — the value itself never enters the database.
+        The named env var MUST be set on the host at registration time
+        (override with `SSO_ALLOW_UNSET_SECRET_ENV=1` only during
+        bootstrap). `client_id` and `issuer_url` are Fernet-encrypted
+        at rest using `SSO_ENCRYPTION_KEY`.
+      security:
+        - sessionCookie: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [org_id, client_id, client_secret_env, issuer_url]
+              properties:
+                org_id: { type: string }
+                client_id: { type: string }
+                client_secret_env: { type: string }
+                issuer_url: { type: string, format: uri }
+                scopes: { type: string, default: "openid email profile" }
+                redirect_path: { type: string, default: "/sso/oidc/callback" }
+                auto_provision: { type: boolean, default: true }
+      responses:
+        "200":
+          description: Provider persisted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [provider]
+                properties:
+                  provider: { type: object }
+        "400":
+          description: Validation failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/uploads/speaking:
+    post:
+      tags: [uploads]
+      summary: Upload a speaking-task audio recording (T-018)
+      description: |
+        Accepts a single audio recording for a speaking task. Max size and
+        MIME types enforced server-side. The response includes a stable
+        upload URL the learner can replay.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/SpeakingUploadRequest"
+          audio/webm:
+            schema:
+              type: string
+              format: binary
+          audio/mp4:
+            schema:
+              type: string
+              format: binary
+          audio/wav:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Upload stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpeakingUploadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+  /api/uploads/speaking/{attempt_id}/{task_id}:
+    get:
+      tags: [uploads]
+      summary: Replay a stored speaking recording by attempt + task
+      parameters:
+        - $ref: "#/components/parameters/AttemptId"
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: Audio stream.
+          content:
+            audio/webm:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/voice/score:
+    post:
+      tags: [voice]
+      summary: Score pronunciation against expected Latvian text (T-046)
+      description: |
+        Runs the audio referenced by `audio_url` (a T-018 speaking upload
+        URL) through the configured STT provider (default: Groq Whisper)
+        and returns a pronunciation-accuracy report. Consumes one slot
+        from the T-026 daily AI quota ledger.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expected_text, audio_url]
+              properties:
+                expected_text:
+                  type: string
+                  description: Latvian reference text the learner was asked to say.
+                  example: "Labdien, kā jums klājas?"
+                audio_url:
+                  type: string
+                  description: T-018 upload URL — `/api/uploads/speaking/<attempt_id>/<task_id>`.
+                  example: "/api/uploads/speaking/attempt1/speaking-task1-0"
+                language:
+                  type: string
+                  description: ISO-639-1 language hint for Whisper.
+                  default: "lv"
+      responses:
+        "200":
+          description: Pronunciation score envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transcript:
+                    type: string
+                  transcript_confidence:
+                    type: number
+                    format: float
+                  accuracy_percent:
+                    type: number
+                    format: float
+                  phoneme_score:
+                    type: number
+                    format: float
+                  word_errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        expected: { type: string }
+                        got: { type: string }
+                        kind:
+                          type: string
+                          enum: [substitution, insertion, deletion]
+                  suggestions:
+                    type: array
+                    items:
+                      type: string
+                  expected_tokens:
+                    type: array
+                    items: { type: string }
+                  transcript_tokens:
+                    type: array
+                    items: { type: string }
+                  provider:
+                    type: string
+                  model:
+                    type: string
+                  quota:
+                    type: object
+                    properties:
+                      used: { type: integer }
+                      limit: { type: integer }
+                      resets_at: { type: string, format: date-time }
+        "400":
+          description: Missing / invalid expected_text or audio_url.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Audio URL points outside the caller's user scope.
+        "404":
+          description: Audio upload not found.
+        "413":
+          description: Audio file too large to transcribe.
+        "429":
+          description: Daily AI quota exhausted.
+        "502":
+          description: STT provider failed.
+        "503":
+          description: Voice transcription not configured on this deployment.
+  /legal/terms:
+    get:
+      tags: [legal]
+      summary: Render Terms of Service (T-011)
+      security: []
+      responses:
+        "200":
+          description: HTML page.
+          content:
+            text/html:
+              schema:
+                type: string
+  /legal/privacy:
+    get:
+      tags: [legal]
+      summary: Render Privacy Policy (T-011)
+      security: []
+      responses:
+        "200":
+          description: HTML page.
+          content:
+            text/html:
+              schema:
+                type: string
+  /legal/cookies:
+    get:
+      tags: [legal]
+      summary: Render Cookie Policy (T-011)
+      security: []
+      responses:
+        "200":
+          description: HTML page.
+          content:
+            text/html:
+              schema:
+                type: string
+  /legal/refund:
+    get:
+      tags: [legal]
+      summary: Render Refund Policy (T-011)
+      security: []
+      responses:
+        "200":
+          description: HTML page.
+          content:
+            text/html:
+              schema:
+                type: string
+  /legal/dpa:
+    get:
+      tags: [legal]
+      summary: Render Data Processing Agreement (T-011)
+      security: []
+      responses:
+        "200":
+          description: HTML page.
+          content:
+            text/html:
+              schema:
+                type: string
+  /api/debug/session:
+    get:
+      tags: [debug]
+      summary: Debug session-state introspection (T-010)
+      description: |
+        Returns 404 for any caller without `?debug=1` AND an admin session
+        cookie. The 404 is intentional so debug routes do not leak to
+        learners. This is the canonical example of a learner-invisible
+        admin debug surface.
+      security:
+        - sessionCookie: [admin]
+      parameters:
+        - in: query
+          name: debug
+          required: true
+          schema:
+            type: string
+            enum: ["1"]
+      responses:
+        "200":
+          description: Debug payload.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: a2_session
+      description: |
+        HTTP-only, `SameSite=Lax`, `Secure` (in prod) cookie set on
+        `/api/auth/login` and `/api/auth/register`. Cleared by
+        `/api/auth/logout`. The session token is opaque; it indexes a
+        server-side row in the auth store.
+    stripeSignature:
+      type: apiKey
+      in: header
+      name: Stripe-Signature
+      description: Stripe webhook HMAC signature header (T-016).
+    webhookSignature:
+      type: apiKey
+      in: header
+      name: X-Webhook-Signature
+      description: Generic HMAC signature for the auth-provider webhook.
+    metricsBasic:
+      type: http
+      scheme: basic
+      description: Basic-auth on the internal Prometheus scrape endpoint.
+  headers:
+    SessionCookie:
+      description: Sets the `a2_session` HTTP-only cookie.
+      schema:
+        type: string
+        example: "a2_session=opaque-token; Path=/; HttpOnly; SameSite=Lax; Secure"
+    ExpiredSessionCookie:
+      description: Clears the `a2_session` cookie.
+      schema:
+        type: string
+        example: "a2_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+  parameters:
+    ExamId:
+      in: path
+      name: exam_id
+      required: true
+      schema:
+        type: string
+      example: A2_Mock_Exam_03
+    AttemptId:
+      in: path
+      name: attempt_id
+      required: true
+      schema:
+        type: string
+      example: attempt_01HABCDE12345
+    TaskId:
+      in: path
+      name: task_id
+      required: true
+      schema:
+        type: string
+      example: speaking-t2
+    AccountId:
+      in: path
+      name: account_id
+      required: true
+      schema:
+        type: string
+      example: usr_01HABCDE12345
+  responses:
+    BadRequest:
+      description: Malformed request body or parameters.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: Caller is not authenticated.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: Caller is authenticated but lacks the required role.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: Resource not found (or hidden from this caller).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Conflict:
+      description: Conflict with current resource state.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    PayloadTooLarge:
+      description: Uploaded body exceeded the configured maximum.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    UnsupportedMediaType:
+      description: Content-Type not in the allow-list.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    PaymentRequired:
+      description: Entitlement exhausted; payment or upgrade required.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    RateLimited:
+      description: Rate limit exceeded (T-015).
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 0
+          description: Seconds the caller must wait before retrying.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code (e.g. `rate_limited`, `unauthorized`).
+        message:
+          type: string
+          description: Human-readable explanation. Never includes PII.
+        retry_after:
+          type: integer
+          description: Seconds before retrying (only set on 429).
+      additionalProperties: true
+    OkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+      required: [ok]
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        region:
+          type: string
+          description: |
+            Fly region of the responding machine, sourced from the `FLY_REGION`
+            env var (set automatically by Fly). Falls back to `LVCODEX_REGION`
+            for local/dev parity, or the literal `"unknown"` when neither is
+            set. Used by the multi-region monitor
+            (`.github/workflows/region-health.yml`, T-028) to verify
+            cross-region routing.
+          example: lhr
+      required: [status, region]
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          writeOnly: true
+        name:
+          type: string
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          writeOnly: true
+    SessionResponse:
+      type: object
+      properties:
+        authenticated:
+          type: boolean
+        account_id:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        role:
+          type: string
+          enum: [learner, admin, tutor, institution]
+          nullable: true
+        display_name:
+          type: string
+          nullable: true
+    ProfileUpdateRequest:
+      type: object
+      additionalProperties: true
+      properties:
+        display_name:
+          type: string
+        locale:
+          type: string
+          example: lv-LV
+    ExamCatalogEntry:
+      type: object
+      required: [exam_id, title, level, status]
+      properties:
+        exam_id:
+          type: string
+        title:
+          type: string
+        level:
+          type: string
+          enum: [A1, A2, B1, B2, C1]
+        language:
+          type: string
+          example: lv
+        status:
+          type: string
+          enum: [draft, published, archived]
+        content_version:
+          type: string
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+    ExamContent:
+      type: object
+      additionalProperties: true
+      properties:
+        exam_id:
+          type: string
+        sections:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    AnswerKey:
+      type: object
+      additionalProperties: true
+      properties:
+        exam_id:
+          type: string
+        keys:
+          type: object
+          additionalProperties: true
+    PracticeFeedItem:
+      type: object
+      additionalProperties: true
+      properties:
+        item_id:
+          type: string
+        skill:
+          type: string
+          enum: [listening, reading, writing, speaking, vocabulary, grammar]
+        kind:
+          type: string
+        difficulty:
+          type: integer
+          minimum: 1
+          maximum: 5
+    Attempt:
+      type: object
+      required: [attempt_id, exam_id, status]
+      properties:
+        attempt_id:
+          type: string
+        exam_id:
+          type: string
+        status:
+          type: string
+          enum: [in_progress, submitted, expired, scored]
+        started_at:
+          type: string
+          format: date-time
+        submitted_at:
+          type: string
+          format: date-time
+          nullable: true
+        score:
+          $ref: "#/components/schemas/AttemptScore"
+    AttemptScore:
+      type: object
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        per_skill:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+            maximum: 15
+        pass:
+          type: boolean
+          description: True only when each skill ≥ 9/15.
+    StartAttemptRequest:
+      type: object
+      required: [exam_id]
+      properties:
+        exam_id:
+          type: string
+    SaveAnswersRequest:
+      type: object
+      required: [answers]
+      properties:
+        answers:
+          type: object
+          additionalProperties: true
+        idempotency_key:
+          type: string
+    HistoryRequest:
+      type: object
+      properties:
+        cursor:
+          type: string
+          nullable: true
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+    HistoryResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attempt"
+        next_cursor:
+          type: string
+          nullable: true
+    AnalyticsEvent:
+      type: object
+      required: [event]
+      properties:
+        event:
+          type: string
+        attempt_id:
+          type: string
+          nullable: true
+        properties:
+          type: object
+          additionalProperties: true
+    Dashboard:
+      type: object
+      additionalProperties: true
+      properties:
+        attempts_completed:
+          type: integer
+        last_score:
+          $ref: "#/components/schemas/AttemptScore"
+        readiness:
+          type: object
+          additionalProperties:
+            type: number
+            minimum: 0
+            maximum: 1
+    EvaluateRequest:
+      type: object
+      required: [prompt, answer]
+      properties:
+        prompt:
+          type: string
+        answer:
+          type: string
+        skill:
+          type: string
+          enum: [writing, speaking]
+        rubric_version:
+          type: string
+    EvaluateResponse:
+      type: object
+      properties:
+        score:
+          type: integer
+          minimum: 0
+          maximum: 15
+        feedback:
+          type: string
+        cost_eur:
+          type: number
+          minimum: 0
+    BillingConfig:
+      type: object
+      additionalProperties: true
+      properties:
+        publishable_key:
+          type: string
+        prices:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              amount:
+                type: integer
+                description: Amount in cents.
+              currency:
+                type: string
+                example: eur
+    BillingState:
+      type: object
+      additionalProperties: true
+      properties:
+        exam_credits:
+          type: integer
+          minimum: 0
+        ai_credits:
+          type: integer
+          minimum: 0
+        plan:
+          type: string
+          nullable: true
+        refundable_until:
+          type: string
+          format: date-time
+          nullable: true
+    BillingAuditEntry:
+      type: object
+      additionalProperties: true
+      properties:
+        event_id:
+          type: string
+        event_type:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        amount_cents:
+          type: integer
+        currency:
+          type: string
+    CheckoutSessionRequest:
+      type: object
+      required: [product]
+      properties:
+        product:
+          type: string
+          enum: [exam_credit, ai_credit_pack, plan_monthly, plan_annual]
+        quantity:
+          type: integer
+          minimum: 1
+          default: 1
+        return_url:
+          type: string
+          format: uri
+    CheckoutSessionResponse:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+        session_id:
+          type: string
+    RefundRequest:
+      type: object
+      required: [event_id]
+      properties:
+        event_id:
+          type: string
+        reason:
+          type: string
+    RefundResponse:
+      type: object
+      properties:
+        refund_id:
+          type: string
+        status:
+          type: string
+          enum: [requested, succeeded, failed]
+    AdminOverview:
+      type: object
+      additionalProperties: true
+      properties:
+        accounts_total:
+          type: integer
+        attempts_24h:
+          type: integer
+        revenue_eur_30d:
+          type: number
+    AdminAccount:
+      type: object
+      additionalProperties: true
+      properties:
+        account_id:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [learner, admin, tutor, institution]
+        status:
+          type: string
+          enum: [active, suspended, deleted]
+        created_at:
+          type: string
+          format: date-time
+    AdminAccountUpdate:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [learner, admin, tutor, institution]
+        status:
+          type: string
+          enum: [active, suspended, deleted]
+    SpeakingUploadRequest:
+      type: object
+      required: [attempt_id, task_id, audio]
+      properties:
+        attempt_id:
+          type: string
+        task_id:
+          type: string
+        audio:
+          type: string
+          format: binary
+    SpeakingUploadResponse:
+      type: object
+      properties:
+        upload_id:
+          type: string
+        url:
+          type: string
+          format: uri
+        bytes:
+          type: integer
+        content_type:
+          type: string

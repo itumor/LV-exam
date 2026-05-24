@@ -91,10 +91,18 @@ const state = {
     chunks: {},
     audioUrls: {},
     uploadIds: {},
+    uploadPaths: {},
     recordingKey: null,
     transcripts: {},
     transcriptInterims: {},
-    transcriptErrors: {}
+    transcriptErrors: {},
+    // T-046: pronunciation-scoring side-channel. One entry per
+    // speaking key — populated after the learner submits the
+    // recording and the /api/voice/score endpoint returns. Cleared on
+    // re-record so stale scores don't leak between takes.
+    pronunciationScores: {},
+    pronunciationLoading: {},
+    pronunciationErrors: {}
   },
   listenPlayCount: {},
 learning: {
@@ -436,7 +444,7 @@ async function loadDashboard() {
    if (!response.ok) {
      throw new Error(payload.error || `Dashboard request failed with HTTP ${response.status}`);
    }
-   
+
    // Fetch analytics data
    try {
      const analyticsResponse = await fetch("/api/attempts/analytics", { credentials: "same-origin" });
@@ -449,7 +457,22 @@ async function loadDashboard() {
      console.warn("Failed to load analytics:", error);
      payload.analytics = {};
    }
-   
+
+   // T-030 — fetch the per-skill readiness rollup (9/15 logic + badges)
+   // so the dashboard can render the readiness tile alongside the
+   // existing analytics chart. Soft-fails so a flaky readiness endpoint
+   // never blocks the rest of the dashboard.
+   try {
+     const readinessResponse = await fetch("/api/readiness", { credentials: "same-origin" });
+     const readinessPayload = await readinessResponse.json();
+     if (readinessResponse.ok) {
+       payload.readiness = readinessPayload;
+     }
+   } catch (error) {
+     console.warn("Failed to load readiness:", error);
+     payload.readiness = null;
+   }
+
    state.auth.account = payload.account || state.auth.account;
    state.auth.profile = payload.profile || state.auth.profile;
    state.auth.dashboard = payload;
@@ -904,6 +927,83 @@ function renderAuth() {
   }
 }
 
+// T-030 — A2 readiness dashboard tile.
+//
+// Renders the four canonical A2 skills (listening/reading/writing/speaking)
+// as horizontal bars filled to ``avg_score / 15``, badged with the
+// traffic-light colour returned by ``/api/readiness``. The 9/15 pass
+// threshold is drawn as a thin marker line so the learner can see at a
+// glance which skills clear the naturalisation rule.
+//
+// The shape mirrors ``server_app/services/readiness.py``:
+//   { skills: [{skill, avg_score, predicted_pass, badge, sample_size}],
+//     overall_pass_predicted, last_updated }
+const READINESS_SKILL_LABELS = {
+  listening: "Listening",
+  reading: "Reading",
+  writing: "Writing",
+  speaking: "Speaking"
+};
+const READINESS_PASS_THRESHOLD = 9;
+const READINESS_MAX_POINTS = 15;
+
+function renderReadinessTile(readiness) {
+  if (!readiness || !Array.isArray(readiness.skills) || readiness.skills.length === 0) {
+    return `
+      <article class="dashboard-card readiness empty" data-testid="readiness-tile">
+        <h3>A2 readiness</h3>
+        <p class="dashboard-subtitle">Complete an exam to see your per-skill readiness.</p>
+      </article>
+    `;
+  }
+  const overallLabel = readiness.overall_pass_predicted
+    ? "On track to pass"
+    : "Not yet predicted to pass";
+  const overallClass = readiness.overall_pass_predicted ? "pass" : "fail";
+  const rows = readiness.skills.map(entry => {
+    const label = READINESS_SKILL_LABELS[entry.skill] || entry.skill;
+    const score = typeof entry.avg_score === "number" ? entry.avg_score : 0;
+    const pct = Math.max(0, Math.min(100, (score / READINESS_MAX_POINTS) * 100));
+    const badge = entry.badge || "red";
+    const sample = entry.sample_size ?? 0;
+    const scoreText = sample > 0 && entry.avg_score !== null
+      ? `${score.toFixed(1)} / ${READINESS_MAX_POINTS}`
+      : `— / ${READINESS_MAX_POINTS}`;
+    return `
+      <li class="readiness-row readiness-${escapeHtml(badge)}" data-skill="${escapeHtml(entry.skill)}">
+        <div class="readiness-row-head">
+          <span class="readiness-skill">${escapeHtml(label)}</span>
+          <span class="readiness-badge readiness-badge-${escapeHtml(badge)}" title="Risk: ${escapeHtml(badge)}">
+            ${escapeHtml(badge.toUpperCase())}
+          </span>
+        </div>
+        <div class="readiness-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${READINESS_MAX_POINTS}" aria-valuenow="${escapeHtml(score)}">
+          <div class="readiness-bar-fill readiness-bar-${escapeHtml(badge)}" style="width: ${pct.toFixed(1)}%;"></div>
+          <span class="readiness-threshold" style="left: ${((READINESS_PASS_THRESHOLD / READINESS_MAX_POINTS) * 100).toFixed(1)}%;" title="9/15 pass threshold"></span>
+        </div>
+        <div class="readiness-row-meta">
+          <span class="readiness-score">${escapeHtml(scoreText)}</span>
+          <span class="readiness-sample">${escapeHtml(sample)} ${sample === 1 ? "attempt" : "attempts"}</span>
+        </div>
+      </li>
+    `;
+  }).join("");
+  const updated = readiness.last_updated
+    ? new Date(readiness.last_updated).toLocaleString()
+    : "—";
+  return `
+    <article class="dashboard-card readiness" data-testid="readiness-tile">
+      <header class="readiness-header">
+        <h3>A2 readiness</h3>
+        <span class="readiness-overall readiness-overall-${escapeHtml(overallClass)}">${escapeHtml(overallLabel)}</span>
+      </header>
+      <p class="dashboard-subtitle">Per-skill predicted pass (9/15 rule). Recent attempts count more than older ones.</p>
+      <ul class="readiness-list">${rows}</ul>
+      <p class="readiness-footer">Last updated: ${escapeHtml(updated)}</p>
+    </article>
+  `;
+}
+
 function renderDashboard() {
    if (!els.dashboardOutput) return;
    if (state.auth.status !== "authenticated") {
@@ -921,6 +1021,8 @@ function renderDashboard() {
    const attempts = Array.isArray(dashboard.attempts) ? dashboard.attempts : [];
    const profile = state.auth.profile || dashboard.profile || {};
    const latestScore = summary.latest_score ?? "—";
+   // T-030 — readiness tile (per-skill 9/15 + traffic-light badges).
+   const readinessTile = renderReadinessTile(dashboard.readiness);
    const skillCards = Object.entries(summary.skill_progress || {}).map(([skill, values]) => `
      <article class="dashboard-stat">
        <span>${escapeHtml(skill)}</span>
@@ -992,6 +1094,7 @@ function renderDashboard() {
          <div class="dashboard-metric"><span>Subscription</span><strong>${escapeHtml(summary.subscription_status || "free")}</strong></div>
          <div class="dashboard-metric"><span>Protected access</span><strong>${state.auth.status === "authenticated" ? "On" : "Off"}</strong></div>
        </article>
+       ${readinessTile}
 <article class="dashboard-card">
           <h3>Skill progress</h3>
           <div class="dashboard-stats-grid">${skillCards || "<p>No attempts saved yet.</p>"}</div>
@@ -2010,6 +2113,42 @@ function canRunAiScoring() {
   if (state.auth.status !== "authenticated") return true;
   const billing = getBillingSnapshot();
   return !billing.frozen && (billing.subscription_active || (billing.ai_credits_remaining || 0) > 0);
+}
+
+// T-024 — UI affordance only. The server enforces the same checks via
+// server_app.services.entitlements.require_entitlement() and will return
+// HTTP 402 if a user manually bypasses these helpers.
+function canStartExam() {
+  if (!state.billing.config?.stripe_enabled) return true;
+  if (state.auth.status !== "authenticated") return true;
+  const billing = getBillingSnapshot();
+  if (billing.frozen) return false;
+  return (
+    billing.subscription_active ||
+    (billing.paid_attempts_remaining || 0) > 0 ||
+    billing.free_exam_available
+  );
+}
+
+function canUploadSpeakingAudio() {
+  // Same entitlement as exam_unlock — see services/entitlements.py.
+  return canStartExam();
+}
+
+function entitlementLockTooltip(kind) {
+  // Short, deterministic copy used as a `title=…` on disabled buttons so
+  // sighted + keyboard users see why the affordance is locked. Keep this
+  // in sync with the EntitlementError messages on the server.
+  switch (kind) {
+    case "exam_unlock":
+      return "No exam attempts available. Buy a pack or subscription to continue.";
+    case "ai_credit":
+      return "AI scoring needs an available credit or an active subscription.";
+    case "subscription":
+      return "This feature requires an active subscription.";
+    default:
+      return "Locked. Open billing to upgrade.";
+  }
 }
 
 function renderAccessSummaryCard() {
@@ -3417,30 +3556,80 @@ function renderRecordingControls(key) {
   const isRecording = state.speaking.recordingKey === key;
   const audioUrl = state.speaking.audioUrls[key];
   const uploadId = state.speaking.uploadIds[key];
+  const uploadPath = state.speaking.uploadPaths[key];
+  const isUploaded = Boolean(uploadId || uploadPath);
   const statusText = isRecording
     ? "Recording..."
-    : uploadId
+    : isUploaded
       ? "Uploaded ✓"
       : audioUrl
-        ? "Recorded (not uploaded)"
+        ? "Recorded (not submitted)"
         : "";
   return `
     <div class="speaking-recorder" data-recorder-key="${escapeHtml(key)}">
       <div class="recorder-controls">
         ${isRecording
           ? `<button type="button" class="btn btn-danger btn-sm recorder-stop" data-action="stop-recording" data-key="${escapeHtml(key)}" aria-label="Stop recording">Stop</button>`
-          : `<button type="button" class="btn btn-primary btn-sm recorder-start" data-action="start-recording" data-key="${escapeHtml(key)}" aria-label="Start recording">Record</button>`
+          : `<button type="button" class="btn btn-primary btn-sm recorder-start" data-action="start-recording" data-key="${escapeHtml(key)}" aria-label="${audioUrl ? "Record again" : "Start recording"}">${audioUrl ? "Re-record" : "Record"}</button>`
         }
         ${audioUrl ? `
           <audio controls class="recorder-playback" src="${escapeHtml(audioUrl)}" aria-label="Playback recording for ${escapeHtml(key)}"></audio>
-          <button type="button" class="btn btn-outline-primary btn-sm recorder-upload" data-action="upload-recording" data-key="${escapeHtml(key)}" ${uploadId ? "disabled" : ""} aria-label="Upload recording">
-            ${uploadId ? "Uploaded" : "Upload"}
+          <button type="button" class="btn btn-outline-secondary btn-sm recorder-retry" data-action="retry-recording" data-key="${escapeHtml(key)}" aria-label="Discard and retry">Retry</button>
+          <button type="button" class="btn btn-outline-primary btn-sm recorder-upload" data-action="upload-recording" data-key="${escapeHtml(key)}" ${isUploaded ? "disabled" : ""} aria-label="Submit recording">
+            ${isUploaded ? "Submitted" : "Submit"}
           </button>
         ` : ""}
       </div>
       ${statusText ? `<span class="recorder-status">${escapeHtml(statusText)}</span>` : ""}
       ${renderSpeechTranscript(key)}
+      ${renderPronunciationScore(key)}
       <span class="recorder-mic-error" data-mic-error="${escapeHtml(key)}" hidden></span>
+    </div>
+  `;
+}
+
+function renderPronunciationScore(key) {
+  // T-046: render the inline pronunciation score returned by
+  // /api/voice/score. Three states: loading / error / scored. When
+  // nothing has been submitted yet for this key, render nothing.
+  const loading = state.speaking.pronunciationLoading?.[key];
+  const error = state.speaking.pronunciationErrors?.[key];
+  const score = state.speaking.pronunciationScores?.[key];
+  if (!loading && !error && !score) return "";
+  if (loading) {
+    return `
+      <div class="pronunciation-score loading" data-pronunciation-key="${escapeHtml(key)}" aria-live="polite">
+        <span class="pronunciation-label">Pronunciation score</span>
+        <span class="pronunciation-status">Scoring your audio…</span>
+      </div>
+    `;
+  }
+  if (error) {
+    return `
+      <div class="pronunciation-score error" data-pronunciation-key="${escapeHtml(key)}" aria-live="polite">
+        <span class="pronunciation-label">Pronunciation score</span>
+        <span class="pronunciation-status">Could not score audio: ${escapeHtml(error)}</span>
+      </div>
+    `;
+  }
+  const accuracy = typeof score.accuracy_percent === "number" ? score.accuracy_percent : 0;
+  const phoneme = typeof score.phoneme_score === "number" ? score.phoneme_score : null;
+  const transcript = score.transcript || "";
+  const suggestions = Array.isArray(score.suggestions) ? score.suggestions : [];
+  const accuracyClass = accuracy >= 80 ? "good" : accuracy >= 50 ? "medium" : "poor";
+  return `
+    <div class="pronunciation-score ${accuracyClass}" data-pronunciation-key="${escapeHtml(key)}" aria-live="polite">
+      <span class="pronunciation-label">Pronunciation score</span>
+      <span class="pronunciation-accuracy" data-pronunciation-accuracy="${escapeHtml(key)}">
+        <strong>${accuracy.toFixed(1)}%</strong>
+        ${phoneme !== null ? `<span class="pronunciation-phoneme">phoneme: ${phoneme.toFixed(1)}%</span>` : ""}
+      </span>
+      ${transcript ? `<span class="pronunciation-transcript">Heard: <em>${escapeHtml(transcript)}</em></span>` : ""}
+      ${suggestions.length ? `
+        <ul class="pronunciation-suggestions">
+          ${suggestions.map(s => `<li>${escapeHtml(s)}</li>`).join("")}
+        </ul>
+      ` : ""}
     </div>
   `;
 }
@@ -3712,6 +3901,10 @@ function handleRunnerAction(dataset) {
   }
   if (action === "upload-recording") {
     uploadSpeakingAudio(dataset.key).catch(error => showToast("Upload failed: " + error.message));
+    return;
+  }
+  if (action === "retry-recording") {
+    retrySpeakingRecording(dataset.key);
     return;
   }
   if (action === "toggle-transcript") {
@@ -4023,24 +4216,150 @@ async function uploadSpeakingAudio(key) {
   const blob = new Blob(state.speaking.chunks[key] || [], { type: "audio/webm" });
   if (!blob.size) { showToast("No audio to upload."); return; }
   const submission = state.submission || {};
-  const [section, task] = key.split(".");
+  const [section, task, index] = key.split(".");
+  const attemptId = (state.attempt && state.attempt.id)
+    || submission.submission_id
+    || "draft";
+  // Build a task_id that is unique per item but safe for the server
+  // [A-Za-z0-9_.-] pattern.
+  const taskParts = [section, task, index].filter(part => part !== undefined && part !== "");
+  const taskId = taskParts.join("-").replace(/[^A-Za-z0-9_.\-]/g, "_") || "speaking";
   const params = new URLSearchParams({
-    submission_id: submission.submission_id || "draft",
-    task: task || key,
-    exam_id: state.exam.id
+    attempt_id: String(attemptId).replace(/[^A-Za-z0-9_.\-]/g, "_"),
+    task_id: taskId
   });
   const response = await fetch(`/api/uploads/speaking?${params.toString()}`, {
     method: "POST",
     headers: { "Content-Type": "audio/webm" },
-    body: blob
+    body: blob,
+    credentials: "same-origin"
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({ error: "Upload failed" }));
-    throw new Error(err.error || "Upload failed");
+    throw new Error(err.error || `Upload failed (HTTP ${response.status})`);
   }
   const result = await response.json();
-  state.speaking.uploadIds[key] = result.upload_id;
-  showToast("Audio uploaded successfully.");
+  state.speaking.uploadIds[key] = result.upload_id || result.path || `${params.get("attempt_id")}/${taskId}`;
+  state.speaking.uploadPaths[key] = result.path || null;
+  // Forward the upload metadata into a sidecar map so the existing
+  // attempt-submit payload can include a reference to the saved audio
+  // alongside the learner's text answers without mutating the answers array.
+  state.speaking.uploadMeta = state.speaking.uploadMeta || {};
+  state.speaking.uploadMeta[key] = {
+    path: result.path,
+    mime: result.mime,
+    bytes: result.bytes,
+    url: result.url
+  };
+  showToast("Audio submitted successfully.");
+  renderRunner();
+  // T-046: kick off pronunciation scoring in the background. The
+  // request is fire-and-forget from the upload's point of view —
+  // surfacing the score (or an error) is handled by the dedicated
+  // renderer below.
+  requestPronunciationScore(key).catch(error => {
+    // Logged at debug level; the renderer also shows the error inline.
+    console.warn("pronunciation scoring failed:", error);
+  });
+}
+
+async function requestPronunciationScore(key) {
+  // Resolve the expected text for this speaking task. We try the
+  // exam payload's teacher_notes / model_answer first (typical
+  // A2 schema) and fall back to the prompt question text. If
+  // nothing reasonable is available we skip the request entirely
+  // because the scorer would just return 100 % against an empty
+  // reference, which is misleading.
+  const expectedText = resolveExpectedSpeakingText(key);
+  if (!expectedText) {
+    return;
+  }
+  const audioUrl =
+    state.speaking.uploadMeta?.[key]?.url
+    || state.speaking.uploadPaths?.[key]
+    || null;
+  if (!audioUrl) {
+    return;
+  }
+  state.speaking.pronunciationLoading[key] = true;
+  state.speaking.pronunciationErrors[key] = "";
+  state.speaking.pronunciationScores[key] = null;
+  renderRunner();
+  try {
+    const response = await fetch("/api/voice/score", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        expected_text: expectedText,
+        audio_url: audioUrl
+      })
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: "Score failed" }));
+      throw new Error(err.error || `Score failed (HTTP ${response.status})`);
+    }
+    const result = await response.json();
+    state.speaking.pronunciationScores[key] = result;
+  } catch (error) {
+    state.speaking.pronunciationErrors[key] = String(error.message || error);
+  } finally {
+    state.speaking.pronunciationLoading[key] = false;
+    renderRunner();
+  }
+}
+
+function resolveExpectedSpeakingText(key) {
+  // ``key`` is "speaking.taskN.index". Walk the exam payload to find
+  // the question text for that slot. Falls back to the placeholder /
+  // any cached prompt the runner has for this key.
+  const parts = key.split(".");
+  if (parts[0] !== "speaking") return "";
+  const taskKey = parts[1] || "";
+  const index = Number(parts[2] || 0);
+  const exam = state.exam || {};
+  const speaking = exam.sections?.speaking || exam.speaking || {};
+  const task = speaking[taskKey] || (Array.isArray(speaking.tasks) ? speaking.tasks.find(t => t.taskKey === taskKey) : null);
+  if (task) {
+    const questions = task.questions || task.items || [];
+    const question = questions[index];
+    if (question) {
+      if (typeof question === "string") return question;
+      if (question.lines) return question.lines.join(" ");
+      if (question.text) return question.text;
+      if (question.prompt) return question.prompt;
+    }
+    if (task.prompt) return task.prompt;
+  }
+  return "";
+}
+
+function retrySpeakingRecording(key) {
+  // Discard the current buffer + blob URL so the learner can re-record.
+  if (state.speaking.recordingKey === key) {
+    stopMicRecording(key);
+  }
+  if (state.speaking.audioUrls[key]) {
+    try { URL.revokeObjectURL(state.speaking.audioUrls[key]); } catch (_) { /* ignore */ }
+  }
+  state.speaking.audioUrls[key] = null;
+  state.speaking.chunks[key] = [];
+  state.speaking.uploadIds[key] = null;
+  state.speaking.uploadPaths[key] = null;
+  state.speaking.transcripts[key] = "";
+  state.speaking.transcriptInterims[key] = "";
+  state.speaking.transcriptErrors[key] = "";
+  // T-046: drop any stale pronunciation score for this key so the
+  // learner isn't shown last attempt's accuracy under the new audio.
+  if (state.speaking.pronunciationScores) {
+    state.speaking.pronunciationScores[key] = null;
+  }
+  if (state.speaking.pronunciationLoading) {
+    state.speaking.pronunciationLoading[key] = false;
+  }
+  if (state.speaking.pronunciationErrors) {
+    state.speaking.pronunciationErrors[key] = "";
+  }
   renderRunner();
 }
 
@@ -4601,6 +4920,7 @@ function buildSubmission(status = "draft") {
     progress: getExamProgress(),
     timers: snapshotTimers(),
     answers: cloneJson(state.answers),
+    speaking_uploads: cloneJson(state.speaking.uploadMeta || {}),
     scoring,
     ai_evaluation: state.evaluation
   };
@@ -4863,6 +5183,7 @@ function renderBilling() {
           </ul>
         ` : "<p>No billing events recorded yet.</p>"}
       </article>
+      ${renderRefundAffordance(billing)}
     </section>
     ${state.billing.error ? `<p class="billing-error">${escapeHtml(state.billing.error)}</p>` : ""}
   `;
@@ -5099,6 +5420,93 @@ async function handleBillingAction(action, productKey) {
   }
   if (action === "checkout" && productKey) {
     await startCheckout(productKey);
+  }
+  // T-016: self-serve refund affordance. The server re-validates every check.
+  if (action === "request-refund") {
+    await requestRefund();
+  }
+}
+
+// --- T-016: self-serve 7-day refund (UI is convenience; server enforces) --- //
+const REFUND_WINDOW_DAYS = 7;
+
+function getMostRecentPurchase(billing) {
+  const activity = Array.isArray(billing?.recent_activity) ? billing.recent_activity : [];
+  for (const item of activity) {
+    if (item?.kind !== "grant") continue;
+    if (item.type === "free_exam") continue;
+    if (item.revoked_at) continue;
+    if (!item.metadata?.checkout_session_id) continue;
+    return item;
+  }
+  return null;
+}
+
+function isWithinRefundWindow(createdAt) {
+  if (!createdAt) return false;
+  const created = new Date(createdAt).getTime();
+  if (Number.isNaN(created)) return false;
+  const ageMs = Date.now() - created;
+  return ageMs >= 0 && ageMs <= REFUND_WINDOW_DAYS * 86400 * 1000;
+}
+
+function renderRefundAffordance(billing) {
+  const purchase = getMostRecentPurchase(billing);
+  if (!purchase) return "";
+  if (!isWithinRefundWindow(purchase.created_at)) return "";
+  const unused = (billing?.paid_attempts_remaining || 0) > 0
+    || (billing?.ai_credits_remaining || 0) > 0;
+  if (!unused) return "";
+  const sessionId = purchase.metadata?.checkout_session_id || "";
+  return `
+    <article class="billing-card billing-card-refund">
+      <h3>Refund this purchase</h3>
+      <p>EU consumer law gives you ${REFUND_WINDOW_DAYS} days to request a refund as long as no credits have been used.</p>
+      <p><small>Purchase date: ${escapeHtml(purchase.created_at || "")}</small></p>
+      <button type="button" class="btn btn-outline-danger"
+              data-billing-action="request-refund"
+              data-checkout-session="${escapeHtml(sessionId)}">
+        Request refund
+      </button>
+    </article>
+  `;
+}
+
+async function requestRefund() {
+  const billing = getBillingSnapshot();
+  const purchase = getMostRecentPurchase(billing);
+  const sessionId = purchase?.metadata?.checkout_session_id;
+  if (!sessionId) {
+    showToast("No refundable purchase found.");
+    return;
+  }
+  const confirmed = typeof window.confirm === "function"
+    ? window.confirm("Refund this purchase? Your remaining credits will be revoked.")
+    : true;
+  if (!confirmed) return;
+  try {
+    const response = await fetch("/api/billing/refund", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ checkout_session_id: sessionId })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const msg = result.message || result.error || `Refund failed (HTTP ${response.status}).`;
+      state.billing.error = msg;
+      renderBilling();
+      showToast(msg);
+      return;
+    }
+    state.billing.error = "";
+    if (result.billing_state) state.billing.state = result.billing_state;
+    showToast("Refund issued. Remaining credits revoked.");
+    await loadBillingContext();
+  } catch (error) {
+    state.billing.error = error.message;
+    renderBilling();
+    showToast("Could not request refund.");
   }
 }
 

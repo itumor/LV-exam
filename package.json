@@ -2,12 +2,19 @@
   "name": "latvian-a2-exam-studio",
   "private": true,
   "scripts": {
+    "prepare": "lefthook install || true",
     "test": "bash scripts/run_regression_suite.sh",
     "test:unit": "python3 -m unittest discover -s tests/server -p 'test_*.py'",
     "test:contracts": "node --test tests/contracts/release-contracts.test.cjs",
-    "test:e2e": "npx playwright test"
+    "test:e2e": "npx playwright test",
+    "test:e2e:smoke": "npx playwright test --grep @smoke",
+    "build:v2": "npm --prefix apps/web-v2 run build",
+    "install:v2": "npm --prefix apps/web-v2 install"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0"
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0",
+    "@playwright/test": "^1.60.0",
+    "lefthook": "^1.7.22"
   }
 }

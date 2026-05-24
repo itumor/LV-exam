@@ -1,0 +1,47 @@
+# T-072 — reference-only PoC. Not applied to any cluster.
+#
+# NGINX ingress + cert-manager TLS. Assumes:
+#   * ingress-nginx is installed in the cluster
+#   * cert-manager is installed with a ClusterIssuer named `letsencrypt`
+#
+# The annotation set mirrors what we get for free on Fly:
+#   * force HTTPS
+#   * 50 connection soft / 100 hard cap per replica (mirrors fly.toml)
+#   * 30 s healthcheck timeout
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lvcodex-web
+  namespace: lvcodex
+  labels:
+    app.kubernetes.io/name: lvcodex
+    app.kubernetes.io/component: web
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # Match the Fly concurrency knobs (soft 25 / hard 50 today; doubled here
+    # because we expect 2× replicas to absorb the same hard_limit).
+    nginx.ingress.kubernetes.io/limit-connections: "100"
+    nginx.ingress.kubernetes.io/limit-rps: "200"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    # Audio uploads cap (matches MAX_UPLOAD_BYTES in audio_uploads.py).
+    nginx.ingress.kubernetes.io/proxy-body-size: "25m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - latvian-a2-exam.example.com
+      secretName: lvcodex-web-tls
+  rules:
+    - host: latvian-a2-exam.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: lvcodex-web
+                port:
+                  number: 80

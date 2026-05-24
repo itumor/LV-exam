@@ -1,0 +1,72 @@
+---
+# Prometheus alert rules for lvcodex AI cost budget (T-027).
+#
+# Source of truth: docs/observability.md + delivery plan T-027.
+#
+# Threshold: when daily EUR spend exceeds the budget defined by
+# ``LVCODEX_AI_DAILY_BUDGET_EUR`` (default 5 EUR) the alert fires and
+# pages the on-call rotation. The threshold is expressed in cents
+# because ``lvcodex_ai_cost_cents_total`` is the source counter; keep
+# the cents conversion explicit so an operator can read the rule
+# without consulting the dashboard formula.
+#
+# Operator wire-up (mirrors ``monitoring/alerts/slo.yml``):
+#   * Grafana Cloud: Alerts & IRM → New → From recording rule file.
+#   * Self-managed Prometheus: mount into /etc/prometheus/rules/.
+#
+# To tune the budget without editing this file, override via the
+# Alertmanager template or by deploying the server with a different
+# ``LVCODEX_AI_DAILY_BUDGET_EUR``. The 5 EUR/day default matches the
+# plan and corresponds to ~150 EUR/month.
+
+groups:
+  - name: lvcodex-ai-cost-budget
+    interval: 60s
+    rules:
+      - alert: AIDailySpendOverBudget
+        # 500 cents == 5 EUR (default LVCODEX_AI_DAILY_BUDGET_EUR).
+        # If the operator raises the env-var budget, update this scalar
+        # accordingly. We do not template the threshold from the
+        # exporter because Prometheus rule expressions cannot reference
+        # exporter env vars at evaluation time.
+        expr: |
+          sum(increase(lvcodex_ai_cost_cents_total[24h])) > 500
+        for: 5m
+        labels:
+          severity: page
+          service: lvcodex-api
+          slo: cost
+        annotations:
+          summary: "lvcodex AI 24h spend above daily budget (5 EUR default)"
+          description: |
+            Cumulative AI provider spend in the last 24 hours has
+            exceeded the configured daily budget
+            (LVCODEX_AI_DAILY_BUDGET_EUR, default 5 EUR / 500 cents).
+            Investigate per-model spend on the lvcodex AI cost dashboard
+            and consider cutting LLM_PROVIDER to a cheaper backend or
+            tightening per-user quotas (T-026) until the spike clears.
+          dashboard: "https://grafana/lvcodex-ai-cost"
+          runbook: "https://github.com/itumor/LV-exam/blob/develop/docs/observability.md#aidailyspendoverbudget"
+
+      - alert: AIHourlySpendSurge
+        # Catches anomalous spikes earlier than the 24h budget rule.
+        # Threshold is set at the daily budget projected over 1 hour
+        # so a sustained hourly burn that would blow the budget in <24h
+        # pages immediately.
+        expr: |
+          sum(rate(lvcodex_ai_cost_cents_total[15m])) * 3600 > 500
+        for: 15m
+        labels:
+          severity: page
+          service: lvcodex-api
+          slo: cost
+        annotations:
+          summary: "lvcodex AI projected hourly burn exceeds daily budget"
+          description: |
+            The current AI spend rate, projected over one hour, exceeds
+            the LVCODEX_AI_DAILY_BUDGET_EUR ceiling. Likely causes:
+            runaway scoring loop, abuse, or an unexpectedly expensive
+            model selected via LLM_PROVIDER. Check the top-models panel
+            on the lvcodex AI cost dashboard.
+          dashboard: "https://grafana/lvcodex-ai-cost"
+          runbook: "https://github.com/itumor/LV-exam/blob/develop/docs/observability.md#aihourlyspendsurge"

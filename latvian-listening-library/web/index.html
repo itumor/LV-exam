@@ -2,9 +2,17 @@
 <html lang="lv">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta http-equiv="Cache-Control" content="public, max-age=3600, s-maxage=3600" />
     <title>Latvian Listening Library</title>
+    <!-- T-061 PWA wiring -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#082f49" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Klausīšanās" />
+    <link rel="apple-touch-icon" href="icon.svg" />
     <link href="bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -136,6 +144,7 @@
               Exam readiness: <span id="exam-pct">0%</span> (estimated)
             </div>
             <a href="micro.html" class="micro-link" style="display: inline-block; margin-top: 16px; background: var(--magenta); color: white; padding: 12px 20px; border-radius: 999px; font-weight: 900; text-decoration: none;">Open Listening Feed →</a>
+            <a href="feed.html" class="feed-link" style="display: inline-block; margin-top: 16px; margin-left: 8px; background: #5b8def; color: white; padding: 12px 20px; border-radius: 999px; font-weight: 900; text-decoration: none;">New Vertical Feed (T-035) →</a>
           </div>
         </section>
 
@@ -426,6 +435,7 @@
     </div>
 
     <script src="bootstrap.bundle.min.js"></script>
+    <script src="unified-header.js"></script>
     <script src="ai-transcript-service.js"></script>
     <script src="comprehension-meter.js"></script>
     <script src="lib.js"></script>
@@ -638,6 +648,36 @@
           return date.toISOString().split('T')[0];
         }
       })();
+    </script>
+
+    <!-- T-011 legal footer -->
+    <footer class="legal-footer" role="contentinfo" style="padding:1.25rem 1rem;margin-top:2rem;border-top:1px solid #e5e7eb;font-size:.85rem;color:#6b7280;text-align:center;">
+      <nav aria-label="Legal">
+        <a href="/legal/terms" style="color:inherit;margin:0 .5rem;">Terms</a>
+        <a href="/legal/privacy" style="color:inherit;margin:0 .5rem;">Privacy</a>
+        <a href="/legal/cookies" style="color:inherit;margin:0 .5rem;">Cookies</a>
+        <a href="/legal/refund" style="color:inherit;margin:0 .5rem;">Refund</a>
+        <a href="/legal/dpa" style="color:inherit;margin:0 .5rem;">DPA</a>
+      </nav>
+      <p style="margin:.5rem 0 0;">© Latvian Listening Library.</p>
+    </footer>
+    <script>
+      // T-061 — Register the PWA service worker so the listening
+      // library is installable + the last 50 audio clips are cached
+      // for offline playback (see /latvian-listening-library/web/sw.js).
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker
+            .register("/latvian-listening-library/web/sw.js", {
+              scope: "/latvian-listening-library/",
+            })
+            .catch(function (err) {
+              if (window.console && console.warn) {
+                console.warn("[pwa] listening sw registration failed", err);
+              }
+            });
+        });
+      }
     </script>
   </body>
 </html>

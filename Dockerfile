@@ -8,8 +8,12 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server.py /app/server.py
+COPY server_app /app/server_app
 COPY billing.py /app/billing.py
 COPY exam_bank.py /app/exam_bank.py
+COPY rate_limit.py /app/rate_limit.py
+COPY audio_uploads.py /app/audio_uploads.py
+COPY legal /app/legal
 COPY latvian-a2-exam-app /app/latvian-a2-exam-app
 COPY codex /app/codex
 COPY latvian-listening-library/web /app/latvian-listening-library/web

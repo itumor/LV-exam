@@ -684,6 +684,208 @@ class BillingStore:
             cursor = conn.execute(sql, [now, *params])
             return cursor.rowcount
 
+    # ------------------------------------------------------------------ #
+    # T-016: 7-day self-serve refund flow
+    # ------------------------------------------------------------------ #
+    def find_grants_by_checkout_session(self, checkout_session_id: str) -> list[dict[str, Any]]:
+        """Return all grant rows whose metadata references this checkout session."""
+        if not checkout_session_id:
+            return []
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT grant_id, learner_id, grant_type, product_key, quantity, exam_id,
+                       customer_id, source_reference, expires_at, revoked_at, source_event_id,
+                       created_at, metadata_json
+                FROM entitlement_grants
+                WHERE metadata_json LIKE ?
+                ORDER BY created_at ASC
+                """,
+                (f"%{checkout_session_id}%",),
+            ).fetchall()
+        results: list[dict[str, Any]] = []
+        for row in rows:
+            metadata = load_json(row["metadata_json"], {})
+            if metadata.get("checkout_session_id") != checkout_session_id:
+                continue
+            results.append(
+                {
+                    "grant_id": row["grant_id"],
+                    "learner_id": row["learner_id"],
+                    "grant_type": row["grant_type"],
+                    "product_key": row["product_key"],
+                    "quantity": int(row["quantity"] or 0),
+                    "exam_id": row["exam_id"],
+                    "customer_id": row["customer_id"],
+                    "source_reference": row["source_reference"],
+                    "expires_at": row["expires_at"],
+                    "revoked_at": row["revoked_at"],
+                    "source_event_id": row["source_event_id"],
+                    "created_at": row["created_at"],
+                    "metadata": metadata,
+                }
+            )
+        return results
+
+    def grants_have_consumption(
+        self,
+        learner_id: str,
+        *,
+        source_reference: str | None,
+        grant_types: set[str],
+        after: str | None = None,
+    ) -> bool:
+        """Return True if any matching grant has been (partially) consumed.
+
+        Consumption is determined by checking whether the learner has any
+        ``entitlement_consumptions`` row of the relevant type since the grant
+        was created. This is intentionally conservative: any consumption at
+        all (free or paid attempts, AI credits) of the kind granted by the
+        purchase invalidates a refund.
+        """
+        type_map = {
+            "exam_attempts": "exam_attempt",
+            "subscription_attempts": "exam_attempt",
+            "ai_credits": "ai_score",
+            "free_exam": "free_exam",
+        }
+        consumption_types = {type_map[t] for t in grant_types if t in type_map}
+        if not consumption_types:
+            return False
+        placeholders = ",".join("?" for _ in consumption_types)
+        params: list[Any] = [learner_id, *sorted(consumption_types)]
+        sql = (
+            "SELECT 1 FROM entitlement_consumptions "
+            f"WHERE learner_id = ? AND consumption_type IN ({placeholders})"
+        )
+        if after:
+            sql += " AND created_at >= ?"
+            params.append(after)
+        sql += " LIMIT 1"
+        with self._connect() as conn:
+            row = conn.execute(sql, params).fetchone()
+        return row is not None
+
+    def mark_grants_refunded(
+        self,
+        learner_id: str,
+        *,
+        checkout_session_id: str,
+        refund_id: str | None = None,
+        refund_reason: str | None = None,
+    ) -> int:
+        """Mark all grants associated with a checkout session as refunded.
+
+        Revokes the grants (so consume_* sees zero remaining) and stamps the
+        refund context into the grant's metadata for the audit trail.
+        """
+        grants = self.find_grants_by_checkout_session(checkout_session_id)
+        if not grants:
+            return 0
+        now = utc_now_iso()
+        affected = 0
+        with self._lock, self._connect() as conn:
+            for grant in grants:
+                if grant["learner_id"] != learner_id:
+                    continue
+                if grant["revoked_at"]:
+                    continue
+                metadata = dict(grant["metadata"] or {})
+                metadata["refunded_at"] = now
+                if refund_id:
+                    metadata["refund_id"] = refund_id
+                if refund_reason:
+                    metadata["refund_reason"] = refund_reason
+                conn.execute(
+                    """
+                    UPDATE entitlement_grants
+                    SET revoked_at = ?, metadata_json = ?
+                    WHERE grant_id = ?
+                    """,
+                    (now, dump_json(metadata), grant["grant_id"]),
+                )
+                affected += 1
+        return affected
+
+    def refund_eligibility(
+        self,
+        learner_id: str,
+        *,
+        checkout_session_id: str,
+        window_days: int = 7,
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Server-side check of whether a checkout session is refundable.
+
+        Returns a dict with ``eligible`` (bool), ``reason`` (machine code),
+        ``message`` (human-readable), and the list of matched grants. Callers
+        in the HTTP layer MUST use this rather than trusting client claims.
+        """
+        current_time = now or utc_now()
+        grants = self.find_grants_by_checkout_session(checkout_session_id)
+        if not grants:
+            return {
+                "eligible": False,
+                "reason": "session_not_found",
+                "message": "No purchase found for the supplied checkout session.",
+                "grants": [],
+            }
+        # Ownership check: every grant must belong to the requesting learner.
+        owners = {g["learner_id"] for g in grants}
+        if owners != {learner_id}:
+            return {
+                "eligible": False,
+                "reason": "wrong_user",
+                "message": "This purchase does not belong to the current account.",
+                "grants": grants,
+            }
+        # Window check (7 days by default).
+        earliest_created = min(parse_iso(g["created_at"]) or current_time for g in grants)
+        age_seconds = (current_time - earliest_created).total_seconds()
+        window_seconds = window_days * 86400
+        if age_seconds > window_seconds:
+            return {
+                "eligible": False,
+                "reason": "window_expired",
+                "message": f"Refund window of {window_days} days has expired.",
+                "grants": grants,
+            }
+        # If anything was already refunded, block.
+        if any(g["revoked_at"] for g in grants):
+            return {
+                "eligible": False,
+                "reason": "already_refunded",
+                "message": "This purchase has already been refunded or revoked.",
+                "grants": grants,
+            }
+        # Consumption check — any consumption of the granted types disqualifies.
+        grant_types = {g["grant_type"] for g in grants}
+        source_reference = next(
+            (g["source_reference"] for g in grants if g["source_reference"]),
+            None,
+        )
+        earliest_created_iso = min(g["created_at"] for g in grants)
+        consumed = self.grants_have_consumption(
+            learner_id,
+            source_reference=source_reference,
+            grant_types=grant_types,
+            after=earliest_created_iso,
+        )
+        if consumed:
+            return {
+                "eligible": False,
+                "reason": "credits_consumed",
+                "message": "Refund unavailable: one or more credits from this purchase have already been used.",
+                "grants": grants,
+            }
+        return {
+            "eligible": True,
+            "reason": "eligible",
+            "message": "Eligible for a full refund.",
+            "grants": grants,
+            "payment_reference": source_reference,
+        }
+
     def record_stripe_event(self, event_id: str, event_type: str, learner_id: str | None, payload: dict[str, Any]) -> bool:
         with self._lock, self._connect() as conn:
             try:
@@ -710,6 +912,32 @@ class BillingStore:
             return {"status": "ignored", "reason": "unknown_product"}
 
         self.ensure_learner(learner_id, email=session.get("customer_details", {}).get("email"))
+
+        # T-016: capture B2B context + hosted invoice URL so we can show the
+        # buyer their PDF invoice and so the refund flow can audit by session.
+        is_b2b = str(metadata.get("b2b", "")).lower() == "true"
+        invoice_obj = session.get("invoice") if isinstance(session.get("invoice"), dict) else {}
+        hosted_invoice_url = (
+            session.get("hosted_invoice_url")
+            or invoice_obj.get("hosted_invoice_url")
+        )
+        invoice_pdf = (
+            session.get("invoice_pdf")
+            or invoice_obj.get("invoice_pdf")
+        )
+        invoice_id = (
+            session.get("invoice") if isinstance(session.get("invoice"), str) else invoice_obj.get("id")
+        )
+        grant_meta: dict[str, Any] = {"checkout_session_id": session.get("id")}
+        if is_b2b:
+            grant_meta["b2b"] = True
+        if hosted_invoice_url:
+            grant_meta["hosted_invoice_url"] = hosted_invoice_url
+        if invoice_pdf:
+            grant_meta["invoice_pdf"] = invoice_pdf
+        if invoice_id:
+            grant_meta["invoice_id"] = invoice_id
+
         if product.key == "single_exam":
             self.grant_product(
                 learner_id,
@@ -719,7 +947,7 @@ class BillingStore:
                 customer_id=session.get("customer"),
                 source_reference=session.get("payment_intent") or session.get("id"),
                 source_event_id=event_id,
-                metadata={"checkout_session_id": session.get("id")},
+                metadata=grant_meta,
             )
         elif product.key == "exam_pack":
             self.grant_product(
@@ -730,7 +958,7 @@ class BillingStore:
                 customer_id=session.get("customer"),
                 source_reference=session.get("payment_intent") or session.get("id"),
                 source_event_id=event_id,
-                metadata={"checkout_session_id": session.get("id")},
+                metadata=grant_meta,
             )
             if product.grants_ai_credits:
                 self.grant_product(
@@ -741,7 +969,7 @@ class BillingStore:
                     customer_id=session.get("customer"),
                     source_reference=session.get("payment_intent") or session.get("id"),
                     source_event_id=event_id,
-                    metadata={"checkout_session_id": session.get("id")},
+                    metadata=grant_meta,
                 )
         elif product.key == "monthly_subscription":
             return {
@@ -758,9 +986,15 @@ class BillingStore:
                 customer_id=session.get("customer"),
                 source_reference=session.get("payment_intent") or session.get("id"),
                 source_event_id=event_id,
-                metadata={"checkout_session_id": session.get("id")},
+                metadata=grant_meta,
             )
-        return {"status": "granted", "learner_id": learner_id, "product_key": product.key}
+        return {
+            "status": "granted",
+            "learner_id": learner_id,
+            "product_key": product.key,
+            "b2b": is_b2b,
+            "hosted_invoice_url": hosted_invoice_url,
+        }
 
     def _process_subscription_event(self, subscription: dict[str, Any], event_id: str, *, deleted: bool = False) -> dict[str, Any]:
         metadata = subscription.get("metadata") or {}
@@ -950,6 +1184,80 @@ class StripeClient:
     def enabled(self) -> bool:
         return bool(self.secret_key.strip())
 
+    def build_checkout_session_body(
+        self,
+        *,
+        product: ProductDefinition,
+        price_id: str,
+        learner_id: str,
+        email: str | None,
+        success_url: str,
+        cancel_url: str,
+        metadata: dict[str, str],
+        b2b: bool = False,
+        business_address: dict[str, str] | None = None,
+        vat_id: str | None = None,
+        vat_id_type: str = "eu_vat",
+    ) -> dict[str, str]:
+        """Build the form-encoded body for a Stripe checkout session.
+
+        Always enables Stripe Tax (`automatic_tax`) and address/name auto-resolution
+        so the customer's billing country is captured for EU VAT compliance.
+
+        When ``b2b`` is true, also enables:
+          - hosted PDF invoice generation via ``invoice_creation``
+          - VAT-ID collection via ``tax_id_collection`` (and optional pre-filled
+            ``tax_id_data`` when the caller supplied a ``vat_id``)
+        """
+        body: dict[str, str] = {
+            "mode": product.mode,
+            "success_url": success_url,
+            "cancel_url": cancel_url,
+            "client_reference_id": learner_id,
+            "metadata[learner_id]": learner_id,
+            "metadata[product_key]": product.key,
+            # T-016: Stripe Tax for EU VAT compliance.
+            "automatic_tax[enabled]": "true",
+            # `customer_update` requires that Checkout creates/attaches a customer.
+            # When a customer_email is provided, Stripe creates a Customer for the
+            # session automatically; for `payment` mode without a saved customer
+            # we explicitly request `customer_creation=always` so the
+            # `customer_update[address]` parameter is accepted.
+            "customer_update[address]": "auto",
+            "customer_update[name]": "auto",
+        }
+        if email:
+            body["customer_email"] = email
+        if product.mode == "payment":
+            body["line_items[0][price]"] = price_id
+            body["line_items[0][quantity]"] = str(max(1, product.quantity))
+            body["customer_creation"] = "always"
+        else:
+            body["line_items[0][price]"] = price_id
+            body["line_items[0][quantity]"] = "1"
+
+        for key, value in metadata.items():
+            body[f"metadata[{key}]"] = value
+
+        if b2b:
+            body["metadata[b2b]"] = "true"
+            # Always issue a hosted PDF invoice for B2B transactions; the URL
+            # is recorded in the entitlement grant ledger when the webhook
+            # confirms the purchase.
+            body["invoice_creation[enabled]"] = "true"
+            # Collect a VAT/Tax ID from the buyer at checkout.
+            body["tax_id_collection[enabled]"] = "true"
+            if vat_id:
+                # Pre-fill the buyer's VAT/Tax ID so Stripe issues a
+                # VAT-compliant invoice without manual entry.
+                body["customer_data[tax_id_data][0][type]"] = vat_id_type
+                body["customer_data[tax_id_data][0][value]"] = vat_id
+            if business_address:
+                for field, value in business_address.items():
+                    if value:
+                        body[f"metadata[business_address_{field}]"] = str(value)
+        return body
+
     def create_checkout_session(
         self,
         *,
@@ -960,28 +1268,27 @@ class StripeClient:
         success_url: str,
         cancel_url: str,
         metadata: dict[str, str],
+        b2b: bool = False,
+        business_address: dict[str, str] | None = None,
+        vat_id: str | None = None,
+        vat_id_type: str = "eu_vat",
     ) -> dict[str, Any]:
         if not self.enabled():
             raise RuntimeError("Stripe is not configured.")
 
-        body: dict[str, str] = {
-            "mode": product.mode,
-            "success_url": success_url,
-            "cancel_url": cancel_url,
-            "client_reference_id": learner_id,
-            "customer_email": email or "",
-            "metadata[learner_id]": learner_id,
-            "metadata[product_key]": product.key,
-        }
-        if product.mode == "payment":
-            body["line_items[0][price]"] = price_id
-            body["line_items[0][quantity]"] = str(max(1, product.quantity))
-        else:
-            body["line_items[0][price]"] = price_id
-            body["line_items[0][quantity]"] = "1"
-
-        for key, value in metadata.items():
-            body[f"metadata[{key}]"] = value
+        body = self.build_checkout_session_body(
+            product=product,
+            price_id=price_id,
+            learner_id=learner_id,
+            email=email,
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata=metadata,
+            b2b=b2b,
+            business_address=business_address,
+            vat_id=vat_id,
+            vat_id_type=vat_id_type,
+        )
 
         request = urllib.request.Request(
             f"{self.api_base}/v1/checkout/sessions",
@@ -1004,17 +1311,84 @@ class StripeClient:
         email: str | None,
         success_url: str,
         cancel_url: str,
+        b2b: bool = False,
+        business_address: dict[str, str] | None = None,
+        vat_id: str | None = None,
     ) -> dict[str, Any]:
         session_id = f"cs_test_{uuid.uuid4().hex}"
-        return {
+        meta: dict[str, str] = {"learner_id": learner_id, "product_key": product.key}
+        if b2b:
+            meta["b2b"] = "true"
+        session: dict[str, Any] = {
             "id": session_id,
             "object": "checkout.session",
             "mode": product.mode,
             "status": "mock",
             "url": success_url,
-            "metadata": {"learner_id": learner_id, "product_key": product.key},
+            "metadata": meta,
             "customer_email": email or "",
             "success_url": success_url,
             "cancel_url": cancel_url,
             "test_mode": True,
+            # Mirror the real Stripe payload so frontend + tests can assert on it.
+            "automatic_tax": {"enabled": True, "status": "complete"},
+            "customer_update": {"address": "auto", "name": "auto"},
         }
+        if b2b:
+            session["invoice_creation"] = {"enabled": True}
+            session["tax_id_collection"] = {"enabled": True}
+            if vat_id:
+                session["customer_data"] = {
+                    "tax_id_data": [{"type": "eu_vat", "value": vat_id}]
+                }
+            if business_address:
+                session["business_address"] = dict(business_address)
+        return session
+
+    def retrieve_checkout_session(self, session_id: str) -> dict[str, Any]:
+        """Fetch a checkout session from Stripe (used by the refund flow)."""
+        if not self.enabled():
+            raise RuntimeError("Stripe is not configured.")
+        request = urllib.request.Request(
+            f"{self.api_base}/v1/checkout/sessions/{urllib.parse.quote(session_id, safe='')}",
+            headers={
+                "Authorization": f"Bearer {self.secret_key}",
+                "Stripe-Version": "2024-06-20",
+            },
+            method="GET",
+        )
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    def create_refund(
+        self,
+        *,
+        payment_intent: str | None = None,
+        charge: str | None = None,
+        reason: str = "requested_by_customer",
+        metadata: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """Issue a full Stripe refund for the given payment_intent or charge."""
+        if not self.enabled():
+            raise RuntimeError("Stripe is not configured.")
+        if not payment_intent and not charge:
+            raise ValueError("Refund requires payment_intent or charge.")
+        body: dict[str, str] = {"reason": reason}
+        if payment_intent:
+            body["payment_intent"] = payment_intent
+        elif charge:
+            body["charge"] = charge
+        for key, value in (metadata or {}).items():
+            body[f"metadata[{key}]"] = value
+        request = urllib.request.Request(
+            f"{self.api_base}/v1/refunds",
+            data=urllib.parse.urlencode({k: v for k, v in body.items() if v}).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {self.secret_key}",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Stripe-Version": "2024-06-20",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return json.loads(response.read().decode("utf-8"))

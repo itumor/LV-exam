@@ -5121,6 +5121,106 @@ textarea:focus {
   color: #dc2626;
 }
 
+/* T-046 pronunciation score panel */
+.pronunciation-score {
+  margin-top: 0.55rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.pronunciation-label {
+  display: block;
+  color: #475569;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.pronunciation-status {
+  color: #475569;
+  font-size: 0.85rem;
+}
+
+.pronunciation-score.loading {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
+.pronunciation-score.error .pronunciation-status {
+  color: #b45309;
+}
+
+.pronunciation-accuracy {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pronunciation-accuracy strong {
+  font-size: 1.25rem;
+  color: #0f172a;
+}
+
+.pronunciation-phoneme {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.pronunciation-score.good {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.pronunciation-score.good .pronunciation-accuracy strong {
+  color: #15803d;
+}
+
+.pronunciation-score.medium {
+  border-color: #d97706;
+  background: #fffbeb;
+}
+
+.pronunciation-score.medium .pronunciation-accuracy strong {
+  color: #b45309;
+}
+
+.pronunciation-score.poor {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.pronunciation-score.poor .pronunciation-accuracy strong {
+  color: #b91c1c;
+}
+
+.pronunciation-transcript {
+  color: #334155;
+  font-size: 0.86rem;
+}
+
+.pronunciation-transcript em {
+  font-style: italic;
+  color: #0f172a;
+}
+
+.pronunciation-suggestions {
+  margin: 0.1rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  color: #334155;
+}
+
+.pronunciation-suggestions li {
+  margin-bottom: 0.15rem;
+}
+
 /* Play count badge for listening */
 .stitch-audio-card {
   display: flex;
@@ -6230,4 +6330,184 @@ body[data-flow-screen="candidate"] .workspace {
   .il-cloze-item label {
     min-width: auto;
   }
+}
+
+/* T-011 cookie banner + legal footer */
+.cookie-banner {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1080;
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+.cookie-banner[hidden] { display: none !important; }
+.cookie-banner-text { margin: 0; flex: 1 1 auto; }
+.cookie-banner a { color: #fcd34d; text-decoration: underline; }
+.legal-footer {
+  padding: 1.25rem 1rem;
+  margin-top: 2rem;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.85rem;
+  color: #6b7280;
+  text-align: center;
+}
+.legal-footer nav a {
+  color: inherit;
+  margin: 0 0.5rem;
+  text-decoration: none;
+}
+.legal-footer nav a:hover { text-decoration: underline; }
+.legal-footer-note { margin: 0.5rem 0 0; }
+
+/* ============================================================
+   T-030 — A2 readiness dashboard tile
+   Per-skill 9/15 visualization with traffic-light risk badges.
+   ============================================================ */
+.dashboard-card.readiness {
+  grid-column: span 12;
+}
+.readiness-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.readiness-overall {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+.readiness-overall-pass {
+  background: rgba(46, 160, 67, 0.15);
+  color: #2ea043;
+  border: 1px solid rgba(46, 160, 67, 0.4);
+}
+.readiness-overall-fail {
+  background: rgba(218, 54, 51, 0.15);
+  color: #da3633;
+  border: 1px solid rgba(218, 54, 51, 0.4);
+}
+.readiness-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: grid;
+  gap: 14px;
+}
+.readiness-row {
+  display: grid;
+  gap: 6px;
+}
+.readiness-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.readiness-skill {
+  font-weight: 600;
+  color: var(--on-surface, #1f2328);
+}
+.readiness-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+.readiness-badge-green  { background: #2ea043; }
+.readiness-badge-yellow { background: #d4a72c; color: #1f2328; }
+.readiness-badge-red    { background: #da3633; }
+.readiness-bar {
+  position: relative;
+  height: 10px;
+  background: var(--surface-container, rgba(0,0,0,0.07));
+  border-radius: 6px;
+  overflow: hidden;
+}
+.readiness-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.3s ease;
+}
+.readiness-bar-green  { background: linear-gradient(90deg, #2ea043, #56d364); }
+.readiness-bar-yellow { background: linear-gradient(90deg, #d4a72c, #f0d96c); }
+.readiness-bar-red    { background: linear-gradient(90deg, #da3633, #ff7b72); }
+.readiness-threshold {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+.readiness-row-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--on-surface-variant, #57606a);
+}
+.readiness-footer {
+  margin: 12px 0 0;
+  font-size: 0.75rem;
+  color: var(--on-surface-variant, #57606a);
+}
+.dashboard-card.readiness.empty .dashboard-subtitle {
+  margin-bottom: 0;
+}
+
+/* T-061 PWA install banner */
+.pwa-install-banner {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1080;
+  background: #146b63;
+  color: #fffdf8;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.pwa-install-banner[hidden] { display: none !important; }
+.pwa-install-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+.pwa-install-banner__text strong { font-size: 0.95rem; }
+.pwa-install-banner__text span { font-size: 0.85rem; opacity: 0.9; }
+.pwa-install-banner__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+.pwa-install-banner .btn { white-space: nowrap; }
+@media (max-width: 480px) {
+  .pwa-install-banner { flex-direction: column; align-items: stretch; }
+  .pwa-install-banner__actions { justify-content: flex-end; }
 }
