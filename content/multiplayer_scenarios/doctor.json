@@ -1,0 +1,44 @@
+{
+  "id": "doctor",
+  "title": "Pie ārsta (At the doctor)",
+  "summary": "A patient and a friend who accompanies them roleplay a visit at the family doctor.",
+  "location": "Ģimenes ārsta prakse, Rīga",
+  "language_level": "A2",
+  "estimated_duration_minutes": 10,
+  "roles": [
+    {
+      "id": "patient",
+      "name": "Pacients",
+      "label": "Patient",
+      "objective": "Describe a simple symptom (headache, fever, or cough) and ask for advice.",
+      "starter_lines": [
+        "Labdien. Man sāp galva jau divas dienas.",
+        "Man arī ir neliels drudzis.",
+        "Ko jūs iesakāt darīt?"
+      ],
+      "vocabulary_focus": ["sāp", "drudzis", "klepus", "zāles", "atpūta"]
+    },
+    {
+      "id": "companion",
+      "name": "Pavadonis",
+      "label": "Companion / friend",
+      "objective": "Help the patient explain symptoms, ask the doctor for clarification, and confirm the next step.",
+      "starter_lines": [
+        "Labdien. Es atnācu palīdzēt savai draudzenei.",
+        "Vai jūs varat lūdzu runāt lēnāk?",
+        "Cikos mēs nākamreiz nāksim?"
+      ],
+      "vocabulary_focus": ["palīdzēt", "lēnāk", "recepte", "vizīte", "nākamreiz"]
+    }
+  ],
+  "objectives_shared": [
+    "Greet the doctor politely (Labdien).",
+    "Describe at least one symptom in Latvian.",
+    "Ask one clarifying question.",
+    "Confirm the next visit or treatment step before leaving."
+  ],
+  "safety_rules": [
+    "Stay in roleplay. Do not give real medical advice — describe symptoms only.",
+    "Never share real personal medical data."
+  ]
+}

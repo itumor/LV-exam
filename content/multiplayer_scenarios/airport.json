@@ -1,0 +1,44 @@
+{
+  "id": "airport",
+  "title": "Lidostā (At the airport)",
+  "summary": "Two travellers help each other navigate Riga International airport — finding the gate and the cafe.",
+  "location": "Starptautiskā lidosta Rīga",
+  "language_level": "A2",
+  "estimated_duration_minutes": 10,
+  "roles": [
+    {
+      "id": "traveller_a",
+      "name": "Ceļotājs A",
+      "label": "Arriving passenger",
+      "objective": "Ask for help finding the bus to the city centre and a place to eat.",
+      "starter_lines": [
+        "Atvainojiet, vai jūs varat man palīdzēt?",
+        "Kur ir autobusa pietura uz centru?",
+        "Kur šeit var paēst?"
+      ],
+      "vocabulary_focus": ["lidosta", "autobuss", "pietura", "centrs", "paēst"]
+    },
+    {
+      "id": "traveller_b",
+      "name": "Ceļotājs B",
+      "label": "Departing passenger",
+      "objective": "Help with directions, ask about flight delays, and check your gate together.",
+      "starter_lines": [
+        "Protams, es palīdzēšu.",
+        "Autobuss numur 22 brauc uz centru, pietura ir ārā.",
+        "Vai jūs zināt, kur ir A izeja?"
+      ],
+      "vocabulary_focus": ["izeja", "lidojums", "kavējums", "biļete", "pase"]
+    }
+  ],
+  "objectives_shared": [
+    "Greet politely in Latvian.",
+    "Exchange information about transport.",
+    "Find one shared location (gate or cafe).",
+    "Wish each other a good trip at the end."
+  ],
+  "safety_rules": [
+    "Never share passport, flight, or seat numbers — keep it generic.",
+    "Stay polite. Use 'Jūs' to a stranger you just met."
+  ]
+}

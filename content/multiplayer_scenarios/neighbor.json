@@ -1,0 +1,44 @@
+{
+  "id": "neighbor",
+  "title": "Pie kaimiņa (At the neighbour's)",
+  "summary": "Two neighbours in a Riga apartment building meet in the stairwell and chat about everyday things.",
+  "location": "Kāpņu telpa, daudzdzīvokļu māja, Rīga",
+  "language_level": "A2",
+  "estimated_duration_minutes": 6,
+  "roles": [
+    {
+      "id": "neighbor_a",
+      "name": "Kaimiņš A",
+      "label": "Neighbour A",
+      "objective": "Greet your neighbour, comment on the weather, and ask for a small favour (e.g. accepting a parcel).",
+      "starter_lines": [
+        "Labrīt, kaimiņ! Kā jūs šodien jūtaties?",
+        "Šodien ir auksti, vai ne?",
+        "Vai jūs varētu pieņemt manu sūtījumu?"
+      ],
+      "vocabulary_focus": ["kaimiņš", "laiks (weather)", "auksts", "sūtījums", "lūdzu"]
+    },
+    {
+      "id": "neighbor_b",
+      "name": "Kaimiņš B",
+      "label": "Neighbour B",
+      "objective": "Reply politely, agree or politely decline the favour, and invite the neighbour for tea.",
+      "starter_lines": [
+        "Labrīt! Jā, labi, paldies.",
+        "Patiešām auksti — vakar bija siltāks.",
+        "Protams, es pieņemšu. Vai vēlaties tēju?"
+      ],
+      "vocabulary_focus": ["paldies", "protams", "tēja", "ielūgt", "vakars"]
+    }
+  ],
+  "objectives_shared": [
+    "Greet each other politely (Labrīt / Labdien).",
+    "Comment on the weather in one short sentence.",
+    "Exchange one small favour or invitation.",
+    "Wish each other a nice day before parting."
+  ],
+  "safety_rules": [
+    "No personal phone numbers or door codes.",
+    "Stay friendly and brief — A2 sentence length."
+  ]
+}

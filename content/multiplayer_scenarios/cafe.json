@@ -1,0 +1,44 @@
+{
+  "id": "cafe",
+  "title": "Kafejnīcā (At the cafe)",
+  "summary": "Two friends meet at a Riga cafe and order coffee and pastries together.",
+  "location": "Costa kafejnīca, Vecrīga",
+  "language_level": "A2",
+  "estimated_duration_minutes": 8,
+  "roles": [
+    {
+      "id": "guest_a",
+      "name": "Viesis A",
+      "label": "First guest",
+      "objective": "Greet your friend, suggest a table, and order a hot drink and something sweet.",
+      "starter_lines": [
+        "Sveiks! Sen neesam tikušies.",
+        "Iesim pie tā galdiņa pie loga.",
+        "Es ņemšu kapučīno un kanēļmaizīti."
+      ],
+      "vocabulary_focus": ["kafija", "tēja", "kūka", "galdiņš", "rēķins"]
+    },
+    {
+      "id": "guest_b",
+      "name": "Viesis B",
+      "label": "Second guest",
+      "objective": "Reply warmly, suggest something to share, and ask for the bill at the end.",
+      "starter_lines": [
+        "Sveiks! Tiešām sen.",
+        "Labi, sēdīsimies tur.",
+        "Es vēlos zaļo tēju. Vai dalīsimies ar kūku?"
+      ],
+      "vocabulary_focus": ["dalīties", "kanēļmaizīte", "saldināt", "rēķinu, lūdzu", "garšīgi"]
+    }
+  ],
+  "objectives_shared": [
+    "Greet each other politely in Latvian.",
+    "Decide where to sit.",
+    "Order at least one drink each.",
+    "Ask for the bill before leaving."
+  ],
+  "safety_rules": [
+    "Stay on the cafe topic — no personal contact info exchange.",
+    "Keep replies short, A2-level."
+  ]
+}
