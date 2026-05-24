@@ -7297,6 +7297,260 @@ AppHandler._t034_installed = True  # type: ignore[attr-defined]
 
 
 # ============================================================================
+# T-032 — SRS (spaced-repetition) route hook installer
+# ============================================================================
+# Wires the three SRS endpoints onto AppHandler:
+#
+#   GET  /api/srs/due                       -> due cards today
+#   POST /api/srs/cards                     -> add a card to the deck
+#   POST /api/srs/cards/<card_id>/review    -> apply SM-2 update
+#
+# The hooks are installed BEFORE the T-036 v2 SPA static handler so the
+# T-036 do_GET wrapper remains the outermost ``do_GET`` patch — the same
+# invariant enforced for T-031 / T-034 / T-043.
+#
+# The dispatch is inlined here (rather than imported via
+# :mod:`server_app.routes.srs`) for the same reason as T-031 / T-034: at
+# import time the ``server_app.routes`` package eagerly pulls in modules
+# that reference symbols defined later in this file. The
+# :mod:`routes.srs` module remains the canonical re-export point used
+# by the modularization audit.
+# ----------------------------------------------------------------------------
+
+import re as _t032_re  # noqa: E402
+
+from server_app.services import srs as _t032_srs_service  # noqa: E402
+
+_T032_DUE_PATH = "/api/srs/due"
+_T032_ADD_CARD_PATH = "/api/srs/cards"
+_T032_REVIEW_RE = _t032_re.compile(
+    r"^/api/srs/cards/([A-Za-z0-9_\-]+)/review/?$"
+)
+
+
+def _t032_resolve_path(handler: "AppHandler") -> str:
+    raw = getattr(handler, "path", "") or ""
+    return urllib.parse.urlparse(raw).path or ""
+
+
+def _t032_account_id(session: dict) -> str:
+    return (session.get("account") or {}).get("id") or ""
+
+
+def _t032_handle_due(handler: "AppHandler") -> None:
+    """``GET /api/srs/due`` — return today's due cards for the learner."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t032_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        with db_connection() as conn:
+            cards = _t032_srs_service.due_cards(conn, account_id)
+        json_response(
+            handler,
+            HTTPStatus.OK,
+            {"cards": cards, "count": len(cards)},
+        )
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001
+        log_event(
+            "error",
+            "srs_due_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "srs_unavailable"},
+        )
+
+
+def _t032_handle_add_card(handler: "AppHandler") -> None:
+    """``POST /api/srs/cards`` — insert a new card into the learner's deck."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t032_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        try:
+            body = safe_read_json(handler)
+        except ValueError as error:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": str(error)},
+            )
+            return
+        if not isinstance(body, dict):
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body"},
+            )
+            return
+        lemma = str(body.get("lemma", "") or "").strip()
+        lv = str(body.get("lv", "") or "").strip()
+        en = str(body.get("en", "") or "").strip()
+        if not lemma or not lv or not en:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": "lemma, lv, en are required"},
+            )
+            return
+        with db_connection() as conn:
+            card = _t032_srs_service.add_card(conn, account_id, lemma, lv, en)
+        json_response(handler, HTTPStatus.OK, {"card": card})
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001
+        log_event(
+            "error",
+            "srs_add_card_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "srs_unavailable"},
+        )
+
+
+def _t032_handle_review(handler: "AppHandler", card_id: str) -> None:
+    """``POST /api/srs/cards/<id>/review`` — apply an SM-2 update."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t032_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        try:
+            body = safe_read_json(handler)
+        except ValueError as error:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": str(error)},
+            )
+            return
+        if not isinstance(body, dict) or "quality" not in body:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": "quality is required"},
+            )
+            return
+        try:
+            quality = int(body["quality"])
+        except (TypeError, ValueError):
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": "quality must be 0-5"},
+            )
+            return
+        if quality < 0 or quality > 5:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": "quality must be 0-5"},
+            )
+            return
+        try:
+            with db_connection() as conn:
+                card = _t032_srs_service.review_card(
+                    conn, account_id, card_id, quality
+                )
+        except PermissionError:
+            # Treat unknown-or-foreign card as 404 — never reveal to the
+            # caller whether the id exists on another account. This is
+            # the same isolation-by-obscurity policy missions/XP use.
+            json_response(
+                handler,
+                HTTPStatus.NOT_FOUND,
+                {"error": "card_not_found"},
+            )
+            return
+        except ValueError as error:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": str(error)},
+            )
+            return
+        json_response(handler, HTTPStatus.OK, {"card": card})
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001
+        log_event(
+            "error",
+            "srs_review_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "srs_unavailable"},
+        )
+
+
+_T032_ORIGINAL_DO_GET = AppHandler.do_GET
+_T032_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t032_patched_do_get(self: "AppHandler") -> None:
+    path = _t032_resolve_path(self)
+    if path == _T032_DUE_PATH or path.rstrip("/") == _T032_DUE_PATH:
+        _t032_handle_due(self)
+        return
+    _T032_ORIGINAL_DO_GET(self)
+
+
+def _t032_patched_do_post(self: "AppHandler") -> None:
+    path = _t032_resolve_path(self)
+    match = _T032_REVIEW_RE.match(path)
+    if match:
+        _t032_handle_review(self, match.group(1))
+        return
+    if path == _T032_ADD_CARD_PATH or path.rstrip("/") == _T032_ADD_CARD_PATH:
+        _t032_handle_add_card(self)
+        return
+    _T032_ORIGINAL_DO_POST(self)
+
+
+AppHandler.do_GET = _t032_patched_do_get  # type: ignore[assignment]
+AppHandler.do_POST = _t032_patched_do_post  # type: ignore[assignment]
+AppHandler._t032_installed = True  # type: ignore[attr-defined]
+# ============================================================================
+# end T-032 SRS route hook
+# ============================================================================
+
+
+# ============================================================================
 # T-043 — Audit-log export route hook
 # ============================================================================
 # Adds ``GET /api/admin/audit-export`` so institutional admins can pull
