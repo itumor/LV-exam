@@ -133,8 +133,8 @@ class RouteAuditTests(unittest.TestCase):
         known_owners = {
             "admin", "attempts", "auth", "billing", "debug",
             "exams", "healthz", "institutional", "legal",
-            "listening_feed", "metrics", "mock_exam", "npc",
-            "rate_limit", "sso", "srs", "tenant", "tutor",
+            "listening_feed", "metrics", "mock_exam", "multiplayer",
+            "npc", "rate_limit", "sso", "srs", "tenant", "tutor",
             "uploads", "voice", "xp",
         }
         for _method, pattern, owner in ROUTES:
