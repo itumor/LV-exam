@@ -19,6 +19,7 @@ from . import (  # noqa: F401  (re-exported for the audit list)
     attempts,
     auth,
     billing,
+    companion,
     debug,
     exams,
     healthz,
@@ -64,6 +65,7 @@ for _module in (
     xp,
     institutional,
     tutor,
+    companion,
 ):
     for _method, _pattern in _module.ROUTES:
         ROUTES.append((_method, _pattern, _module.__name__.rsplit(".", 1)[-1]))
@@ -74,6 +76,7 @@ __all__ = [
     "attempts",
     "auth",
     "billing",
+    "companion",
     "debug",
     "exams",
     "healthz",

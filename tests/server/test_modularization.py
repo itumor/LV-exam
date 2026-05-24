@@ -131,8 +131,8 @@ class RouteAuditTests(unittest.TestCase):
     def test_every_documented_route_has_a_known_owner(self) -> None:
         from server_app.routes import ROUTES
         known_owners = {
-            "admin", "attempts", "auth", "billing", "debug",
-            "exams", "healthz", "institutional", "legal",
+            "admin", "attempts", "auth", "billing", "companion",
+            "debug", "exams", "healthz", "institutional", "legal",
             "listening_feed", "metrics", "mock_exam", "npc",
             "rate_limit", "sso", "srs", "tenant", "tutor",
             "uploads", "voice", "xp",
