@@ -16,5 +16,7 @@
     "localhost",
     "127.0.0.1"
   ],
-  "_comment": "Default tenant config served when no custom-domain mapping matches. T-044 white-label theme."
+  "data_region": "eu",
+  "portal_subdomain": null,
+  "_comment": "Default tenant config served when no custom-domain mapping matches. T-044 white-label theme; T-065 default residency is eu."
 }
