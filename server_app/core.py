@@ -6910,6 +6910,164 @@ AppHandler._t030_installed = True  # type: ignore[attr-defined]
 
 
 # ============================================================================
+# T-031 — Daily mission route hook installer
+# ============================================================================
+# Wires the two daily-mission endpoints onto AppHandler:
+#   GET  /api/missions/today                  -> 3 missions for the day
+#   POST /api/missions/<mission_id>/complete  -> idempotent completion
+#
+# The do_GET wrapper is installed BEFORE the T-036 SPA static handler so
+# T-036 remains the outermost ``do_GET`` wrapper (a structural invariant
+# enforced by ``tests/server/test_v2_static_route.py``).
+#
+# The hook is inlined here (rather than imported via
+# :mod:`server_app.routes.missions`) because at import-time the
+# ``server_app.routes`` package eagerly pulls in ``routes.voice``, which
+# refers to symbols defined later in this file. The :mod:`routes.missions`
+# module remains the canonical re-export point used by the modularization
+# audit and by external imports.
+# ----------------------------------------------------------------------------
+
+import re as _t031_re  # noqa: E402
+import urllib.parse as _t031_urlparse  # noqa: E402
+from http import HTTPStatus as _T031_HTTPStatus  # noqa: E402
+
+from server_app.services import missions as _t031_missions_service  # noqa: E402
+
+_T031_TODAY_PATH = "/api/missions/today"
+_T031_COMPLETE_RE = _t031_re.compile(
+    r"^/api/missions/([A-Za-z0-9_\-]+)/complete/?$"
+)
+
+
+def _t031_resolve_path(handler: "AppHandler") -> str:
+    raw = getattr(handler, "path", "") or ""
+    return _t031_urlparse.urlparse(raw).path or ""
+
+
+def _t031_account_id(session: dict) -> str:
+    return (session.get("account") or {}).get("id") or ""
+
+
+def _t031_handle_today(handler: "AppHandler") -> None:
+    """``GET /api/missions/today`` — return today's three missions."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t031_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                _T031_HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        with db_connection() as conn:
+            payload = _t031_missions_service.get_or_generate_today(
+                conn, account_id
+            )
+        json_response(handler, _T031_HTTPStatus.OK, payload)
+    except PermissionError as error:
+        json_response(
+            handler, _T031_HTTPStatus.UNAUTHORIZED, {"error": str(error)}
+        )
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001
+        log_event(
+            "error",
+            "missions_today_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            _T031_HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "missions_unavailable"},
+        )
+
+
+def _t031_handle_complete(handler: "AppHandler", mission_id: str) -> None:
+    """``POST /api/missions/<mission_id>/complete`` — idempotent completion."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t031_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                _T031_HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        try:
+            with db_connection() as conn:
+                result = _t031_missions_service.complete_mission(
+                    conn, account_id, mission_id
+                )
+        except ValueError as error:
+            json_response(
+                handler,
+                _T031_HTTPStatus.NOT_FOUND,
+                {"error": "mission_not_found", "detail": str(error)},
+            )
+            return
+        except PermissionError as error:
+            json_response(
+                handler,
+                _T031_HTTPStatus.FORBIDDEN,
+                {"error": "mission_forbidden", "detail": str(error)},
+            )
+            return
+        json_response(handler, _T031_HTTPStatus.OK, result)
+    except PermissionError as error:
+        json_response(
+            handler, _T031_HTTPStatus.UNAUTHORIZED, {"error": str(error)}
+        )
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001
+        log_event(
+            "error",
+            "missions_complete_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            _T031_HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "missions_unavailable"},
+        )
+
+
+_T031_ORIGINAL_DO_GET = AppHandler.do_GET
+_T031_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t031_patched_do_get(self: "AppHandler") -> None:
+    path = _t031_resolve_path(self)
+    if path == _T031_TODAY_PATH or path.rstrip("/") == _T031_TODAY_PATH:
+        _t031_handle_today(self)
+        return
+    _T031_ORIGINAL_DO_GET(self)
+
+
+def _t031_patched_do_post(self: "AppHandler") -> None:
+    path = _t031_resolve_path(self)
+    match = _T031_COMPLETE_RE.match(path)
+    if match:
+        _t031_handle_complete(self, match.group(1))
+        return
+    _T031_ORIGINAL_DO_POST(self)
+
+
+AppHandler.do_GET = _t031_patched_do_get  # type: ignore[assignment]
+AppHandler.do_POST = _t031_patched_do_post  # type: ignore[assignment]
+AppHandler._t031_installed = True  # type: ignore[attr-defined]
+# ============================================================================
+# end T-031 daily mission route hook
+# ============================================================================
+
+
+# ============================================================================
 # T-036 Vue 3 + TypeScript SPA static handler (mounted at /v2/)
 # ============================================================================
 # Serves the built apps/web-v2/dist/ assets under /v2/ via a tail-of-file
