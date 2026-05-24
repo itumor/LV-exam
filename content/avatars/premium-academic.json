@@ -1,0 +1,9 @@
+{
+  "id": "premium-academic",
+  "display_name": "Academic",
+  "description": "Subscriber-only. Robes and an LU graduation cap — the polished scholar.",
+  "art_ref": "/assets/avatars/premium-academic.svg",
+  "rarity": "epic",
+  "tier": "premium",
+  "unlock": {"kind": "premium"}
+}
