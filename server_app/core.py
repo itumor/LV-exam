@@ -3979,31 +3979,19 @@ class AppHandler(SimpleHTTPRequestHandler):
             )
             return
         if self.path == "/api/session":
-            session = current_session_record(self)
-            json_response(
-                self, HTTPStatus.OK, {"authenticated": bool(session), **(session or {})}
-            )
+            # T-020a: body lives in server_app.routes.auth.do_session_get.
+            from server_app.routes import auth as _auth_routes
+            _auth_routes.do_session_get(self)
             return
         if self.path == "/api/exams/catalog":
-            session = current_session_record(self)
-            json_response(self, HTTPStatus.OK, list_exam_catalog(session))
+            # T-020a: body lives in server_app.routes.exams.do_exam_catalog_get.
+            from server_app.routes import exams as _exam_routes
+            _exam_routes.do_exam_catalog_get(self)
             return
         if parsed.path == "/api/practice-feed":
-            try:
-                params = urllib.parse.parse_qs(parsed.query)
-                count_raw = (params.get("count") or ["12"])[0]
-                try:
-                    count = int(count_raw)
-                except ValueError:
-                    count = 12
-                payload = build_practice_feed(
-                    mode=(params.get("mode") or ["balanced"])[0],
-                    count=count,
-                    seed=(params.get("seed") or [None])[0],
-                )
-                json_response(self, HTTPStatus.OK, payload)
-            except ApiError as error:
-                api_error_response(self, error)
+            # T-020a: body lives in server_app.routes.exams.do_practice_feed_get.
+            from server_app.routes import exams as _exam_routes
+            _exam_routes.do_practice_feed_get(self, parsed)
             return
         if parsed.path == "/api/listening-feed":
             # T-035 — vertical scroll-feed of curated micro-clips. The
@@ -4027,27 +4015,17 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         exam_content_match = re.fullmatch(r"/api/exams/([^/]+)/content", parsed.path)
         if exam_content_match:
-            try:
-                markdown = load_exam_markdown(exam_content_match.group(1))
-                text_response(
-                    self,
-                    HTTPStatus.OK,
-                    student_exam_markdown(markdown),
-                    "text/markdown; charset=utf-8",
-                )
-            except ApiError as error:
-                api_error_response(self, error)
+            # T-020a: body lives in server_app.routes.exams.do_exam_content_get.
+            from server_app.routes import exams as _exam_routes
+            _exam_routes.do_exam_content_get(self, exam_content_match.group(1))
             return
         exam_answer_key_match = re.fullmatch(
             r"/api/exams/([^/]+)/answer-key", parsed.path
         )
         if exam_answer_key_match:
-            try:
-                exam_id = exam_answer_key_match.group(1)
-                answer_key = load_server_answer_key(exam_id)
-                json_response(self, HTTPStatus.OK, {"answer_key": answer_key})
-            except ApiError as error:
-                api_error_response(self, error)
+            # T-020a: body lives in server_app.routes.exams.do_exam_answer_key_get.
+            from server_app.routes import exams as _exam_routes
+            _exam_routes.do_exam_answer_key_get(self, exam_answer_key_match.group(1))
             return
         if self.path == "/api/dashboard":
             try:
@@ -4066,11 +4044,9 @@ class AppHandler(SimpleHTTPRequestHandler):
                 json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
             return
         if self.path == "/api/account/export":
-            try:
-                session = require_session(self)
-                json_response(self, HTTPStatus.OK, export_account(session))
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            # T-020a: body lives in server_app.routes.auth.do_account_export.
+            from server_app.routes import auth as _auth_routes
+            _auth_routes.do_account_export(self)
             return
         if self.path == "/api/attempts":
             try:
@@ -4298,70 +4274,24 @@ class AppHandler(SimpleHTTPRequestHandler):
         try:
             parsed = urllib.parse.urlparse(self.path)
             if self.path == "/api/auth/register":
-                allowed, retry_after = check_rate_limit(
-                    f"register:{client_ip(self)}",
-                    limit_env="AUTH_REGISTER_RATE_LIMIT",
-                    window_env="AUTH_REGISTER_RATE_WINDOW_SECONDS",
-                )
-                if not allowed:
-                    json_response_with_headers(
-                        self,
-                        HTTPStatus.TOO_MANY_REQUESTS,
-                        {"error": "Too many registration attempts. Try again later."},
-                        {"Retry-After": str(retry_after)},
-                    )
-                    return
-                payload = safe_read_json(self)
-                response, token = create_account_record(payload)
-                json_response_with_headers(
-                    self,
-                    HTTPStatus.CREATED,
-                    {**response, "authenticated": True},
-                    {"Set-Cookie": session_cookie_header(token)},
-                )
+                # T-020a: body lives in server_app.routes.auth.do_register_post.
+                from server_app.routes import auth as _auth_routes
+                _auth_routes.do_register_post(self)
                 return
             if self.path == "/api/auth/login":
-                allowed, retry_after = check_rate_limit(
-                    f"login:{client_ip(self)}",
-                    limit_env="AUTH_LOGIN_RATE_LIMIT",
-                    window_env="AUTH_LOGIN_RATE_WINDOW_SECONDS",
-                )
-                if not allowed:
-                    json_response_with_headers(
-                        self,
-                        HTTPStatus.TOO_MANY_REQUESTS,
-                        {"error": "Too many login attempts. Try again later."},
-                        {"Retry-After": str(retry_after)},
-                    )
-                    return
-                payload = safe_read_json(self)
-                response, token = login_account(payload)
-                json_response_with_headers(
-                    self,
-                    HTTPStatus.OK,
-                    {**response, "authenticated": True},
-                    {"Set-Cookie": session_cookie_header(token)},
-                )
+                # T-020a: body lives in server_app.routes.auth.do_login_post.
+                from server_app.routes import auth as _auth_routes
+                _auth_routes.do_login_post(self)
                 return
             if self.path == "/api/auth/logout":
-                token = parse_cookie_value(self, AUTH_SESSION_COOKIE)
-                if token:
-                    with db_connection() as conn:
-                        conn.execute(
-                            "UPDATE sessions SET revoked_at = ? WHERE token = ?",
-                            (now_iso(), token),
-                        )
-                json_response_with_headers(
-                    self,
-                    HTTPStatus.OK,
-                    {"ok": True},
-                    {"Set-Cookie": expired_session_cookie_header()},
-                )
+                # T-020a: body lives in server_app.routes.auth.do_logout_post.
+                from server_app.routes import auth as _auth_routes
+                _auth_routes.do_logout_post(self)
                 return
             if self.path == "/api/profile":
-                payload = safe_read_json(self)
-                session = require_session(self)
-                json_response(self, HTTPStatus.OK, update_profile(payload, session))
+                # T-020a: body lives in server_app.routes.auth.do_profile_post.
+                from server_app.routes import auth as _auth_routes
+                _auth_routes.do_profile_post(self)
                 return
             # T-035 — POST /api/listening-feed/<clip_id>/answer
             # Records a single micro-quiz answer for a feed clip and
@@ -4766,11 +4696,14 @@ class AppHandler(SimpleHTTPRequestHandler):
                 json_response(self, HTTPStatus.OK, result)
                 return
             if self.path == "/api/account/delete":
-                session = require_session(self)
-                json_response(self, HTTPStatus.OK, delete_account(session))
+                # T-020a: body lives in server_app.routes.auth.do_account_delete_post.
+                from server_app.routes import auth as _auth_routes
+                _auth_routes.do_account_delete_post(self)
                 return
             if self.path == "/api/webhooks/auth":
-                json_response(self, HTTPStatus.OK, handle_auth_webhook(self))
+                # T-020a: body lives in server_app.routes.auth.do_auth_webhook_post.
+                from server_app.routes import auth as _auth_routes
+                _auth_routes.do_auth_webhook_post(self)
                 return
             if self.path == "/api/billing/checkout-session":
                 self.handle_checkout_session()

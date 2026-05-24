@@ -1,6 +1,6 @@
 # lvcodex server architecture
 
-Last updated: 2026-05-23 (T-020 modularisation merged)
+Last updated: 2026-05-24 (T-020a — auth + exams route bodies peeled out)
 
 ## Overview
 
@@ -47,15 +47,46 @@ server_app/
     └── __init__.py                    # row mappers + ApiError + redaction
 ```
 
-The route modules and service modules are **thin re-export modules** for
-T-020 — the function bodies still live in `server_app.core`. This is a
-deliberate behaviour-preserving choice: the routing dispatcher uses five
-end-of-file monkey-patch hook blocks (T-010, T-011, T-014, T-015, T-018)
-to compose `AppHandler.do_GET` and `do_POST`, and lifting those bodies
-into separate modules would have required re-running the patch chain
-against the new class object. T-020a / T-020b will progressively peel
-the bodies out, one domain at a time, each behind its own PR with a
-narrow regression risk.
+Most route modules and service modules are **thin re-export modules**
+left over from T-020 — the function bodies still live in
+`server_app.core`. This is a deliberate behaviour-preserving choice: the
+routing dispatcher uses five end-of-file monkey-patch hook blocks
+(T-010, T-011, T-014, T-015, T-018) to compose `AppHandler.do_GET` and
+`do_POST`, and lifting every body into separate modules would require
+re-running the patch chain against the new class object. T-020a / T-020b
+progressively peel the bodies out, one domain at a time, each behind its
+own PR with a narrow regression risk.
+
+### Per-module vs `core.py` boundary (post T-020a)
+
+T-020a starts the peel for the **auth** and **exams** domains. The
+boundary is drawn as follows:
+
+* **Dispatch** (path-literal match + URL parsing) stays inside
+  `server_app.core.AppHandler.do_GET` / `do_POST`. This preserves the
+  T-020 hook-installation order and keeps the modularisation audit test
+  (which greps `server_app.core` source for representative path
+  literals) green without test changes.
+* **Handler bodies** for the auth and exams domains now live in their
+  per-domain modules:
+  * `server_app/routes/auth.py` owns `do_session_get`,
+    `do_account_export`, `do_register_post`, `do_login_post`,
+    `do_logout_post`, `do_profile_post`, `do_account_delete_post`, and
+    `do_auth_webhook_post`.
+  * `server_app/routes/exams.py` owns `do_exam_catalog_get`,
+    `do_practice_feed_get`, `do_exam_content_get`, and
+    `do_exam_answer_key_get`.
+* **Helpers** (`current_session_record`, `login_account`,
+  `update_profile`, `list_exam_catalog`, `build_practice_feed`, …) are
+  still defined in `server_app.core` and re-exported by the domain
+  modules so existing call sites (`from server_app.routes.auth import
+  login_account`) and tests (`patch.object(server, "AUTH_DB_PATH", …)`)
+  remain unchanged.
+
+All other domain route modules (billing, attempts, admin, …) remain
+re-export shims. They will be peeled in subsequent T-020 follow-ups
+using the same boundary: `core.py` keeps the dispatch branch, the
+per-domain module owns the body.
 
 ## Middleware / hook ordering
 
@@ -115,7 +146,14 @@ unchanged.
 
 ## Future work
 
-* **T-020a**: extract the auth-route bodies into `server_app/routes/auth.py`.
-* **T-020b**: extract the billing-route bodies into `server_app/routes/billing.py`.
+* **T-020a** *(done)*: extracted the auth + exams route bodies into
+  `server_app/routes/auth.py` and `server_app/routes/exams.py`. Dispatch
+  branches in `server_app/core.py` now delegate to per-domain handler
+  functions instead of inlining the response code.
+* **T-020b**: extract the billing-route bodies into
+  `server_app/routes/billing.py` (same pattern as T-020a — keep the
+  dispatch branch, move the body).
+* **T-020c+**: peel the remaining domains (attempts, admin, listening
+  feed, mock exam, etc.).
 * **T-021**: migrate `AppHandler` to a FastAPI/Starlette ASGI app behind
   `create_app()`. The signature stays compatible; the implementation flips.
