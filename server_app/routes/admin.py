@@ -41,6 +41,8 @@ ROUTES: list[tuple[str, str]] = [
     ("POST", "/api/admin/settings"),
     # T-025 — A2 exam schema (level + skills + task_types).
     ("GET", "/api/admin/schema"),
+    # T-043 — Audit-log export (CSV default, JSON via Accept or ?format).
+    ("GET", "/api/admin/audit-export"),
 ]
 
 __all__ = [

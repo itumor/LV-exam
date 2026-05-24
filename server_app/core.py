@@ -7153,6 +7153,273 @@ AppHandler._t031_installed = True  # type: ignore[attr-defined]
 
 
 # ============================================================================
+# T-043 — Audit-log export route hook
+# ============================================================================
+# Adds ``GET /api/admin/audit-export`` so institutional admins can pull
+# their org's audit events as CSV (default) or JSON (Accept header). The
+# endpoint:
+#
+#   * requires an admin or superadmin session,
+#   * enforces an org-membership check via
+#     :func:`audit_export.can_export_org` (admin sessions may export only
+#     their own ``accounts.org_id``; superadmin may export any),
+#   * is rate-limited to 1 req/min per session/IP via the existing
+#     ``check_rate_limit`` helper (T-015), and
+#   * caps each response at ``audit_export.MAX_EXPORT_ROWS`` rows.
+#
+# The ``audit_events`` table is created on first request via
+# :func:`audit_export.init_audit_events_table` and the ``accounts`` table
+# is extended with an ``org_id`` column so admin sessions carry their
+# membership. The accompanying Postgres migration lives in
+# ``migrations/postgres/005_audit_events.sql``.
+#
+# Wire order: installed BEFORE the T-036 v2 SPA static handler so the
+# T-036 do_GET wrapper remains the outermost ``do_GET`` patch. The
+# audit-list test (tests/server/test_v2_static_route.py) enforces this.
+# ----------------------------------------------------------------------------
+
+from server_app.services import audit_export as _t043_audit_export  # noqa: E402
+
+
+_T043_AUDIT_EXPORT_PATH = "/api/admin/audit-export"
+_T043_DEFAULT_LIMIT_ENV = "AUDIT_EXPORT_RATE_LIMIT_PER_MINUTE"
+_T043_DEFAULT_WINDOW_ENV = "AUDIT_EXPORT_RATE_LIMIT_WINDOW_SECONDS"
+
+
+def _t043_ensure_org_id_column() -> None:
+    """Add ``accounts.org_id`` if it does not already exist.
+
+    Idempotent. Wrapped in defensive try/except so a startup-time
+    migration failure does not block boot — the hook below
+    re-checks the column on every request and degrades to ``""`` if
+    the column is missing.
+    """
+
+    try:
+        with db_connection() as conn:
+            ensure_column(conn, "accounts", "org_id", "TEXT")
+            _t043_audit_export.init_audit_events_table(conn)
+    except Exception:  # noqa: BLE001 - import-time hook must not crash
+        try:
+            log_event("warning", "t043_init_failed")
+        except Exception:
+            pass
+
+
+def _t043_session_org_id(session: dict[str, Any]) -> str:
+    """Pull ``accounts.org_id`` for the current session, defaulting ""."""
+
+    account = session.get("account") or {}
+    direct = str(account.get("org_id") or "").strip().lower()
+    if direct:
+        return direct
+    account_id = str(account.get("id") or "").strip()
+    if not account_id:
+        return ""
+    try:
+        with db_connection() as conn:
+            row = conn.execute(
+                "SELECT org_id FROM accounts WHERE id = ? AND deleted_at IS NULL",
+                (account_id,),
+            ).fetchone()
+    except sqlite3.OperationalError:
+        return ""
+    if row is None:
+        return ""
+    try:
+        value = row["org_id"]
+    except (IndexError, KeyError):
+        return ""
+    return str(value or "").strip().lower()
+
+
+def _t043_wants_json(handler: "AppHandler", query: dict[str, list[str]]) -> bool:
+    """Return True when the client asked for the JSON envelope.
+
+    Explicit ``format=json`` wins. Otherwise we honour
+    ``Accept: application/json`` only when CSV is NOT also acceptable —
+    a browser sending ``Accept: */*`` should still get the default CSV
+    download.
+    """
+
+    fmt = (query.get("format") or [""])[0].strip().lower()
+    if fmt == "json":
+        return True
+    if fmt == "csv":
+        return False
+    try:
+        accept = (handler.headers.get("Accept") or "").lower()
+    except Exception:  # noqa: BLE001 - exotic header containers
+        accept = ""
+    if "application/json" in accept and "text/csv" not in accept and "*/*" not in accept:
+        return True
+    return False
+
+
+def _t043_send_csv(handler: "AppHandler", body: str, *, filename: str) -> None:
+    raw = body.encode("utf-8")
+    handler.send_response(HTTPStatus.OK)
+    handler.send_header("Content-Type", "text/csv; charset=utf-8")
+    handler.send_header("Content-Length", str(len(raw)))
+    handler.send_header(
+        "Content-Disposition", f'attachment; filename="{filename}"'
+    )
+    handler.send_header("X-Audit-Export", "T-043")
+    handler.end_headers()
+    handler.wfile.write(raw)
+
+
+def _t043_handle_audit_export(
+    handler: "AppHandler", query: dict[str, list[str]]
+) -> None:
+    """Handle ``GET /api/admin/audit-export``."""
+
+    # ---- AuthN + role gate -------------------------------------------------
+    try:
+        session = require_admin_session(handler)
+    except ApiError as error:
+        api_error_response(handler, error)
+        return
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+        return
+
+    role = account_role(session)
+
+    # ---- Rate limit (1 req/min by default; configurable via env) -----------
+    sid = _t015_session_id_for(handler) or client_ip(handler)
+    rate_key = f"audit_export:{sid}"
+    # Set defaults BEFORE delegating to check_rate_limit so the helper's
+    # "fall back to 20" path never applies to this endpoint.
+    os.environ.setdefault(_T043_DEFAULT_LIMIT_ENV, "1")
+    os.environ.setdefault(_T043_DEFAULT_WINDOW_ENV, "60")
+    allowed, retry_after = check_rate_limit(
+        rate_key,
+        limit_env=_T043_DEFAULT_LIMIT_ENV,
+        window_env=_T043_DEFAULT_WINDOW_ENV,
+    )
+    if not allowed:
+        log_event(
+            "warning",
+            "rate_limit_blocked",
+            endpoint=_T043_AUDIT_EXPORT_PATH,
+            account_id=(session.get("account") or {}).get("id"),
+        )
+        json_response_with_headers(
+            handler,
+            HTTPStatus.TOO_MANY_REQUESTS,
+            {"error": "Too many audit-export requests. Please wait and try again."},
+            {"Retry-After": str(retry_after or 60)},
+        )
+        return
+
+    # ---- Parse + validate inputs ------------------------------------------
+    org_id_raw = (query.get("org_id") or [""])[0]
+    from_raw = (query.get("from") or [""])[0]
+    to_raw = (query.get("to") or [""])[0]
+    fmt_label = "json" if _t043_wants_json(handler, query) else "csv"
+
+    try:
+        from_date = _t043_audit_export.normalise_date(from_raw, field="from")
+        to_date = _t043_audit_export.normalise_date(to_raw, field="to")
+        if not (org_id_raw or "").strip():
+            raise _t043_audit_export.AuditExportError("org_id is required.")
+    except _t043_audit_export.AuditExportError as error:
+        json_response(handler, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+        return
+
+    # ---- Membership check (superadmin bypasses, admin must match) ---------
+    # We hydrate ``org_id`` onto the session dict so ``can_export_org``
+    # sees the current value even when the in-memory session was created
+    # before the ``accounts.org_id`` column was added.
+    account = dict(session.get("account") or {})
+    if not account.get("org_id"):
+        account["org_id"] = _t043_session_org_id(session)
+    enriched_session = {**session, "account": account}
+    if not _t043_audit_export.can_export_org(enriched_session, org_id_raw):
+        log_event(
+            "warning",
+            "audit_export_forbidden",
+            account_id=account.get("id"),
+            requested_org=org_id_raw,
+            actor_org=account.get("org_id"),
+            role=role,
+        )
+        json_response(handler, HTTPStatus.FORBIDDEN, {"error": "forbidden"})
+        return
+
+    # ---- Query + render ---------------------------------------------------
+    try:
+        with db_connection() as conn:
+            rows = _t043_audit_export.query_audit_events(
+                conn,
+                org_id=org_id_raw,
+                from_date=from_date,
+                to_date=to_date,
+            )
+    except _t043_audit_export.AuditExportError as error:
+        json_response(handler, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+        return
+    except Exception as error:  # noqa: BLE001 - never 500 silently
+        capture_exception(error)
+        log_event(
+            "error",
+            "audit_export_query_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "Audit export failed."},
+        )
+        return
+
+    log_event(
+        "info",
+        "audit_export_succeeded",
+        account_id=account.get("id"),
+        org_id=(org_id_raw or "").strip().lower(),
+        from_date=from_date,
+        to_date=to_date,
+        format=fmt_label,
+        row_count=len(rows),
+    )
+
+    if fmt_label == "json":
+        json_response(handler, HTTPStatus.OK, _t043_audit_export.render_json(rows))
+        return
+
+    csv_body = _t043_audit_export.render_csv(rows)
+    filename = (
+        f"audit-{(org_id_raw or '').strip().lower() or 'org'}-"
+        f"{from_date}-to-{to_date}.csv"
+    )
+    _t043_send_csv(handler, csv_body, filename=filename)
+
+
+_T043_ORIGINAL_DO_GET = AppHandler.do_GET
+
+
+def _t043_patched_do_get(self: "AppHandler") -> None:
+    raw = getattr(self, "path", "") or ""
+    parsed = urllib.parse.urlparse(raw)
+    if (parsed.path or "") == _T043_AUDIT_EXPORT_PATH:
+        query = urllib.parse.parse_qs(parsed.query or "")
+        _t043_handle_audit_export(self, query)
+        return
+    _T043_ORIGINAL_DO_GET(self)
+
+
+AppHandler.do_GET = _t043_patched_do_get  # type: ignore[assignment]
+AppHandler._t043_installed = True  # type: ignore[attr-defined]
+
+_t043_ensure_org_id_column()
+# ============================================================================
+# end T-043 audit-log export route hook
+# ============================================================================
+
+
+# ============================================================================
 # T-036 Vue 3 + TypeScript SPA static handler (mounted at /v2/)
 # ============================================================================
 # Serves the built apps/web-v2/dist/ assets under /v2/ via a tail-of-file
