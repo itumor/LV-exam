@@ -8766,6 +8766,160 @@ except Exception:  # noqa: BLE001 — never crash import if DB is unavailable
 
 
 # ============================================================================
+# T-054 — AI curriculum generator route hook installer
+# ============================================================================
+# Wires two routes onto AppHandler:
+#   POST /api/curriculum/generate  -> personalised micro-lesson (cached)
+#   GET  /api/curriculum/lessons   -> learner's cached lesson library
+#
+# Installed BEFORE the T-036 v2 SPA static handler so T-036 remains the
+# outermost ``do_GET`` wrapper (the invariant the
+# ``tests/server/test_v2_static_route.py`` audit enforces).
+#
+# The hook is inlined here for the same reason as T-031 / T-034 / T-046 /
+# T-053: import-order constraints. ``server_app.routes.curriculum`` is the
+# canonical re-export module — this block owns the actual dispatch wiring.
+# ----------------------------------------------------------------------------
+
+from server_app.services import curriculum as _t054_curriculum_service  # noqa: E402
+
+
+_T054_GENERATE_PATH = "/api/curriculum/generate"
+_T054_LIST_PATH = "/api/curriculum/lessons"
+
+
+def _t054_resolve_path(handler: "AppHandler") -> str:
+    raw = getattr(handler, "path", "") or ""
+    return urllib.parse.urlparse(raw).path or ""
+
+
+def _t054_account_id(session: dict) -> str:
+    return (session.get("account") or {}).get("id") or ""
+
+
+def _t054_handle_generate(handler: "AppHandler") -> None:
+    """``POST /api/curriculum/generate`` — produce or cache-fetch a lesson."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t054_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        plan = (session.get("profile") or {}).get("exam_pack_status") or "free"
+        raw_body = safe_read_json(handler)
+        try:
+            response = _t054_curriculum_service.generate_lesson(
+                account_id=account_id,
+                plan=plan,
+                raw_body=raw_body,
+            )
+        except _t054_curriculum_service.CurriculumInvalidRequest as error:
+            raise ApiError(
+                HTTPStatus.BAD_REQUEST,
+                "curriculum_invalid_request",
+                str(error),
+            ) from error
+        except QuotaExceededError as error:
+            raise ApiError(
+                HTTPStatus.TOO_MANY_REQUESTS,
+                "ai_quota_exceeded",
+                str(error),
+            ) from error
+        except _t054_curriculum_service.CurriculumProviderError as error:
+            raise ApiError(
+                HTTPStatus.BAD_GATEWAY,
+                "curriculum_provider_unavailable",
+                str(error),
+            ) from error
+        json_response(handler, HTTPStatus.OK, response)
+    except ApiError as error:
+        api_error_response(handler, error)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except Exception as error:  # noqa: BLE001 — defence in depth
+        log_event(
+            "error",
+            "curriculum_generate_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "curriculum_unavailable"},
+        )
+
+
+def _t054_handle_list(handler: "AppHandler") -> None:
+    """``GET /api/curriculum/lessons`` — return the learner's cached lessons."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t054_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        payload = _t054_curriculum_service.list_lessons_for_route(account_id)
+        json_response(handler, HTTPStatus.OK, payload)
+    except ApiError as error:
+        api_error_response(handler, error)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except Exception as error:  # noqa: BLE001 — defence in depth
+        log_event(
+            "error",
+            "curriculum_list_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "curriculum_unavailable"},
+        )
+
+
+_T054_ORIGINAL_DO_GET = AppHandler.do_GET
+_T054_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t054_patched_do_get(self: "AppHandler") -> None:
+    path = _t054_resolve_path(self)
+    if path == _T054_LIST_PATH or path.rstrip("/") == _T054_LIST_PATH:
+        _t054_handle_list(self)
+        return
+    _T054_ORIGINAL_DO_GET(self)
+
+
+def _t054_patched_do_post(self: "AppHandler") -> None:
+    path = _t054_resolve_path(self)
+    if path == _T054_GENERATE_PATH or path.rstrip("/") == _T054_GENERATE_PATH:
+        _t054_handle_generate(self)
+        return
+    _T054_ORIGINAL_DO_POST(self)
+
+
+AppHandler.do_GET = _t054_patched_do_get  # type: ignore[assignment]
+AppHandler.do_POST = _t054_patched_do_post  # type: ignore[assignment]
+AppHandler._t054_installed = True  # type: ignore[attr-defined]
+
+try:
+    _t054_curriculum_service.ensure_curriculum_tables_ready()
+except Exception:  # noqa: BLE001 — never crash import if DB is unavailable
+    pass
+# ============================================================================
+# end T-054 curriculum route hook
+# ============================================================================
+
+
+# ============================================================================
 # T-036 Vue 3 + TypeScript SPA static handler (mounted at /v2/)
 # ============================================================================
 # Serves the built apps/web-v2/dist/ assets under /v2/ via a tail-of-file
