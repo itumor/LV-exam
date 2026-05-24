@@ -4084,72 +4084,31 @@ class AppHandler(SimpleHTTPRequestHandler):
             except PermissionError as error:
                 json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
             return
+        # ---- Admin GET routes (T-020b: bodies live in routes.admin) ------
         if self.path == "/api/admin/overview":
-            try:
-                require_admin_session(self)
-                json_response(self, HTTPStatus.OK, admin_overview())
-            except ApiError as error:
-                api_error_response(self, error)
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            from server_app.routes import admin as _admin_routes
+            _admin_routes.handle_admin_overview(self)
             return
         if self.path == "/api/admin/accounts":
-            try:
-                require_admin_session(self)
-                json_response(self, HTTPStatus.OK, list_admin_accounts())
-            except ApiError as error:
-                api_error_response(self, error)
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            from server_app.routes import admin as _admin_routes
+            _admin_routes.handle_admin_accounts_list(self)
             return
         if self.path == "/api/admin/exams":
-            try:
-                session = require_admin_session(self)
-                json_response(self, HTTPStatus.OK, list_exam_catalog(session))
-            except ApiError as error:
-                api_error_response(self, error)
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            from server_app.routes import admin as _admin_routes
+            _admin_routes.handle_admin_exams_list(self)
             return
         admin_exam_match = re.fullmatch(r"/api/admin/exams/([^/]+)", parsed.path)
         if admin_exam_match:
-            try:
-                require_admin_session(self)
-                with db_connection() as conn:
-                    row = conn.execute(
-                        "SELECT * FROM exams WHERE id = ?", (admin_exam_match.group(1),)
-                    ).fetchone()
-                if row is None:
-                    raise ApiError(
-                        HTTPStatus.NOT_FOUND, "exam_not_found", "Exam not found."
-                    )
-                json_response(
-                    self,
-                    HTTPStatus.OK,
-                    {"exam": serialize_exam_catalog(row, include_answer_key=True)},
-                )
-            except ApiError as error:
-                api_error_response(self, error)
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            from server_app.routes import admin as _admin_routes
+            _admin_routes.handle_admin_exam_detail(self, admin_exam_match.group(1))
             return
         if self.path == "/api/admin/attempts":
-            try:
-                require_admin_session(self)
-                json_response(self, HTTPStatus.OK, list_admin_attempts())
-            except ApiError as error:
-                api_error_response(self, error)
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            from server_app.routes import admin as _admin_routes
+            _admin_routes.handle_admin_attempts_list(self)
             return
         if self.path == "/api/admin/settings":
-            try:
-                require_admin_session(self)
-                json_response(self, HTTPStatus.OK, list_admin_settings())
-            except ApiError as error:
-                api_error_response(self, error)
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            from server_app.routes import admin as _admin_routes
+            _admin_routes.handle_admin_settings_list(self)
             return
         if self.path.startswith("/api/billing/config"):
             payload = {
@@ -4343,62 +4302,46 @@ class AppHandler(SimpleHTTPRequestHandler):
                 except ApiError as error:
                     api_error_response(self, error)
                 return
+            # ---- Admin POST routes (T-020b: bodies live in routes.admin) ----
             if self.path == "/api/admin/exams":
-                payload = safe_read_json(self)
-                session = require_admin_session(self)
-                json_response(self, HTTPStatus.OK, save_admin_exam(payload, session))
+                from server_app.routes import admin as _admin_routes
+                _admin_routes.handle_admin_exams_create(self)
                 return
             admin_exam_match = re.fullmatch(r"/api/admin/exams/([^/]+)", parsed.path)
             if admin_exam_match:
-                payload = safe_read_json(self)
-                session = require_admin_session(self)
-                json_response(
-                    self,
-                    HTTPStatus.OK,
-                    save_admin_exam(payload, session, admin_exam_match.group(1)),
-                )
+                from server_app.routes import admin as _admin_routes
+                _admin_routes.handle_admin_exam_update(self, admin_exam_match.group(1))
                 return
             admin_exam_status_match = re.fullmatch(
                 r"/api/admin/exams/([^/]+)/status", parsed.path
             )
             if admin_exam_status_match:
-                payload = safe_read_json(self)
-                require_admin_session(self)
-                json_response(
-                    self,
-                    HTTPStatus.OK,
-                    update_admin_exam_status(admin_exam_status_match.group(1), payload),
+                from server_app.routes import admin as _admin_routes
+                _admin_routes.handle_admin_exam_status(
+                    self, admin_exam_status_match.group(1)
                 )
                 return
             admin_exam_delete_match = re.fullmatch(
                 r"/api/admin/exams/([^/]+)/delete", parsed.path
             )
             if admin_exam_delete_match:
-                require_admin_session(self)
-                json_response(
-                    self,
-                    HTTPStatus.OK,
-                    delete_admin_exam(admin_exam_delete_match.group(1)),
+                from server_app.routes import admin as _admin_routes
+                _admin_routes.handle_admin_exam_delete(
+                    self, admin_exam_delete_match.group(1)
                 )
                 return
             admin_account_match = re.fullmatch(
                 r"/api/admin/accounts/([^/]+)", parsed.path
             )
             if admin_account_match:
-                payload = safe_read_json(self)
-                session = require_admin_session(self)
-                json_response(
-                    self,
-                    HTTPStatus.OK,
-                    update_admin_account(
-                        admin_account_match.group(1), payload, session
-                    ),
+                from server_app.routes import admin as _admin_routes
+                _admin_routes.handle_admin_account_update(
+                    self, admin_account_match.group(1)
                 )
                 return
             if self.path == "/api/admin/settings":
-                payload = safe_read_json(self)
-                require_admin_session(self)
-                json_response(self, HTTPStatus.OK, save_admin_settings(payload))
+                from server_app.routes import admin as _admin_routes
+                _admin_routes.handle_admin_settings_save(self)
                 return
             if self.path == "/api/attempts":
                 raise ApiError(
@@ -4913,283 +4856,6 @@ class AppHandler(SimpleHTTPRequestHandler):
         """T-016 self-serve 7-day refund — shim, body in routes.billing."""
         from server_app.routes import billing as _billing_routes
         _billing_routes.handle_billing_refund(self)
-
-    def _peeled_orig_handle_checkout_session(self) -> None:
-        try:
-            payload = safe_read_json(self)
-            learner_id = str(payload.get("learner_id", "")).strip()
-            product_key = str(payload.get("product_key", "")).strip()
-            email = str(payload.get("email", "")).strip() or None
-            # T-016: B2B invoicing flag.
-            b2b = bool(payload.get("b2b"))
-            business_address_raw = payload.get("business_address") or {}
-            business_address: dict[str, str] = {}
-            if isinstance(business_address_raw, dict):
-                for key in ("line1", "line2", "city", "postal_code", "country", "company"):
-                    value = business_address_raw.get(key)
-                    if value:
-                        business_address[key] = str(value).strip()
-            vat_id_raw = payload.get("vat_id")
-            vat_id = str(vat_id_raw).strip() if vat_id_raw else None
-            _base = request_base_url(self)
-            success_url = (
-                str(payload.get("success_url", "")).strip()
-                or f"{_base}/latvian-a2-exam-app/?view=billing&checkout=success"
-            )
-            cancel_url = (
-                str(payload.get("cancel_url", "")).strip()
-                or f"{_base}/latvian-a2-exam-app/?view=billing&checkout=cancel"
-            )
-            for _url in (success_url, cancel_url):
-                if not _url.startswith(_base + "/") and _url != _base:
-                    raise ValueError("Redirect URL must be on this site.")
-            if not learner_id:
-                raise ValueError("learner_id is required.")
-            if not product_key:
-                raise ValueError("product_key is required.")
-            if b2b and not business_address:
-                raise ValueError("business_address is required for B2B checkouts.")
-            store = get_billing_store()
-            learner = store.ensure_learner(learner_id, email=email)
-            product = next(
-                (item for item in DEFAULT_PRODUCTS if item.key == product_key), None
-            )
-            if not product:
-                raise ValueError("Unknown product_key.")
-            price_id = get_product_price_id(product_key)
-            extra_metadata: dict[str, str] = {
-                "learner_id": learner_id,
-                "product_key": product_key,
-            }
-            if b2b:
-                extra_metadata["b2b"] = "true"
-            client = get_stripe_client()
-            if client.enabled():
-                if not price_id:
-                    raise ValueError(f"Missing Stripe price ID for {product_key}.")
-                session = client.create_checkout_session(
-                    product=product,
-                    price_id=price_id,
-                    learner_id=learner_id,
-                    email=email,
-                    success_url=success_url,
-                    cancel_url=cancel_url,
-                    metadata=extra_metadata,
-                    b2b=b2b,
-                    business_address=business_address or None,
-                    vat_id=vat_id,
-                )
-                json_response(
-                    self,
-                    HTTPStatus.OK,
-                    {
-                        "mode": "stripe",
-                        "learner": learner,
-                        "product": product.key,
-                        "b2b": b2b,
-                        "checkout_url": session.get("url"),
-                        "session": session,
-                    },
-                )
-                return
-
-            session = client.create_mock_checkout_session(
-                product=product,
-                learner_id=learner_id,
-                email=email,
-                success_url=success_url,
-                cancel_url=cancel_url,
-                b2b=b2b,
-                business_address=business_address or None,
-                vat_id=vat_id,
-            )
-            json_response(
-                self,
-                HTTPStatus.OK,
-                {
-                    "mode": "mock",
-                    "learner": learner,
-                    "product": product.key,
-                    "b2b": b2b,
-                    "checkout_url": session.get("url"),
-                    "session": session,
-                },
-            )
-        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
-            capture_exception(error)
-            log_event("error", "checkout_session_error", error=type(error).__name__)
-            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
-
-    def handle_consume_exam(self) -> None:
-        try:
-            payload = safe_read_json(self)
-            learner_id = str(payload.get("learner_id", "")).strip()
-            exam_id = str(payload.get("exam_id", "")).strip()
-            if not learner_id:
-                raise ValueError("learner_id is required.")
-            if not exam_id:
-                raise ValueError("exam_id is required.")
-            store = get_billing_store()
-            store.ensure_learner(learner_id)
-            result = store.consume_exam_access(
-                learner_id,
-                exam_id,
-                source_reference=str(payload.get("source_reference", "")).strip()
-                or None,
-                source_event_id=str(payload.get("source_event_id", "")).strip() or None,
-            )
-            status = HTTPStatus.OK if result["allowed"] else HTTPStatus.PAYMENT_REQUIRED
-            json_response(self, status, result)
-        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
-            capture_exception(error)
-            log_event("error", "consume_exam_error", error=type(error).__name__)
-            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
-
-    def handle_consume_ai_credit(self) -> None:
-        try:
-            payload = safe_read_json(self)
-            learner_id = str(payload.get("learner_id", "")).strip()
-            if not learner_id:
-                raise ValueError("learner_id is required.")
-            store = get_billing_store()
-            store.ensure_learner(learner_id)
-            result = store.consume_ai_credit(
-                learner_id,
-                source_reference=str(payload.get("source_reference", "")).strip()
-                or None,
-                source_event_id=str(payload.get("source_event_id", "")).strip() or None,
-            )
-            status = HTTPStatus.OK if result["allowed"] else HTTPStatus.PAYMENT_REQUIRED
-            json_response(self, status, result)
-        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
-            capture_exception(error)
-            log_event("error", "consume_ai_credit_error", error=type(error).__name__)
-            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
-
-    def handle_stripe_webhook(self) -> None:
-        try:
-            payload = safe_read_raw_body(self)
-            secret = stripe_webhook_secret()
-            if not secret:
-                json_response(self, HTTPStatus.BAD_REQUEST, {"error": "Webhook not configured."})
-                return
-            signature = self.headers.get("Stripe-Signature")
-            store = get_billing_store()
-            result = store.handle_webhook(payload, signature, secret)
-            json_response(self, HTTPStatus.OK, {"status": "ok", "result": result})
-        except ValueError as error:
-            log_event("warning", "stripe_webhook_bad_signature", error=str(error))
-            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
-        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
-            capture_exception(error)
-            log_event("error", "stripe_webhook_error", error=type(error).__name__)
-            json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "Internal error."})
-
-    def handle_billing_refund(self) -> None:
-        """T-016: self-serve 7-day refund.
-
-        Authenticated POST: validates ownership, window, and unused-credits
-        server-side, then issues a Stripe refund and revokes the linked
-        entitlement grants. UI affordances are convenience-only; the source
-        of truth is this endpoint.
-        """
-        try:
-            session = require_session(self)
-        except PermissionError:
-            json_response(self, HTTPStatus.UNAUTHORIZED, {"error": "Authentication required."})
-            return
-        try:
-            payload = safe_read_json(self)
-            checkout_session_id = str(payload.get("checkout_session_id", "")).strip()
-            if not checkout_session_id:
-                raise ValueError("checkout_session_id is required.")
-            learner_id = session["account"]["id"]
-            window_days = int(os.getenv("BILLING_REFUND_WINDOW_DAYS", "7"))
-            store = get_billing_store()
-            eligibility = store.refund_eligibility(
-                learner_id,
-                checkout_session_id=checkout_session_id,
-                window_days=window_days,
-            )
-            if not eligibility["eligible"]:
-                if eligibility["reason"] == "wrong_user":
-                    json_response(self, HTTPStatus.FORBIDDEN, eligibility)
-                elif eligibility["reason"] == "session_not_found":
-                    json_response(self, HTTPStatus.NOT_FOUND, eligibility)
-                elif eligibility["reason"] in {"window_expired", "credits_consumed", "already_refunded"}:
-                    json_response(self, HTTPStatus.CONFLICT, eligibility)
-                else:
-                    json_response(self, HTTPStatus.CONFLICT, eligibility)
-                log_event(
-                    "warning",
-                    "billing_refund_rejected",
-                    reason=eligibility["reason"],
-                    learner_id=learner_id,
-                )
-                return
-
-            client = get_stripe_client()
-            payment_reference = eligibility.get("payment_reference")
-            refund_payload: dict[str, Any] = {}
-            if client.enabled() and payment_reference:
-                try:
-                    refund_payload = client.create_refund(
-                        payment_intent=payment_reference,
-                        metadata={"checkout_session_id": checkout_session_id, "learner_id": learner_id},
-                    )
-                except Exception as stripe_error:  # noqa: BLE001 - surface as 502.
-                    capture_exception(stripe_error)
-                    log_event(
-                        "error",
-                        "billing_refund_stripe_error",
-                        error=type(stripe_error).__name__,
-                        learner_id=learner_id,
-                    )
-                    json_response(
-                        self,
-                        HTTPStatus.BAD_GATEWAY,
-                        {"error": "Stripe refund failed. No entitlements changed."},
-                    )
-                    return
-            else:
-                # Mock/test mode: still revoke entitlements so the DoD holds.
-                refund_payload = {
-                    "id": f"re_mock_{checkout_session_id}",
-                    "status": "mock_succeeded",
-                    "amount_refunded": None,
-                }
-
-            affected = store.mark_grants_refunded(
-                learner_id,
-                checkout_session_id=checkout_session_id,
-                refund_id=refund_payload.get("id"),
-                refund_reason="self_serve_7_day",
-            )
-            log_event(
-                "info",
-                "billing_refund_issued",
-                learner_id=learner_id,
-                checkout_session_id=checkout_session_id,
-                grants_refunded=affected,
-                stripe_refund_id=refund_payload.get("id"),
-            )
-            json_response(
-                self,
-                HTTPStatus.OK,
-                {
-                    "status": "refunded",
-                    "checkout_session_id": checkout_session_id,
-                    "grants_refunded": affected,
-                    "refund": refund_payload,
-                    "billing_state": store.get_state(learner_id),
-                },
-            )
-        except ValueError as error:
-            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
-        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
-            capture_exception(error)
-            log_event("error", "billing_refund_error", error=type(error).__name__)
-            json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "Internal error."})
 
 
 class DualStackServer(ThreadingHTTPServer):
