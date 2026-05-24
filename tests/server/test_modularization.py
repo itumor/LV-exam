@@ -134,7 +134,7 @@ class RouteAuditTests(unittest.TestCase):
             "admin", "attempts", "auth", "billing", "debug",
             "exams", "healthz", "legal", "listening_feed", "metrics",
             "mock_exam", "npc", "rate_limit", "sso", "tenant",
-            "uploads", "voice",
+            "uploads", "voice", "xp",
         }
         for _method, pattern, owner in ROUTES:
             self.assertIn(owner, known_owners, f"unknown owner for {pattern}")

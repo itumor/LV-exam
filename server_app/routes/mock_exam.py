@@ -39,11 +39,13 @@ from typing import TYPE_CHECKING, Any
 from server_app.core import (
     ApiError,
     api_error_response,
+    db_connection,
     json_response,
     require_session,
     safe_read_json,
 )
 from server_app.services import mock_exam as mock_exam_service
+from server_app.services import xp as xp_service
 from server_app.services.mock_exam import (
     MockExamError,
     MockExamNotFound,
@@ -91,6 +93,67 @@ def _parse_qs(handler: "AppHandler") -> dict[str, list[str]]:
 
 def _account_id(session: dict[str, Any]) -> str:
     return (session.get("account") or {}).get("id") or ""
+
+
+def _award_section_xp(account_id: str, result: dict[str, Any]) -> None:
+    """Award T-034 XP for a freshly-scored mock-exam section.
+
+    Two award rules fire here:
+
+    * ``perfect_skill_pass`` (100 XP) when ``score == points_possible``
+      for this section and ``points_possible > 0``. The skill name is
+      stored on the xp_log payload so analytics can break out perfect
+      runs by skill.
+    * ``mock_exam_complete`` (50 XP) when this submission completes the
+      sitting (i.e. ``mock_exam.status == "completed"``).
+
+    Idempotent calls (``result["idempotent"] is True``) are skipped so
+    a learner cannot farm XP by re-submitting the same section. XP
+    failures are swallowed — never block the underlying exam flow.
+    """
+
+    if not account_id or not isinstance(result, dict):
+        return
+    if result.get("idempotent"):
+        return
+    section = result.get("section") or {}
+    mock = result.get("mock_exam") or {}
+    try:
+        score = int(section.get("score") or 0)
+        possible = int(section.get("points_possible") or 0)
+    except (TypeError, ValueError):
+        score = 0
+        possible = 0
+    perfect = possible > 0 and score == possible
+    is_complete = mock.get("status") == "completed"
+    if not perfect and not is_complete:
+        return
+    try:
+        with db_connection() as conn:
+            if perfect:
+                xp_service.award_xp(
+                    conn,
+                    account_id,
+                    xp_service.KIND_PERFECT_SKILL_PASS,
+                    payload={
+                        "skill": section.get("skill"),
+                        "mock_exam_id": mock.get("id"),
+                        "score": score,
+                        "points_possible": possible,
+                    },
+                )
+            if is_complete:
+                xp_service.award_xp(
+                    conn,
+                    account_id,
+                    xp_service.KIND_MOCK_EXAM_COMPLETE,
+                    payload={
+                        "mock_exam_id": mock.get("id"),
+                        "level_code": mock.get("level_code"),
+                    },
+                )
+    except Exception:  # noqa: BLE001 - never block the exam on XP failures
+        logger.exception("xp_award_failed_for_mock_exam_section")
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +217,7 @@ def _handle_submit(
             raise api_error_from(error) from error
         except MockExamError as error:
             raise api_error_from(error) from error
+        _award_section_xp(_account_id(session), result)
         json_response(handler, HTTPStatus.OK, result)
     except ApiError as error:
         api_error_response(handler, error)

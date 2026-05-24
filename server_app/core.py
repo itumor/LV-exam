@@ -2077,6 +2077,46 @@ def submit_attempt(attempt_id: str, session: dict[str, Any]) -> dict[str, Any]:
         updated = conn.execute(
             "SELECT * FROM attempts WHERE id = ?", (attempt_id,)
         ).fetchone()
+
+        # T-034 — award XP for correct quiz answers + perfect-skill
+        # bonuses. The same DB connection is reused so the award is
+        # atomic with the score insert.
+        try:
+            from server_app.services import xp as _xp_service
+
+            _xp_account_id = session["account"]["id"]
+            if score_total > 0:
+                _xp_service.award_xp(
+                    conn,
+                    _xp_account_id,
+                    _xp_service.KIND_QUIZ_CORRECT,
+                    amount=score_total
+                    * _xp_service.XP_AMOUNTS[_xp_service.KIND_QUIZ_CORRECT],
+                    payload={
+                        "attempt_id": attempt_id,
+                        "correct_count": score_total,
+                        "per_correct_xp": _xp_service.XP_AMOUNTS[
+                            _xp_service.KIND_QUIZ_CORRECT
+                        ],
+                    },
+                )
+            for _skill, _skill_data in by_skill.items():
+                _possible = int(_skill_data.get("objective_possible", 0) or 0)
+                _correct = int(_skill_data.get("objective_correct", 0) or 0)
+                if _possible > 0 and _correct == _possible:
+                    _xp_service.award_xp(
+                        conn,
+                        _xp_account_id,
+                        _xp_service.KIND_PERFECT_SKILL_PASS,
+                        payload={
+                            "attempt_id": attempt_id,
+                            "skill": _skill,
+                            "score": _correct,
+                            "points_possible": _possible,
+                        },
+                    )
+        except Exception:  # noqa: BLE001 - never block scoring on XP failure
+            log_event("warning", "xp_award_failed_attempt", attempt_id=attempt_id)
     return {"attempt": serialize_attempt(updated), "score": scoring}
 
 
@@ -7103,6 +7143,31 @@ def _t031_handle_complete(handler: "AppHandler", mission_id: str) -> None:
                 {"error": "mission_forbidden", "detail": str(error)},
             )
             return
+        # T-034 — award XP only on first completion (analytics emission
+        # is the canonical "first completion" signal — see T-031).
+        if result.get("analytics_event_emitted"):
+            try:
+                from server_app.services import xp as _t031_xp_service
+
+                mission = result.get("mission") or {}
+                with db_connection() as conn_xp:
+                    _t031_xp_service.award_xp(
+                        conn_xp,
+                        account_id,
+                        _t031_xp_service.KIND_MISSION_COMPLETE,
+                        payload={
+                            "mission_id": mission.get("id"),
+                            "slot": mission.get("slot"),
+                            "kind": mission.get("kind"),
+                            "skill": mission.get("skill"),
+                        },
+                    )
+            except Exception as xp_error:  # noqa: BLE001
+                log_event(
+                    "warning",
+                    "xp_award_failed_mission",
+                    error=type(xp_error).__name__,
+                )
         json_response(handler, _T031_HTTPStatus.OK, result)
     except PermissionError as error:
         json_response(
@@ -7149,6 +7214,85 @@ AppHandler.do_POST = _t031_patched_do_post  # type: ignore[assignment]
 AppHandler._t031_installed = True  # type: ignore[attr-defined]
 # ============================================================================
 # end T-031 daily mission route hook
+# ============================================================================
+
+
+# ============================================================================
+# T-034 — XP + streak route hook installer
+# ============================================================================
+# Wires the single XP summary endpoint onto AppHandler:
+#   GET  /api/xp/summary  -> {total_xp, current_streak, longest_streak,
+#                            recent_log}
+#
+# The do_GET wrapper is installed BEFORE the T-036 SPA static handler so
+# T-036 remains the outermost ``do_GET`` wrapper.
+#
+# The hook is inlined here (rather than imported via
+# :mod:`server_app.routes.xp`) for the same reason as T-031: at import
+# time the ``server_app.routes`` package eagerly pulls in modules that
+# reference symbols defined later in this file. The :mod:`routes.xp`
+# module remains the canonical re-export point used by the modularization
+# audit and by external imports.
+# ----------------------------------------------------------------------------
+
+from server_app.services import xp as _t034_xp_service  # noqa: E402
+
+_T034_SUMMARY_PATH = "/api/xp/summary"
+
+
+def _t034_account_id(session: dict) -> str:
+    return (session.get("account") or {}).get("id") or ""
+
+
+def _t034_handle_summary(handler: "AppHandler") -> None:
+    """``GET /api/xp/summary`` — return XP totals + streak + recent log."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t034_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        with db_connection() as conn:
+            payload = _t034_xp_service.get_summary(conn, account_id)
+        json_response(handler, HTTPStatus.OK, payload)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001
+        log_event(
+            "error",
+            "xp_summary_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "xp_unavailable"},
+        )
+
+
+_T034_ORIGINAL_DO_GET = AppHandler.do_GET
+
+
+def _t034_patched_do_get(self: "AppHandler") -> None:
+    raw = getattr(self, "path", "") or ""
+    path = urllib.parse.urlparse(raw).path or ""
+    if path == _T034_SUMMARY_PATH or path.rstrip("/") == _T034_SUMMARY_PATH:
+        _t034_handle_summary(self)
+        return
+    _T034_ORIGINAL_DO_GET(self)
+
+
+AppHandler.do_GET = _t034_patched_do_get  # type: ignore[assignment]
+AppHandler._t034_installed = True  # type: ignore[attr-defined]
+# ============================================================================
+# end T-034 XP + streak route hook
 # ============================================================================
 
 
