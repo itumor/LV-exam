@@ -2,12 +2,165 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/v2/icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>lvcodex v2 — Latvian A2 Exam Studio</title>
+    <!-- T-061 PWA wiring -->
+    <link rel="manifest" href="/v2/manifest.webmanifest" />
+    <meta name="theme-color" content="#146b63" />
+    <meta name="description" content="Vue 3 Latvian A2 exam workspace — installable, works offline." />
+    <!-- iOS PWA meta tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="lvcodex v2" />
+    <link rel="apple-touch-icon" href="/v2/icon.svg" />
   </head>
   <body>
     <div id="app"></div>
+
+    <!-- T-061 install prompt UI -->
+    <div
+      id="pwa-install-banner"
+      class="pwa-install-banner"
+      role="dialog"
+      aria-live="polite"
+      aria-label="Install the lvcodex app"
+      hidden
+    >
+      <div class="pwa-install-banner__text">
+        <strong>Install lvcodex</strong>
+        <span>Works offline — no internet needed once installed.</span>
+      </div>
+      <div class="pwa-install-banner__actions">
+        <button id="pwa-install-accept" type="button">Install</button>
+        <button id="pwa-install-dismiss" type="button">Not now</button>
+      </div>
+    </div>
+    <style>
+      .pwa-install-banner {
+        position: fixed;
+        left: 1rem;
+        right: 1rem;
+        bottom: 1rem;
+        z-index: 1080;
+        background: #146b63;
+        color: #fffdf8;
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        justify-content: space-between;
+        font-family: system-ui, sans-serif;
+      }
+      .pwa-install-banner[hidden] { display: none !important; }
+      .pwa-install-banner__text { display: flex; flex-direction: column; gap: 0.15rem; }
+      .pwa-install-banner__text strong { font-size: 0.95rem; }
+      .pwa-install-banner__text span { font-size: 0.85rem; opacity: 0.9; }
+      .pwa-install-banner__actions { display: flex; gap: 0.5rem; }
+      .pwa-install-banner button {
+        background: #fffdf8;
+        color: #146b63;
+        border: none;
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .pwa-install-banner button#pwa-install-dismiss {
+        background: transparent;
+        color: #fffdf8;
+        border: 1px solid rgba(255, 253, 248, 0.6);
+      }
+      @media (max-width: 480px) {
+        .pwa-install-banner { flex-direction: column; align-items: stretch; }
+        .pwa-install-banner__actions { justify-content: flex-end; }
+      }
+    </style>
+    <script>
+      // T-061 — Service worker registration (deferred to window.load).
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker
+            .register("/v2/sw.js", { scope: "/v2/" })
+            .catch(function (err) {
+              if (window.console && console.warn) {
+                console.warn("[pwa] v2 sw registration failed", err);
+              }
+            });
+        });
+      }
+
+      // T-061 — Install prompt UI.
+      (function installPrompt() {
+        var banner = document.getElementById("pwa-install-banner");
+        var accept = document.getElementById("pwa-install-accept");
+        var dismiss = document.getElementById("pwa-install-dismiss");
+        if (!banner || !accept || !dismiss) return;
+        var deferred = null;
+        var DISMISS_KEY = "pwa_install_dismissed_at_v2";
+        var COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+
+        function recentlyDismissed() {
+          try {
+            var raw = localStorage.getItem(DISMISS_KEY);
+            if (!raw) return false;
+            var when = parseInt(raw, 10);
+            return !isNaN(when) && Date.now() - when < COOLDOWN_MS;
+          } catch (e) {
+            return false;
+          }
+        }
+
+        window.addEventListener("beforeinstallprompt", function (event) {
+          event.preventDefault();
+          deferred = event;
+          if (!recentlyDismissed()) banner.hidden = false;
+        });
+
+        accept.addEventListener("click", function () {
+          if (!deferred) {
+            banner.hidden = true;
+            return;
+          }
+          deferred.prompt();
+          deferred.userChoice.finally(function () {
+            deferred = null;
+            banner.hidden = true;
+          });
+        });
+
+        dismiss.addEventListener("click", function () {
+          try {
+            localStorage.setItem(DISMISS_KEY, String(Date.now()));
+          } catch (e) {
+            /* ignore */
+          }
+          banner.hidden = true;
+        });
+
+        var ua = navigator.userAgent || "";
+        var isIos = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+        var isStandalone =
+          window.matchMedia &&
+          window.matchMedia("(display-mode: standalone)").matches;
+        var isIosStandalone = window.navigator.standalone === true;
+        if (isIos && !isStandalone && !isIosStandalone && !recentlyDismissed()) {
+          var hint = banner.querySelector(".pwa-install-banner__text span");
+          if (hint) {
+            hint.textContent =
+              'On iPhone: tap Share ↑ then "Add to Home Screen" to install.';
+          }
+          accept.textContent = "Got it";
+          banner.hidden = false;
+        }
+        window.addEventListener("appinstalled", function () {
+          banner.hidden = true;
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

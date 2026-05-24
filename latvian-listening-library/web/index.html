@@ -2,9 +2,17 @@
 <html lang="lv">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta http-equiv="Cache-Control" content="public, max-age=3600, s-maxage=3600" />
     <title>Latvian Listening Library</title>
+    <!-- T-061 PWA wiring -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#082f49" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Klausīšanās" />
+    <link rel="apple-touch-icon" href="icon.svg" />
     <link href="bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -653,5 +661,23 @@
       </nav>
       <p style="margin:.5rem 0 0;">© Latvian Listening Library.</p>
     </footer>
+    <script>
+      // T-061 — Register the PWA service worker so the listening
+      // library is installable + the last 50 audio clips are cached
+      // for offline playback (see /latvian-listening-library/web/sw.js).
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker
+            .register("/latvian-listening-library/web/sw.js", {
+              scope: "/latvian-listening-library/",
+            })
+            .catch(function (err) {
+              if (window.console && console.warn) {
+                console.warn("[pwa] listening sw registration failed", err);
+              }
+            });
+        });
+      }
+    </script>
   </body>
 </html>

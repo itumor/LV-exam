@@ -95,7 +95,19 @@ PRIVATE_STATIC_EXTENSIONS = {
     ".yaml",
     ".yml",
 }
-PUBLIC_APP_EXTENSIONS = {".css", ".html", ".js", ".md", ".png", ".svg", ".ico", ".txt"}
+PUBLIC_APP_EXTENSIONS = {
+    ".css",
+    ".html",
+    ".js",
+    ".md",
+    ".png",
+    ".svg",
+    ".ico",
+    ".txt",
+    # T-061 PWA — manifest + dynamic JSON shortcuts:
+    ".json",
+    ".webmanifest",
+}
 PUBLIC_ATTACHMENT_EXTENSIONS = {
     ".mp3",
     ".ogg",
