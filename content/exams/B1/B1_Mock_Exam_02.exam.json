@@ -1,0 +1,636 @@
+{
+  "schema_version": "1.0",
+  "version": "2026.05.0",
+  "exam_id": "b1-02",
+  "slug": "b1-02",
+  "title": "B1 Mock Exam 02 — Veselība un dzīvesveids",
+  "level": "B1",
+  "language": "lv",
+  "status": "draft",
+  "content_version": 1,
+  "is_immutable": false,
+  "source": {
+    "markdown_path": "content/exams/B1/B1_Mock_Exam_02.md",
+    "attachment_root": "content/exams/B1/audio"
+  },
+  "workflow": {
+    "status_values": ["draft", "review", "published", "archived"],
+    "immutable_statuses": ["published", "archived"],
+    "current_status": "draft"
+  },
+  "scoring": {
+    "total_points": 60,
+    "skill_points": {
+      "listening": 15,
+      "reading": 15,
+      "writing": 15,
+      "speaking": 15
+    },
+    "minimum_per_skill": 12,
+    "task_point_allocation": {
+      "listening": {"task1": 6, "task2": 5, "task3": 4},
+      "reading":   {"task1": 6, "task2": 5, "task3": 4},
+      "writing":   {"task1": 5, "task2": 4, "task3": 6},
+      "speaking":  {"task1": 5, "task2": 5, "task3": 5}
+    },
+    "pass_rule": {
+      "minimum_per_skill": 12,
+      "total_points": 60,
+      "description": "B1 pass rule: at least 12/15 in every skill."
+    }
+  },
+  "assets": {
+    "audio": [
+      "content/exams/B1/audio/b1_02_klausisanas_1.mp3",
+      "content/exams/B1/audio/b1_02_klausisanas_2.mp3",
+      "content/exams/B1/audio/b1_02_klausisanas_3.mp3",
+      "content/exams/B1/audio/b1_02_runasana_1.mp3"
+    ]
+  },
+  "sections": [
+    {
+      "skill": "listening",
+      "title": "Klausīšanās prasmes pārbaude",
+      "points_max": 15,
+      "minutes": 30,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. uzdevums — Intervija ar dietologu",
+          "type": "listening_multiple_choice",
+          "scoring_mode": "objective",
+          "points_max": 6,
+          "instruction": "Klausieties interviju ar dietologu Lieni Kalniņu! Saruna skanēs divas reizes. Atzīmējiet pareizo atbildi.",
+          "audio_assets": [
+            {"path": "content/exams/B1/audio/b1_02_klausisanas_1.mp3", "label": "Intervija ar dietologu", "kind": "audio"}
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "multiple_choice",
+              "prompt": "Cik ūdens dienā Liene iesaka dzert pieaugušajam?",
+              "options": [
+                {"label": "a", "text": "Apmēram 1 litru"},
+                {"label": "b", "text": "Apmēram 2 litrus"},
+                {"label": "c", "text": "Apmēram 3 litrus"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 2,
+              "kind": "multiple_choice",
+              "prompt": "Kuru maltīti pēc dietologa domām vajadzētu ēst visgaišāk?",
+              "options": [
+                {"label": "a", "text": "Brokastis"},
+                {"label": "b", "text": "Pusdienas"},
+                {"label": "c", "text": "Vakariņas"}
+              ],
+              "correct_answers": ["a"]
+            },
+            {
+              "number": 3,
+              "kind": "multiple_choice",
+              "prompt": "Cik reizes nedēļā vēlams ēst zivis?",
+              "options": [
+                {"label": "a", "text": "Vienu reizi"},
+                {"label": "b", "text": "Divas reizes"},
+                {"label": "c", "text": "Katru dienu"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 4,
+              "kind": "multiple_choice",
+              "prompt": "Kāpēc Liene neiesaka stingras diētas?",
+              "options": [
+                {"label": "a", "text": "Tās ir pārāk dārgas"},
+                {"label": "b", "text": "Tās bieži vien neder ilgtermiņā"},
+                {"label": "c", "text": "Tās ir grūti gatavojamas"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 5,
+              "kind": "multiple_choice",
+              "prompt": "Kuru fizisko aktivitāti Liene īpaši uzteic?",
+              "options": [
+                {"label": "a", "text": "Ikdienas pastaigas"},
+                {"label": "b", "text": "Intensīvu skriešanu"},
+                {"label": "c", "text": "Spēka treniņus zālē"}
+              ],
+              "correct_answers": ["a"]
+            },
+            {
+              "number": 6,
+              "kind": "multiple_choice",
+              "prompt": "Cik daudz miega Liene iesaka pieaugušajam?",
+              "options": [
+                {"label": "a", "text": "6 stundas"},
+                {"label": "b", "text": "7–8 stundas"},
+                {"label": "c", "text": "10 stundas"}
+              ],
+              "correct_answers": ["b"]
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2. uzdevums — Apgalvojumu pārbaude",
+          "type": "listening_true_false",
+          "scoring_mode": "objective",
+          "points_max": 5,
+          "instruction": "Klausieties stāstu par Annu un viņas dzīvesveida maiņu! Atzīmējiet, vai apgalvojums ir patiess (Jā) vai aplams (Nē).",
+          "audio_assets": [
+            {"path": "content/exams/B1/audio/b1_02_klausisanas_2.mp3", "label": "Stāsts par Annu", "kind": "audio"}
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "true_false",
+              "prompt": "Anna kādreiz strādāja birojā 12 stundas dienā.",
+              "options": [
+                {"label": "ja", "text": "Jā"},
+                {"label": "ne", "text": "Nē"}
+              ],
+              "correct_answers": ["ja"]
+            },
+            {
+              "number": 2,
+              "kind": "true_false",
+              "prompt": "Anna ārstam sūdzējās par galvassāpēm un nogurumu.",
+              "options": [
+                {"label": "ja", "text": "Jā"},
+                {"label": "ne", "text": "Nē"}
+              ],
+              "correct_answers": ["ja"]
+            },
+            {
+              "number": 3,
+              "kind": "true_false",
+              "prompt": "Pēc ārsta padoma Anna sāka smēķēt mazāk.",
+              "options": [
+                {"label": "ja", "text": "Jā"},
+                {"label": "ne", "text": "Nē"}
+              ],
+              "correct_answers": ["ne"]
+            },
+            {
+              "number": 4,
+              "kind": "true_false",
+              "prompt": "Tagad Anna katru rītu staigā svaigā gaisā.",
+              "options": [
+                {"label": "ja", "text": "Jā"},
+                {"label": "ne", "text": "Nē"}
+              ],
+              "correct_answers": ["ja"]
+            },
+            {
+              "number": 5,
+              "kind": "true_false",
+              "prompt": "Anna pamet darbu un kļūst par sportistu.",
+              "options": [
+                {"label": "ja", "text": "Jā"},
+                {"label": "ne", "text": "Nē"}
+              ],
+              "correct_answers": ["ne"]
+            }
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3. uzdevums — Ziņas par sportu",
+          "type": "listening_gap_fill",
+          "scoring_mode": "objective",
+          "points_max": 4,
+          "instruction": "Klausieties radio ziņas par sportu un aizpildiet trūkstošo informāciju!",
+          "audio_assets": [
+            {"path": "content/exams/B1/audio/b1_02_klausisanas_3.mp3", "label": "Radio ziņas", "kind": "audio"}
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "gap_fill",
+              "prompt": "Latvijas hokeja izlase spēli pret Somiju aizvadīja _____ datumā.",
+              "correct_answers": ["8. maijā"]
+            },
+            {
+              "number": 2,
+              "kind": "gap_fill",
+              "prompt": "Spēles galarezultāts bija _____.",
+              "correct_answers": ["3:2"]
+            },
+            {
+              "number": 3,
+              "kind": "gap_fill",
+              "prompt": "Nākamā spēle notiks _____ pilsētā.",
+              "correct_answers": ["Helsinkos"]
+            },
+            {
+              "number": 4,
+              "kind": "gap_fill",
+              "prompt": "Galvenais Latvijas izlases treneris ir _____.",
+              "correct_answers": ["Hārtlijs"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "reading",
+      "title": "Lasītprasmes pārbaude",
+      "points_max": 15,
+      "minutes": 40,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. uzdevums — Raksts par garīgo veselību",
+          "type": "reading_text_choice",
+          "scoring_mode": "objective",
+          "points_max": 6,
+          "instruction": "Izlasiet rakstu par garīgo veselību un atbildiet uz jautājumiem.",
+          "prompt": "Pēdējos gados Latvijā arvien biežāk runā par garīgo veselību. Pētījumi rāda, ka aptuveni katrs piektais pieaugušais kādreiz mūžā piedzīvo depresiju vai trauksmes traucējumus. Eksperti uzsver, ka garīgā veselība ir tikpat svarīga kā fiziskā, taču daudzi cilvēki kautrējas meklēt palīdzību. Galvenie iemesli ir sabiedrības aizspriedumi un bailes, ka kolēģi vai ģimene to nesapratīs. Tomēr arvien vairāk darba devēju Latvijā piedāvā darbiniekiem psihologa konsultācijas un elastīgu darba grafiku stresa mazināšanai. Speciālisti iesaka regulāri kustēties, gulēt vismaz septiņas stundas un veltīt laiku hobijiem. Ja problēmas ir nopietnas, ir svarīgi nekautrēties un sazināties ar ģimenes ārstu vai zvanīt uz emocionālā atbalsta tālruni 116123.",
+          "questions": [
+            {
+              "number": 1,
+              "kind": "reading_text_choice",
+              "prompt": "Cik pieaugušo Latvijā piedzīvo depresiju vai trauksmes traucējumus?",
+              "options": [
+                {"label": "a", "text": "Katrs desmitais"},
+                {"label": "b", "text": "Katrs piektais"},
+                {"label": "c", "text": "Katrs trešais"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 2,
+              "kind": "reading_text_choice",
+              "prompt": "Kāpēc cilvēki nemeklē palīdzību?",
+              "options": [
+                {"label": "a", "text": "Palīdzība ir dārga"},
+                {"label": "b", "text": "Bailes no aizspriedumiem"},
+                {"label": "c", "text": "Nav speciālistu"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 3,
+              "kind": "reading_text_choice",
+              "prompt": "Ko piedāvā arvien vairāk darba devēju?",
+              "options": [
+                {"label": "a", "text": "Lielāku algu"},
+                {"label": "b", "text": "Apmaksātu atvaļinājumu"},
+                {"label": "c", "text": "Psihologa konsultācijas"}
+              ],
+              "correct_answers": ["c"]
+            },
+            {
+              "number": 4,
+              "kind": "reading_text_choice",
+              "prompt": "Cik daudz miega iesaka speciālisti?",
+              "options": [
+                {"label": "a", "text": "Vismaz 5 stundas"},
+                {"label": "b", "text": "Vismaz 7 stundas"},
+                {"label": "c", "text": "Vismaz 10 stundas"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 5,
+              "kind": "reading_text_choice",
+              "prompt": "Pie kā vajadzētu vērsties nopietnu problēmu gadījumā?",
+              "options": [
+                {"label": "a", "text": "Pie ģimenes ārsta vai uz emocionālā atbalsta tālruni"},
+                {"label": "b", "text": "Pie skolotāja"},
+                {"label": "c", "text": "Pie kaimiņa"}
+              ],
+              "correct_answers": ["a"]
+            },
+            {
+              "number": 6,
+              "kind": "reading_text_choice",
+              "prompt": "Kāds ir emocionālā atbalsta tālruņa numurs?",
+              "options": [
+                {"label": "a", "text": "112"},
+                {"label": "b", "text": "116123"},
+                {"label": "c", "text": "67222222"}
+              ],
+              "correct_answers": ["b"]
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2. uzdevums — Sludinājumu sapārošana",
+          "type": "reading_matching",
+          "scoring_mode": "objective",
+          "points_max": 5,
+          "instruction": "Sapāro situācijas ar piemērotākajiem sludinājumiem!",
+          "questions": [
+            {
+              "number": 1,
+              "kind": "matching",
+              "prompt": "Linda vēlas zaudēt svaru pēc dzemdībām un meklē grupu nodarbības.",
+              "options": [
+                {"label": "A", "text": "Joga jaunajām māmiņām — pirmdienās un trešdienās plkst. 11.00."},
+                {"label": "B", "text": "Stipri šokolādes konditori — visi saldumi 30% lētāk."},
+                {"label": "C", "text": "Bērnu zobārstniecība — bezmaksas pirmā vizīte."},
+                {"label": "D", "text": "Pilatas individuāli vai grupās ar pieredzējušu treneri."},
+                {"label": "E", "text": "Sirds ārstu klīnika — diennakts konsultācijas."}
+              ],
+              "correct_answers": ["A"]
+            },
+            {
+              "number": 2,
+              "kind": "matching",
+              "prompt": "Mārim sirdsklauves un viņš vēlas profesionālu pārbaudi naktī, jo dienā strādā.",
+              "options": [
+                {"label": "A", "text": "Joga jaunajām māmiņām — pirmdienās un trešdienās plkst. 11.00."},
+                {"label": "B", "text": "Stipri šokolādes konditori — visi saldumi 30% lētāk."},
+                {"label": "C", "text": "Bērnu zobārstniecība — bezmaksas pirmā vizīte."},
+                {"label": "D", "text": "Pilatas individuāli vai grupās ar pieredzējušu treneri."},
+                {"label": "E", "text": "Sirds ārstu klīnika — diennakts konsultācijas."}
+              ],
+              "correct_answers": ["E"]
+            },
+            {
+              "number": 3,
+              "kind": "matching",
+              "prompt": "Inese meklē ārstu sava trīs gadus vecā dēla pirmajai zobu pārbaudei.",
+              "options": [
+                {"label": "A", "text": "Joga jaunajām māmiņām — pirmdienās un trešdienās plkst. 11.00."},
+                {"label": "B", "text": "Stipri šokolādes konditori — visi saldumi 30% lētāk."},
+                {"label": "C", "text": "Bērnu zobārstniecība — bezmaksas pirmā vizīte."},
+                {"label": "D", "text": "Pilatas individuāli vai grupās ar pieredzējušu treneri."},
+                {"label": "E", "text": "Sirds ārstu klīnika — diennakts konsultācijas."}
+              ],
+              "correct_answers": ["C"]
+            },
+            {
+              "number": 4,
+              "kind": "matching",
+              "prompt": "Kristīne vēlas individuālas nodarbības savai mugurai pēc traumas.",
+              "options": [
+                {"label": "A", "text": "Joga jaunajām māmiņām — pirmdienās un trešdienās plkst. 11.00."},
+                {"label": "B", "text": "Stipri šokolādes konditori — visi saldumi 30% lētāk."},
+                {"label": "C", "text": "Bērnu zobārstniecība — bezmaksas pirmā vizīte."},
+                {"label": "D", "text": "Pilatas individuāli vai grupās ar pieredzējušu treneri."},
+                {"label": "E", "text": "Sirds ārstu klīnika — diennakts konsultācijas."}
+              ],
+              "correct_answers": ["D"]
+            },
+            {
+              "number": 5,
+              "kind": "matching",
+              "prompt": "Jurim ir vājība pret saldumiem un viņš meklē atlaides konditorejas izstrādājumiem.",
+              "options": [
+                {"label": "A", "text": "Joga jaunajām māmiņām — pirmdienās un trešdienās plkst. 11.00."},
+                {"label": "B", "text": "Stipri šokolādes konditori — visi saldumi 30% lētāk."},
+                {"label": "C", "text": "Bērnu zobārstniecība — bezmaksas pirmā vizīte."},
+                {"label": "D", "text": "Pilatas individuāli vai grupās ar pieredzējušu treneri."},
+                {"label": "E", "text": "Sirds ārstu klīnika — diennakts konsultācijas."}
+              ],
+              "correct_answers": ["B"]
+            }
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3. uzdevums — Locījumu izvēle tekstā",
+          "type": "reading_gap_choice",
+          "scoring_mode": "objective",
+          "points_max": 4,
+          "instruction": "Izlasiet tekstu un izvēlieties pareizo vārdu katrā tukšumā!",
+          "prompt": "Pagājušajā sestdienā mēs ar draugiem _____ (1) maratonā Rīgā. Pēc trīs mēnešu treniņiem es jutos _____ (2) un priecīga. Distance bija desmit kilometru, un es _____ (3) to apmēram divās stundās. Pēc finiša mēs visi _____ (4) ūdeni un ēdām banānus.",
+          "questions": [
+            {
+              "number": 1,
+              "kind": "reading_text_choice",
+              "prompt": "Vārds (1)",
+              "options": [
+                {"label": "a", "text": "skrējām"},
+                {"label": "b", "text": "skrien"},
+                {"label": "c", "text": "skriesim"}
+              ],
+              "correct_answers": ["a"]
+            },
+            {
+              "number": 2,
+              "kind": "reading_text_choice",
+              "prompt": "Vārds (2)",
+              "options": [
+                {"label": "a", "text": "spēcīga"},
+                {"label": "b", "text": "spēcīgs"},
+                {"label": "c", "text": "spēcīgi"}
+              ],
+              "correct_answers": ["a"]
+            },
+            {
+              "number": 3,
+              "kind": "reading_text_choice",
+              "prompt": "Vārds (3)",
+              "options": [
+                {"label": "a", "text": "veicu"},
+                {"label": "b", "text": "veiks"},
+                {"label": "c", "text": "veicis"}
+              ],
+              "correct_answers": ["a"]
+            },
+            {
+              "number": 4,
+              "kind": "reading_text_choice",
+              "prompt": "Vārds (4)",
+              "options": [
+                {"label": "a", "text": "dzērām"},
+                {"label": "b", "text": "dzeram"},
+                {"label": "c", "text": "dzersim"}
+              ],
+              "correct_answers": ["a"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "writing",
+      "title": "Rakstītprasmes pārbaude",
+      "points_max": 15,
+      "minutes": 45,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. uzdevums — Personiska vēstule",
+          "type": "writing_informal_letter",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "Uzrakstiet personisku vēstuli (apmēram 80–100 vārdu) draugam vai radiniekam, kuram nesen bijusi slimība. Apjautājieties par viņa veselību, dalieties ar savu pieredzi un piedāvājiet palīdzību.",
+          "requirements": [
+            "draudzīga uzruna un noslēgums",
+            "vismaz divi jautājumi par veselību",
+            "konkrēts palīdzības piedāvājums",
+            "80–100 vārdu apjoms"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "Uzrakstiet personisku vēstuli atbilstoši instrukcijai.",
+              "minimum_words": 80
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2. uzdevums — Vārdu locīšana",
+          "type": "writing_inflection",
+          "scoring_mode": "objective",
+          "points_max": 4,
+          "instruction": "Ielieciet iekavās doto vārdu pareizajā formā!",
+          "questions": [
+            {
+              "number": 1,
+              "kind": "inflection",
+              "prompt": "Es regulāri eju pie _____ (zobārsts) divas reizes gadā.",
+              "lemma": "zobārsts",
+              "correct_answers": ["zobārsta"]
+            },
+            {
+              "number": 2,
+              "kind": "inflection",
+              "prompt": "Manai māsai jau sen sāp _____ (galva).",
+              "lemma": "galva",
+              "correct_answers": ["galva"]
+            },
+            {
+              "number": 3,
+              "kind": "inflection",
+              "prompt": "Vakar mēs ar bērniem _____ (peldēties) ezerā.",
+              "lemma": "peldēties",
+              "correct_answers": ["peldējāmies"]
+            },
+            {
+              "number": 4,
+              "kind": "inflection",
+              "prompt": "Ja tu _____ (gribēt), es palīdzēšu sagatavot vakariņas.",
+              "lemma": "gribēt",
+              "correct_answers": ["gribētu"]
+            }
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3. uzdevums — Argumentēts viedoklis",
+          "type": "writing_opinion_essay",
+          "scoring_mode": "subjective",
+          "points_max": 6,
+          "instruction": "Uzrakstiet īsu argumentētu rakstu (apmēram 120–150 vārdu) par tēmu: 'Vai sociālie tīkli kaitē jauniešu veselībai?'. Sniedziet vismaz divus argumentus par un vienu pret, izmantojiet konkrētus piemērus un saistītājus.",
+          "requirements": [
+            "skaidrs personiskais viedoklis",
+            "vismaz divi argumenti par un viens pret",
+            "120–150 vārdu apjoms",
+            "konkrēti piemēri"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "Uzrakstiet argumentētu rakstu atbilstoši instrukcijai.",
+              "minimum_words": 120
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "speaking",
+      "title": "Runātprasmes pārbaude",
+      "points_max": 15,
+      "minutes": 20,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1. uzdevums — Monologs",
+          "type": "speaking_monologue",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "Pastāstiet par savu dzīvesveidu un veselības paradumiem. Runājiet aptuveni 2 minūtes. Pieskariet šādiem aspektiem: ēšanas paradumi, fiziskās aktivitātes, miegs, stresa pārvarēšana.",
+          "audio_assets": [
+            {"path": "content/exams/B1/audio/b1_02_runasana_1.mp3", "label": "Eksaminētāja jautājumi", "kind": "audio"}
+          ],
+          "requirements": [
+            "vismaz 2 minūtes runas",
+            "skaidra stāstījuma struktūra",
+            "konkrēti piemēri no dzīves",
+            "vismaz 5 dažādi laika izteicieni"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "Sniedziet monologu par savu dzīvesveidu."
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2. uzdevums — Lomu spēle: vizīte pie ārsta",
+          "type": "speaking_dialogue",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "Iedomājieties, ka esat vizītē pie ārsta. Eksaminētājs spēlē ārsta lomu. Aprakstiet savas sūdzības, atbildiet uz jautājumiem un uzdodiet vismaz 2 jautājumus par ārstēšanu.",
+          "requirements": [
+            "skaidri aprakstītas sūdzības",
+            "vismaz 2 pretjautājumi",
+            "pieklājīga valoda",
+            "atbildes pilnos teikumos"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "Piedalieties lomu spēlē 'Vizīte pie ārsta'."
+            }
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3. uzdevums — Viedokļa izklāsts",
+          "type": "speaking_opinion",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "Izsakiet un argumentējiet savu viedokli: 'Vai valstij ir jāmaksā par cilvēku slikto dzīvesveidu (smēķēšana, alkohols, sliktas ēšanas paradumi)?' Sniedziet vismaz divus argumentus par un vienu pret.",
+          "requirements": [
+            "skaidrs viedoklis",
+            "vismaz 2 argumenti par",
+            "vismaz 1 arguments pret",
+            "noslēguma secinājums"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "Izsakiet un argumentējiet savu viedokli par doto apgalvojumu."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "answer_key": {
+    "listening": {
+      "task1": ["b", "a", "b", "b", "a", "b"],
+      "task2": ["ja", "ja", "ne", "ja", "ne"],
+      "task3": ["8. maijā", "3:2", "Helsinkos", "Hārtlijs"]
+    },
+    "reading": {
+      "task1": ["b", "b", "c", "b", "a", "b"],
+      "task2": ["A", "E", "C", "D", "B"],
+      "task3": ["a", "a", "a", "a"]
+    },
+    "writing": {
+      "task2": ["zobārsta", "galva", "peldējāmies", "gribētu"]
+    }
+  },
+  "references": {
+    "listening_transcripts_path": "content/exams/B1/B1_Mock_Exam_02_transcripts.md"
+  }
+}

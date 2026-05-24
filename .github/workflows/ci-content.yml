@@ -18,8 +18,12 @@ on:
       - "exam_bank.py"
       - "schemas/exam.schema.json"
       - "scripts/validate_exam_content.py"
+      - "scripts/build_b1_markdown.py"
       - "**/*.exam.json"
       - "codex/A2_Mock_Exam_*.md"
+      - "content/exams/**"
+      - "tests/server/test_b1_content_pack.py"
+      - "tests/server/test_exam_content_validation.py"
       - ".github/workflows/ci-content.yml"
       - "requirements.txt"
   push:
@@ -28,8 +32,10 @@ on:
       - "exam_bank.py"
       - "schemas/exam.schema.json"
       - "scripts/validate_exam_content.py"
+      - "scripts/build_b1_markdown.py"
       - "**/*.exam.json"
       - "codex/A2_Mock_Exam_*.md"
+      - "content/exams/**"
 
 concurrency:
   group: ci-content-${{ github.workflow }}-${{ github.ref }}
@@ -67,3 +73,9 @@ jobs:
 
       - name: Run content-validation unit tests
         run: python -m unittest tests.server.test_exam_content_validation -v
+
+      - name: Run B1 content-pack unit tests (T-060)
+        run: python -m unittest tests.server.test_b1_content_pack -v
+
+      - name: Verify generated B1 student markdown is in sync
+        run: python scripts/build_b1_markdown.py --check
