@@ -1,0 +1,24 @@
+# T-072 — reference-only PoC. Not applied to any cluster.
+#
+# 10 GiB ReadWriteOnce claim that mirrors the Fly Volume mounted at
+# /app/data. Only used as long as we still write SQLite + uploads to
+# local disk. After T-021 finishes (read-from=postgres), this PVC
+# shrinks to a small `/app/data/uploads` claim (and would likely move
+# to an S3-backed CSI driver instead).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lvcodex-data
+  namespace: lvcodex
+  labels:
+    app.kubernetes.io/name: lvcodex
+    app.kubernetes.io/component: web
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  # Leave storageClassName unset so the cluster default applies (EBS gp3,
+  # PD-balanced, DO block storage, etc.). When we actually deploy this we
+  # pick the platform-specific class.

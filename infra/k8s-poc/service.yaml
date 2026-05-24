@@ -1,0 +1,19 @@
+# T-072 — reference-only PoC. Not applied to any cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: lvcodex-web
+  namespace: lvcodex
+  labels:
+    app.kubernetes.io/name: lvcodex
+    app.kubernetes.io/component: web
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: lvcodex
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

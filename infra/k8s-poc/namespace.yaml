@@ -1,0 +1,17 @@
+# T-072 — reference-only PoC. Not applied to any cluster.
+#
+# Namespace for the lvcodex application. PodSecurityStandards labels
+# pin the namespace to the `restricted` profile to match what a real
+# enterprise customer cluster would expect.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lvcodex
+  labels:
+    app.kubernetes.io/name: lvcodex
+    app.kubernetes.io/part-of: lvcodex
+    # PodSecurity admission (k8s 1.25+):
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
