@@ -24,6 +24,8 @@
   var LOGIN_PATH = "/latvian-a2-exam-app/#auth";
   var LOGOUT_API = "/api/auth/logout";
   var SESSION_API = "/api/session";
+  // T-034 — XP + streak summary endpoint
+  var XP_API = "/api/xp/summary";
   // Surfaces are derived from the URL prefix so this script can be
   // dropped into either app without configuration.
   var ON_LISTENING = window.location.pathname.indexOf("/latvian-listening-library/") === 0;
@@ -95,6 +97,35 @@
     var dot = document.createElement("span");
     dot.textContent = "·";
     dot.style.opacity = "0.55";
+
+    // T-034 — XP badge + streak flame. Rendered as empty containers
+    // first so the header layout is stable; populated asynchronously by
+    // fetchXpSummary(). The two badges are always present in the DOM
+    // when authenticated so tests can assert on them by testid.
+    var xpBadge = document.createElement("span");
+    xpBadge.dataset.testid = "unified-header-xp";
+    xpBadge.setAttribute("aria-label", "Experience points");
+    xpBadge.title = "Experience points";
+    xpBadge.style.display = "inline-flex";
+    xpBadge.style.alignItems = "center";
+    xpBadge.style.gap = "3px";
+    xpBadge.style.fontWeight = "600";
+    xpBadge.textContent = "✦ 0 XP";
+
+    var streakBadge = document.createElement("span");
+    streakBadge.dataset.testid = "unified-header-streak";
+    streakBadge.setAttribute("aria-label", "Daily streak");
+    streakBadge.title = "Daily streak";
+    streakBadge.style.display = "inline-flex";
+    streakBadge.style.alignItems = "center";
+    streakBadge.style.gap = "3px";
+    streakBadge.style.fontWeight = "600";
+    streakBadge.textContent = "🔥 0";
+
+    var dotXp = document.createElement("span");
+    dotXp.textContent = "·";
+    dotXp.style.opacity = "0.55";
+
     var signout = document.createElement("button");
     signout.type = "button";
     signout.textContent = "Sign out";
@@ -111,9 +142,51 @@
     });
     mount.appendChild(greeting);
     mount.appendChild(dot);
+    mount.appendChild(xpBadge);
+    mount.appendChild(streakBadge);
+    mount.appendChild(dotXp);
     mount.appendChild(signout);
     mount.dataset.state = "authenticated";
     mount.dataset.accountId = account.id || "";
+
+    // Best-effort XP/streak fetch — silent on failure so the header
+    // never breaks because the XP endpoint is unreachable.
+    fetchXpSummary().then(function (summary) {
+      if (!summary) return;
+      renderXp(summary);
+    });
+  }
+
+  function fetchXpSummary() {
+    return fetch(XP_API, { credentials: "same-origin" })
+      .then(function (response) {
+        if (!response || !response.ok) return null;
+        return response.json().catch(function () { return null; });
+      })
+      .catch(function () { return null; });
+  }
+
+  function renderXp(summary) {
+    if (!summary || typeof summary !== "object") return;
+    var totalXp = Number(summary.total_xp || 0) || 0;
+    var currentStreak = Number(summary.current_streak || 0) || 0;
+    var longestStreak = Number(summary.longest_streak || 0) || 0;
+    var xpBadge = document.querySelector('[data-testid="unified-header-xp"]');
+    var streakBadge = document.querySelector('[data-testid="unified-header-streak"]');
+    if (xpBadge) {
+      xpBadge.textContent = "✦ " + totalXp + " XP";
+      xpBadge.dataset.totalXp = String(totalXp);
+    }
+    if (streakBadge) {
+      streakBadge.textContent = "🔥 " + currentStreak;
+      streakBadge.dataset.currentStreak = String(currentStreak);
+      streakBadge.dataset.longestStreak = String(longestStreak);
+      streakBadge.title =
+        "Streak: " + currentStreak + " day(s) — longest " + longestStreak;
+    }
+    if (window.UnifiedHeader) {
+      window.UnifiedHeader.lastXp = summary;
+    }
   }
 
   function handleSignOut(button) {
@@ -151,9 +224,12 @@
   window.UnifiedHeader = {
     refresh: refresh,
     render: render,
+    renderXp: renderXp,
+    fetchXpSummary: fetchXpSummary,
     buildLoginHref: buildLoginHref,
     mountId: MOUNT_ID,
-    lastSession: null
+    lastSession: null,
+    lastXp: null
   };
 
   if (document.readyState === "loading") {
