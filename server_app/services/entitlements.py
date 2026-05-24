@@ -119,6 +119,14 @@ def require_entitlement(
 
     Returns ``True`` on success. Failure raises so callers can use it as
     an assertion. Admin / superadmin sessions bypass the check.
+
+    T-041 extension: an account that holds an active seat in an active
+    organization is treated as paid-tier (equivalent to
+    ``subscription_active=True``). The seat check is consulted *after*
+    the frozen-account guard so a frozen learner cannot circumvent
+    discipline by belonging to an org. It is consulted *before* raising
+    the missing-entitlement error so an institutional learner with no
+    personal Stripe entitlement still passes the gate.
     """
 
     kind = _validate_kind(kind)
@@ -132,6 +140,26 @@ def require_entitlement(
         raise EntitlementError(kind, reason="frozen", state=_safe_state(state))
     if _has_entitlement(state, kind):
         return True
+    # T-041 — institutional seat licensing. Imported lazily to avoid a
+    # circular import at module load (the institutional service imports
+    # ``server_app.core``). The check is read-only and idempotent.
+    try:
+        from server_app.services.institutional import (
+            account_has_active_seat,
+        )
+    except Exception:  # noqa: BLE001 - never crash the gate on import error
+        account_has_active_seat = None  # type: ignore[assignment]
+    if account_has_active_seat is not None:
+        try:
+            if account_has_active_seat(account_id):
+                return True
+        except Exception as error:  # noqa: BLE001 - log + fall through
+            capture_exception(error)
+            log_event(
+                "warning",
+                "institutional_seat_lookup_failed",
+                error=type(error).__name__,
+            )
     raise EntitlementError(kind, reason="missing", state=_safe_state(state))
 
 

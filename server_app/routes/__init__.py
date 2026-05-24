@@ -22,6 +22,7 @@ from . import (  # noqa: F401  (re-exported for the audit list)
     debug,
     exams,
     healthz,
+    institutional,
     legal,
     listening_feed,
     metrics,
@@ -58,6 +59,7 @@ for _module in (
     voice,
     mock_exam,
     xp,
+    institutional,
 ):
     for _method, _pattern in _module.ROUTES:
         ROUTES.append((_method, _pattern, _module.__name__.rsplit(".", 1)[-1]))
@@ -71,6 +73,7 @@ __all__ = [
     "debug",
     "exams",
     "healthz",
+    "institutional",
     "legal",
     "listening_feed",
     "metrics",
