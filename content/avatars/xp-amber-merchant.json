@@ -1,0 +1,9 @@
+{
+  "id": "xp-amber-merchant",
+  "display_name": "Amber Merchant",
+  "description": "4 000 XP. The Daugava-side trader with a polished amber pendant — a relic of dedication.",
+  "art_ref": "/assets/avatars/xp-amber-merchant.svg",
+  "rarity": "epic",
+  "tier": "xp",
+  "unlock": {"kind": "xp", "xp": 4000}
+}

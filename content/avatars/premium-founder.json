@@ -1,0 +1,9 @@
+{
+  "id": "premium-founder",
+  "display_name": "Founder",
+  "description": "Subscriber-only legendary skin. A nod to early supporters of the platform.",
+  "art_ref": "/assets/avatars/premium-founder.svg",
+  "rarity": "legendary",
+  "tier": "premium",
+  "unlock": {"kind": "premium"}
+}

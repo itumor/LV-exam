@@ -6511,3 +6511,88 @@ body[data-flow-screen="candidate"] .workspace {
   .pwa-install-banner { flex-direction: column; align-items: stretch; }
   .pwa-install-banner__actions { justify-content: flex-end; }
 }
+
+/* ---------------------------------------------------------------------------
+ * T-051 — Avatar picker (rendered inside the profile dashboard card).
+ * ------------------------------------------------------------------------ */
+.dashboard-card.avatars-card .dashboard-subtitle {
+  margin: -0.25rem 0 0.75rem;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.9rem;
+}
+.avatars-filter {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+.avatars-filter [aria-pressed="true"] {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+.avatars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+.avatar-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.avatar-card.is-equipped {
+  border-color: rgba(120, 220, 140, 0.7);
+  box-shadow: 0 0 0 1px rgba(120, 220, 140, 0.35);
+}
+.avatar-card.is-locked {
+  opacity: 0.55;
+}
+.avatar-art {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  align-self: center;
+}
+.avatar-art img {
+  max-width: 100%;
+  max-height: 100%;
+}
+.avatar-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.avatar-tier {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.avatar-tier-free   { background: rgba(120, 220, 140, 0.18); }
+.avatar-tier-xp     { background: rgba(110, 170, 240, 0.18); }
+.avatar-tier-premium{ background: rgba(240, 200, 110, 0.22); }
+.avatar-description {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0;
+}
+.avatar-locked-reason {
+  font-size: 0.75rem;
+  color: rgba(255, 200, 120, 0.95);
+}
+.avatar-actions {
+  margin-top: auto;
+}

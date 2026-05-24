@@ -1,0 +1,9 @@
+{
+  "id": "free-neighbour",
+  "display_name": "Neighbour",
+  "description": "A cheerful Rīga resident waving from a balcony. Free starter avatar.",
+  "art_ref": "/assets/avatars/free-neighbour.svg",
+  "rarity": "common",
+  "tier": "free",
+  "unlock": {"kind": "free"}
+}

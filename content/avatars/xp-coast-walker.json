@@ -1,0 +1,9 @@
+{
+  "id": "xp-coast-walker",
+  "display_name": "Coast Walker",
+  "description": "750 XP. A traveller along the Baltic dunes near Jūrmala, pockets full of amber.",
+  "art_ref": "/assets/avatars/xp-coast-walker.svg",
+  "rarity": "uncommon",
+  "tier": "xp",
+  "unlock": {"kind": "xp", "xp": 750}
+}

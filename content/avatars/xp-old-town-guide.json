@@ -1,0 +1,9 @@
+{
+  "id": "xp-old-town-guide",
+  "display_name": "Old Town Guide",
+  "description": "1 000 XP. Tour-guide jacket, umbrella up, ready to lead a walk through Vecrīga.",
+  "art_ref": "/assets/avatars/xp-old-town-guide.svg",
+  "rarity": "rare",
+  "tier": "xp",
+  "unlock": {"kind": "xp", "xp": 1000}
+}

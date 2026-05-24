@@ -1,0 +1,9 @@
+{
+  "id": "free-student",
+  "display_name": "Student",
+  "description": "A focused learner clutching colour-coded flashcards. Available to every account from the start.",
+  "art_ref": "/assets/avatars/free-student.svg",
+  "rarity": "common",
+  "tier": "free",
+  "unlock": {"kind": "free"}
+}

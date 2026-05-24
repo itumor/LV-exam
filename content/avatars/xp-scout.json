@@ -1,0 +1,9 @@
+{
+  "id": "xp-scout",
+  "display_name": "Scout",
+  "description": "First milestone — earned after your fifth mission. The Scout carries a small Latvian flag pin.",
+  "art_ref": "/assets/avatars/xp-scout.svg",
+  "rarity": "common",
+  "tier": "xp",
+  "unlock": {"kind": "xp", "xp": 50}
+}

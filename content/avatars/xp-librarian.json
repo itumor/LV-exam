@@ -1,0 +1,9 @@
+{
+  "id": "xp-librarian",
+  "display_name": "Librarian",
+  "description": "500 XP. Glasses, cardigan, and a stack of Latvian classics from the Gaismas pils.",
+  "art_ref": "/assets/avatars/xp-librarian.svg",
+  "rarity": "uncommon",
+  "tier": "xp",
+  "unlock": {"kind": "xp", "xp": 500}
+}

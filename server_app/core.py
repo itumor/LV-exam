@@ -3979,31 +3979,19 @@ class AppHandler(SimpleHTTPRequestHandler):
             )
             return
         if self.path == "/api/session":
-            session = current_session_record(self)
-            json_response(
-                self, HTTPStatus.OK, {"authenticated": bool(session), **(session or {})}
-            )
+            # T-020a: body lives in server_app.routes.auth.do_session_get.
+            from server_app.routes import auth as _auth_routes
+            _auth_routes.do_session_get(self)
             return
         if self.path == "/api/exams/catalog":
-            session = current_session_record(self)
-            json_response(self, HTTPStatus.OK, list_exam_catalog(session))
+            # T-020a: body lives in server_app.routes.exams.do_exam_catalog_get.
+            from server_app.routes import exams as _exam_routes
+            _exam_routes.do_exam_catalog_get(self)
             return
         if parsed.path == "/api/practice-feed":
-            try:
-                params = urllib.parse.parse_qs(parsed.query)
-                count_raw = (params.get("count") or ["12"])[0]
-                try:
-                    count = int(count_raw)
-                except ValueError:
-                    count = 12
-                payload = build_practice_feed(
-                    mode=(params.get("mode") or ["balanced"])[0],
-                    count=count,
-                    seed=(params.get("seed") or [None])[0],
-                )
-                json_response(self, HTTPStatus.OK, payload)
-            except ApiError as error:
-                api_error_response(self, error)
+            # T-020a: body lives in server_app.routes.exams.do_practice_feed_get.
+            from server_app.routes import exams as _exam_routes
+            _exam_routes.do_practice_feed_get(self, parsed)
             return
         if parsed.path == "/api/listening-feed":
             # T-035 — vertical scroll-feed of curated micro-clips. The
@@ -4027,27 +4015,17 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         exam_content_match = re.fullmatch(r"/api/exams/([^/]+)/content", parsed.path)
         if exam_content_match:
-            try:
-                markdown = load_exam_markdown(exam_content_match.group(1))
-                text_response(
-                    self,
-                    HTTPStatus.OK,
-                    student_exam_markdown(markdown),
-                    "text/markdown; charset=utf-8",
-                )
-            except ApiError as error:
-                api_error_response(self, error)
+            # T-020a: body lives in server_app.routes.exams.do_exam_content_get.
+            from server_app.routes import exams as _exam_routes
+            _exam_routes.do_exam_content_get(self, exam_content_match.group(1))
             return
         exam_answer_key_match = re.fullmatch(
             r"/api/exams/([^/]+)/answer-key", parsed.path
         )
         if exam_answer_key_match:
-            try:
-                exam_id = exam_answer_key_match.group(1)
-                answer_key = load_server_answer_key(exam_id)
-                json_response(self, HTTPStatus.OK, {"answer_key": answer_key})
-            except ApiError as error:
-                api_error_response(self, error)
+            # T-020a: body lives in server_app.routes.exams.do_exam_answer_key_get.
+            from server_app.routes import exams as _exam_routes
+            _exam_routes.do_exam_answer_key_get(self, exam_answer_key_match.group(1))
             return
         if self.path == "/api/dashboard":
             try:
@@ -4066,11 +4044,9 @@ class AppHandler(SimpleHTTPRequestHandler):
                 json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
             return
         if self.path == "/api/account/export":
-            try:
-                session = require_session(self)
-                json_response(self, HTTPStatus.OK, export_account(session))
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            # T-020a: body lives in server_app.routes.auth.do_account_export.
+            from server_app.routes import auth as _auth_routes
+            _auth_routes.do_account_export(self)
             return
         if self.path == "/api/attempts":
             try:
@@ -4108,72 +4084,31 @@ class AppHandler(SimpleHTTPRequestHandler):
             except PermissionError as error:
                 json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
             return
+        # ---- Admin GET routes (T-020b: bodies live in routes.admin) ------
         if self.path == "/api/admin/overview":
-            try:
-                require_admin_session(self)
-                json_response(self, HTTPStatus.OK, admin_overview())
-            except ApiError as error:
-                api_error_response(self, error)
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            from server_app.routes import admin as _admin_routes
+            _admin_routes.handle_admin_overview(self)
             return
         if self.path == "/api/admin/accounts":
-            try:
-                require_admin_session(self)
-                json_response(self, HTTPStatus.OK, list_admin_accounts())
-            except ApiError as error:
-                api_error_response(self, error)
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            from server_app.routes import admin as _admin_routes
+            _admin_routes.handle_admin_accounts_list(self)
             return
         if self.path == "/api/admin/exams":
-            try:
-                session = require_admin_session(self)
-                json_response(self, HTTPStatus.OK, list_exam_catalog(session))
-            except ApiError as error:
-                api_error_response(self, error)
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            from server_app.routes import admin as _admin_routes
+            _admin_routes.handle_admin_exams_list(self)
             return
         admin_exam_match = re.fullmatch(r"/api/admin/exams/([^/]+)", parsed.path)
         if admin_exam_match:
-            try:
-                require_admin_session(self)
-                with db_connection() as conn:
-                    row = conn.execute(
-                        "SELECT * FROM exams WHERE id = ?", (admin_exam_match.group(1),)
-                    ).fetchone()
-                if row is None:
-                    raise ApiError(
-                        HTTPStatus.NOT_FOUND, "exam_not_found", "Exam not found."
-                    )
-                json_response(
-                    self,
-                    HTTPStatus.OK,
-                    {"exam": serialize_exam_catalog(row, include_answer_key=True)},
-                )
-            except ApiError as error:
-                api_error_response(self, error)
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            from server_app.routes import admin as _admin_routes
+            _admin_routes.handle_admin_exam_detail(self, admin_exam_match.group(1))
             return
         if self.path == "/api/admin/attempts":
-            try:
-                require_admin_session(self)
-                json_response(self, HTTPStatus.OK, list_admin_attempts())
-            except ApiError as error:
-                api_error_response(self, error)
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            from server_app.routes import admin as _admin_routes
+            _admin_routes.handle_admin_attempts_list(self)
             return
         if self.path == "/api/admin/settings":
-            try:
-                require_admin_session(self)
-                json_response(self, HTTPStatus.OK, list_admin_settings())
-            except ApiError as error:
-                api_error_response(self, error)
-            except PermissionError as error:
-                json_response(self, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            from server_app.routes import admin as _admin_routes
+            _admin_routes.handle_admin_settings_list(self)
             return
         if self.path.startswith("/api/billing/config"):
             payload = {
@@ -4298,70 +4233,24 @@ class AppHandler(SimpleHTTPRequestHandler):
         try:
             parsed = urllib.parse.urlparse(self.path)
             if self.path == "/api/auth/register":
-                allowed, retry_after = check_rate_limit(
-                    f"register:{client_ip(self)}",
-                    limit_env="AUTH_REGISTER_RATE_LIMIT",
-                    window_env="AUTH_REGISTER_RATE_WINDOW_SECONDS",
-                )
-                if not allowed:
-                    json_response_with_headers(
-                        self,
-                        HTTPStatus.TOO_MANY_REQUESTS,
-                        {"error": "Too many registration attempts. Try again later."},
-                        {"Retry-After": str(retry_after)},
-                    )
-                    return
-                payload = safe_read_json(self)
-                response, token = create_account_record(payload)
-                json_response_with_headers(
-                    self,
-                    HTTPStatus.CREATED,
-                    {**response, "authenticated": True},
-                    {"Set-Cookie": session_cookie_header(token)},
-                )
+                # T-020a: body lives in server_app.routes.auth.do_register_post.
+                from server_app.routes import auth as _auth_routes
+                _auth_routes.do_register_post(self)
                 return
             if self.path == "/api/auth/login":
-                allowed, retry_after = check_rate_limit(
-                    f"login:{client_ip(self)}",
-                    limit_env="AUTH_LOGIN_RATE_LIMIT",
-                    window_env="AUTH_LOGIN_RATE_WINDOW_SECONDS",
-                )
-                if not allowed:
-                    json_response_with_headers(
-                        self,
-                        HTTPStatus.TOO_MANY_REQUESTS,
-                        {"error": "Too many login attempts. Try again later."},
-                        {"Retry-After": str(retry_after)},
-                    )
-                    return
-                payload = safe_read_json(self)
-                response, token = login_account(payload)
-                json_response_with_headers(
-                    self,
-                    HTTPStatus.OK,
-                    {**response, "authenticated": True},
-                    {"Set-Cookie": session_cookie_header(token)},
-                )
+                # T-020a: body lives in server_app.routes.auth.do_login_post.
+                from server_app.routes import auth as _auth_routes
+                _auth_routes.do_login_post(self)
                 return
             if self.path == "/api/auth/logout":
-                token = parse_cookie_value(self, AUTH_SESSION_COOKIE)
-                if token:
-                    with db_connection() as conn:
-                        conn.execute(
-                            "UPDATE sessions SET revoked_at = ? WHERE token = ?",
-                            (now_iso(), token),
-                        )
-                json_response_with_headers(
-                    self,
-                    HTTPStatus.OK,
-                    {"ok": True},
-                    {"Set-Cookie": expired_session_cookie_header()},
-                )
+                # T-020a: body lives in server_app.routes.auth.do_logout_post.
+                from server_app.routes import auth as _auth_routes
+                _auth_routes.do_logout_post(self)
                 return
             if self.path == "/api/profile":
-                payload = safe_read_json(self)
-                session = require_session(self)
-                json_response(self, HTTPStatus.OK, update_profile(payload, session))
+                # T-020a: body lives in server_app.routes.auth.do_profile_post.
+                from server_app.routes import auth as _auth_routes
+                _auth_routes.do_profile_post(self)
                 return
             # T-035 — POST /api/listening-feed/<clip_id>/answer
             # Records a single micro-quiz answer for a feed clip and
@@ -4413,62 +4302,46 @@ class AppHandler(SimpleHTTPRequestHandler):
                 except ApiError as error:
                     api_error_response(self, error)
                 return
+            # ---- Admin POST routes (T-020b: bodies live in routes.admin) ----
             if self.path == "/api/admin/exams":
-                payload = safe_read_json(self)
-                session = require_admin_session(self)
-                json_response(self, HTTPStatus.OK, save_admin_exam(payload, session))
+                from server_app.routes import admin as _admin_routes
+                _admin_routes.handle_admin_exams_create(self)
                 return
             admin_exam_match = re.fullmatch(r"/api/admin/exams/([^/]+)", parsed.path)
             if admin_exam_match:
-                payload = safe_read_json(self)
-                session = require_admin_session(self)
-                json_response(
-                    self,
-                    HTTPStatus.OK,
-                    save_admin_exam(payload, session, admin_exam_match.group(1)),
-                )
+                from server_app.routes import admin as _admin_routes
+                _admin_routes.handle_admin_exam_update(self, admin_exam_match.group(1))
                 return
             admin_exam_status_match = re.fullmatch(
                 r"/api/admin/exams/([^/]+)/status", parsed.path
             )
             if admin_exam_status_match:
-                payload = safe_read_json(self)
-                require_admin_session(self)
-                json_response(
-                    self,
-                    HTTPStatus.OK,
-                    update_admin_exam_status(admin_exam_status_match.group(1), payload),
+                from server_app.routes import admin as _admin_routes
+                _admin_routes.handle_admin_exam_status(
+                    self, admin_exam_status_match.group(1)
                 )
                 return
             admin_exam_delete_match = re.fullmatch(
                 r"/api/admin/exams/([^/]+)/delete", parsed.path
             )
             if admin_exam_delete_match:
-                require_admin_session(self)
-                json_response(
-                    self,
-                    HTTPStatus.OK,
-                    delete_admin_exam(admin_exam_delete_match.group(1)),
+                from server_app.routes import admin as _admin_routes
+                _admin_routes.handle_admin_exam_delete(
+                    self, admin_exam_delete_match.group(1)
                 )
                 return
             admin_account_match = re.fullmatch(
                 r"/api/admin/accounts/([^/]+)", parsed.path
             )
             if admin_account_match:
-                payload = safe_read_json(self)
-                session = require_admin_session(self)
-                json_response(
-                    self,
-                    HTTPStatus.OK,
-                    update_admin_account(
-                        admin_account_match.group(1), payload, session
-                    ),
+                from server_app.routes import admin as _admin_routes
+                _admin_routes.handle_admin_account_update(
+                    self, admin_account_match.group(1)
                 )
                 return
             if self.path == "/api/admin/settings":
-                payload = safe_read_json(self)
-                require_admin_session(self)
-                json_response(self, HTTPStatus.OK, save_admin_settings(payload))
+                from server_app.routes import admin as _admin_routes
+                _admin_routes.handle_admin_settings_save(self)
                 return
             if self.path == "/api/attempts":
                 raise ApiError(
@@ -4766,11 +4639,14 @@ class AppHandler(SimpleHTTPRequestHandler):
                 json_response(self, HTTPStatus.OK, result)
                 return
             if self.path == "/api/account/delete":
-                session = require_session(self)
-                json_response(self, HTTPStatus.OK, delete_account(session))
+                # T-020a: body lives in server_app.routes.auth.do_account_delete_post.
+                from server_app.routes import auth as _auth_routes
+                _auth_routes.do_account_delete_post(self)
                 return
             if self.path == "/api/webhooks/auth":
-                json_response(self, HTTPStatus.OK, handle_auth_webhook(self))
+                # T-020a: body lives in server_app.routes.auth.do_auth_webhook_post.
+                from server_app.routes import auth as _auth_routes
+                _auth_routes.do_auth_webhook_post(self)
                 return
             if self.path == "/api/billing/checkout-session":
                 self.handle_checkout_session()
@@ -4949,282 +4825,37 @@ class AppHandler(SimpleHTTPRequestHandler):
             log_event("error", "api_error", path=self.path, error=type(error).__name__)
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
-    def handle_checkout_session(self) -> None:
-        try:
-            payload = safe_read_json(self)
-            learner_id = str(payload.get("learner_id", "")).strip()
-            product_key = str(payload.get("product_key", "")).strip()
-            email = str(payload.get("email", "")).strip() or None
-            # T-016: B2B invoicing flag.
-            b2b = bool(payload.get("b2b"))
-            business_address_raw = payload.get("business_address") or {}
-            business_address: dict[str, str] = {}
-            if isinstance(business_address_raw, dict):
-                for key in ("line1", "line2", "city", "postal_code", "country", "company"):
-                    value = business_address_raw.get(key)
-                    if value:
-                        business_address[key] = str(value).strip()
-            vat_id_raw = payload.get("vat_id")
-            vat_id = str(vat_id_raw).strip() if vat_id_raw else None
-            _base = request_base_url(self)
-            success_url = (
-                str(payload.get("success_url", "")).strip()
-                or f"{_base}/latvian-a2-exam-app/?view=billing&checkout=success"
-            )
-            cancel_url = (
-                str(payload.get("cancel_url", "")).strip()
-                or f"{_base}/latvian-a2-exam-app/?view=billing&checkout=cancel"
-            )
-            for _url in (success_url, cancel_url):
-                if not _url.startswith(_base + "/") and _url != _base:
-                    raise ValueError("Redirect URL must be on this site.")
-            if not learner_id:
-                raise ValueError("learner_id is required.")
-            if not product_key:
-                raise ValueError("product_key is required.")
-            if b2b and not business_address:
-                raise ValueError("business_address is required for B2B checkouts.")
-            store = get_billing_store()
-            learner = store.ensure_learner(learner_id, email=email)
-            product = next(
-                (item for item in DEFAULT_PRODUCTS if item.key == product_key), None
-            )
-            if not product:
-                raise ValueError("Unknown product_key.")
-            price_id = get_product_price_id(product_key)
-            extra_metadata: dict[str, str] = {
-                "learner_id": learner_id,
-                "product_key": product_key,
-            }
-            if b2b:
-                extra_metadata["b2b"] = "true"
-            client = get_stripe_client()
-            if client.enabled():
-                if not price_id:
-                    raise ValueError(f"Missing Stripe price ID for {product_key}.")
-                session = client.create_checkout_session(
-                    product=product,
-                    price_id=price_id,
-                    learner_id=learner_id,
-                    email=email,
-                    success_url=success_url,
-                    cancel_url=cancel_url,
-                    metadata=extra_metadata,
-                    b2b=b2b,
-                    business_address=business_address or None,
-                    vat_id=vat_id,
-                )
-                json_response(
-                    self,
-                    HTTPStatus.OK,
-                    {
-                        "mode": "stripe",
-                        "learner": learner,
-                        "product": product.key,
-                        "b2b": b2b,
-                        "checkout_url": session.get("url"),
-                        "session": session,
-                    },
-                )
-                return
+    # ------------------------------------------------------------------
+    # Billing handler shims (T-020b).
+    #
+    # The real bodies live in :mod:`server_app.routes.billing`. These
+    # one-line forwarders preserve the method names so legacy patches
+    # (``patch.object(server.AppHandler, "handle_checkout_session", …)``)
+    # keep working while the actual logic is owned by the routes module.
+    # Lazy import avoids the import-time circular dep
+    # (``server_app.core`` is mid-load when AppHandler is being defined).
+    # ------------------------------------------------------------------
 
-            session = client.create_mock_checkout_session(
-                product=product,
-                learner_id=learner_id,
-                email=email,
-                success_url=success_url,
-                cancel_url=cancel_url,
-                b2b=b2b,
-                business_address=business_address or None,
-                vat_id=vat_id,
-            )
-            json_response(
-                self,
-                HTTPStatus.OK,
-                {
-                    "mode": "mock",
-                    "learner": learner,
-                    "product": product.key,
-                    "b2b": b2b,
-                    "checkout_url": session.get("url"),
-                    "session": session,
-                },
-            )
-        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
-            capture_exception(error)
-            log_event("error", "checkout_session_error", error=type(error).__name__)
-            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+    def handle_checkout_session(self) -> None:
+        from server_app.routes import billing as _billing_routes
+        _billing_routes.handle_checkout_session(self)
 
     def handle_consume_exam(self) -> None:
-        try:
-            payload = safe_read_json(self)
-            learner_id = str(payload.get("learner_id", "")).strip()
-            exam_id = str(payload.get("exam_id", "")).strip()
-            if not learner_id:
-                raise ValueError("learner_id is required.")
-            if not exam_id:
-                raise ValueError("exam_id is required.")
-            store = get_billing_store()
-            store.ensure_learner(learner_id)
-            result = store.consume_exam_access(
-                learner_id,
-                exam_id,
-                source_reference=str(payload.get("source_reference", "")).strip()
-                or None,
-                source_event_id=str(payload.get("source_event_id", "")).strip() or None,
-            )
-            status = HTTPStatus.OK if result["allowed"] else HTTPStatus.PAYMENT_REQUIRED
-            json_response(self, status, result)
-        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
-            capture_exception(error)
-            log_event("error", "consume_exam_error", error=type(error).__name__)
-            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+        from server_app.routes import billing as _billing_routes
+        _billing_routes.handle_consume_exam(self)
 
     def handle_consume_ai_credit(self) -> None:
-        try:
-            payload = safe_read_json(self)
-            learner_id = str(payload.get("learner_id", "")).strip()
-            if not learner_id:
-                raise ValueError("learner_id is required.")
-            store = get_billing_store()
-            store.ensure_learner(learner_id)
-            result = store.consume_ai_credit(
-                learner_id,
-                source_reference=str(payload.get("source_reference", "")).strip()
-                or None,
-                source_event_id=str(payload.get("source_event_id", "")).strip() or None,
-            )
-            status = HTTPStatus.OK if result["allowed"] else HTTPStatus.PAYMENT_REQUIRED
-            json_response(self, status, result)
-        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
-            capture_exception(error)
-            log_event("error", "consume_ai_credit_error", error=type(error).__name__)
-            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+        from server_app.routes import billing as _billing_routes
+        _billing_routes.handle_consume_ai_credit(self)
 
     def handle_stripe_webhook(self) -> None:
-        try:
-            payload = safe_read_raw_body(self)
-            secret = stripe_webhook_secret()
-            if not secret:
-                json_response(self, HTTPStatus.BAD_REQUEST, {"error": "Webhook not configured."})
-                return
-            signature = self.headers.get("Stripe-Signature")
-            store = get_billing_store()
-            result = store.handle_webhook(payload, signature, secret)
-            json_response(self, HTTPStatus.OK, {"status": "ok", "result": result})
-        except ValueError as error:
-            log_event("warning", "stripe_webhook_bad_signature", error=str(error))
-            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
-        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
-            capture_exception(error)
-            log_event("error", "stripe_webhook_error", error=type(error).__name__)
-            json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "Internal error."})
+        from server_app.routes import billing as _billing_routes
+        _billing_routes.handle_stripe_webhook(self)
 
     def handle_billing_refund(self) -> None:
-        """T-016: self-serve 7-day refund.
-
-        Authenticated POST: validates ownership, window, and unused-credits
-        server-side, then issues a Stripe refund and revokes the linked
-        entitlement grants. UI affordances are convenience-only; the source
-        of truth is this endpoint.
-        """
-        try:
-            session = require_session(self)
-        except PermissionError:
-            json_response(self, HTTPStatus.UNAUTHORIZED, {"error": "Authentication required."})
-            return
-        try:
-            payload = safe_read_json(self)
-            checkout_session_id = str(payload.get("checkout_session_id", "")).strip()
-            if not checkout_session_id:
-                raise ValueError("checkout_session_id is required.")
-            learner_id = session["account"]["id"]
-            window_days = int(os.getenv("BILLING_REFUND_WINDOW_DAYS", "7"))
-            store = get_billing_store()
-            eligibility = store.refund_eligibility(
-                learner_id,
-                checkout_session_id=checkout_session_id,
-                window_days=window_days,
-            )
-            if not eligibility["eligible"]:
-                if eligibility["reason"] == "wrong_user":
-                    json_response(self, HTTPStatus.FORBIDDEN, eligibility)
-                elif eligibility["reason"] == "session_not_found":
-                    json_response(self, HTTPStatus.NOT_FOUND, eligibility)
-                elif eligibility["reason"] in {"window_expired", "credits_consumed", "already_refunded"}:
-                    json_response(self, HTTPStatus.CONFLICT, eligibility)
-                else:
-                    json_response(self, HTTPStatus.CONFLICT, eligibility)
-                log_event(
-                    "warning",
-                    "billing_refund_rejected",
-                    reason=eligibility["reason"],
-                    learner_id=learner_id,
-                )
-                return
-
-            client = get_stripe_client()
-            payment_reference = eligibility.get("payment_reference")
-            refund_payload: dict[str, Any] = {}
-            if client.enabled() and payment_reference:
-                try:
-                    refund_payload = client.create_refund(
-                        payment_intent=payment_reference,
-                        metadata={"checkout_session_id": checkout_session_id, "learner_id": learner_id},
-                    )
-                except Exception as stripe_error:  # noqa: BLE001 - surface as 502.
-                    capture_exception(stripe_error)
-                    log_event(
-                        "error",
-                        "billing_refund_stripe_error",
-                        error=type(stripe_error).__name__,
-                        learner_id=learner_id,
-                    )
-                    json_response(
-                        self,
-                        HTTPStatus.BAD_GATEWAY,
-                        {"error": "Stripe refund failed. No entitlements changed."},
-                    )
-                    return
-            else:
-                # Mock/test mode: still revoke entitlements so the DoD holds.
-                refund_payload = {
-                    "id": f"re_mock_{checkout_session_id}",
-                    "status": "mock_succeeded",
-                    "amount_refunded": None,
-                }
-
-            affected = store.mark_grants_refunded(
-                learner_id,
-                checkout_session_id=checkout_session_id,
-                refund_id=refund_payload.get("id"),
-                refund_reason="self_serve_7_day",
-            )
-            log_event(
-                "info",
-                "billing_refund_issued",
-                learner_id=learner_id,
-                checkout_session_id=checkout_session_id,
-                grants_refunded=affected,
-                stripe_refund_id=refund_payload.get("id"),
-            )
-            json_response(
-                self,
-                HTTPStatus.OK,
-                {
-                    "status": "refunded",
-                    "checkout_session_id": checkout_session_id,
-                    "grants_refunded": affected,
-                    "refund": refund_payload,
-                    "billing_state": store.get_state(learner_id),
-                },
-            )
-        except ValueError as error:
-            json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
-        except Exception as error:  # noqa: BLE001 - keep API responses JSON.
-            capture_exception(error)
-            log_event("error", "billing_refund_error", error=type(error).__name__)
-            json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "Internal error."})
+        """T-016 self-serve 7-day refund — shim, body in routes.billing."""
+        from server_app.routes import billing as _billing_routes
+        _billing_routes.handle_billing_refund(self)
 
 
 class DualStackServer(ThreadingHTTPServer):
@@ -8920,6 +8551,486 @@ except Exception:  # noqa: BLE001 — never crash import if DB is unavailable
 
 
 # ============================================================================
+# T-052 — Leaderboards route hook installer
+# ============================================================================
+# Wires three read-only endpoints onto AppHandler:
+#   GET  /api/leaderboards/weekly      -> top N this week
+#   GET  /api/leaderboards/friends     -> top N among caller's friends
+#   GET  /api/leaderboards/by-city     -> top N filtered by ?city=
+#
+# All three read from T-034's xp_log table and pass through a 5-minute
+# in-process cache (see services.leaderboards.CACHE_TTL_SECONDS). The
+# response payload is privacy-safe: each entry exposes only the opaque
+# account_id, the learner-chosen users.display_name (or an anonymized
+# "Learner-<first6>" fallback) and the XP total. We never surface
+# accounts.email or profiles.full_name on a leaderboard.
+#
+# Installed BEFORE the T-036 v2 SPA static handler so T-036 remains the
+# outermost ``do_GET`` wrapper (the structural invariant enforced by
+# ``tests/server/test_v2_static_route.py``).
+#
+# The hook is inlined here (rather than imported via
+# :mod:`server_app.routes.leaderboards`) for the same reason as T-031 /
+# T-034 / T-053: at import time the ``server_app.routes`` package eagerly
+# pulls in modules that reference symbols defined later in this file.
+# The :mod:`routes.leaderboards` module remains the canonical re-export
+# point used by the modularization audit and by external imports.
+# ----------------------------------------------------------------------------
+
+from server_app.services import leaderboards as _t052_leaderboards  # noqa: E402
+
+
+_T052_WEEKLY_PATH = "/api/leaderboards/weekly"
+_T052_FRIENDS_PATH = "/api/leaderboards/friends"
+_T052_BY_CITY_PATH = "/api/leaderboards/by-city"
+
+
+def _t052_resolve_path_and_query(handler: "AppHandler") -> tuple[str, dict[str, list[str]]]:
+    raw = getattr(handler, "path", "") or ""
+    parsed = urllib.parse.urlparse(raw)
+    return parsed.path or "", urllib.parse.parse_qs(parsed.query or "")
+
+
+def _t052_account_id(session: dict) -> str:
+    return (session.get("account") or {}).get("id") or ""
+
+
+def _t052_parse_limit(query: dict[str, list[str]]) -> int:
+    raw_values = query.get("limit") or []
+    if not raw_values:
+        return _t052_leaderboards.DEFAULT_LIMIT
+    try:
+        value = int(raw_values[0])
+    except (TypeError, ValueError):
+        return _t052_leaderboards.DEFAULT_LIMIT
+    if value <= 0:
+        return _t052_leaderboards.DEFAULT_LIMIT
+    return min(value, _t052_leaderboards.MAX_LIMIT)
+
+
+def _t052_handle_board(
+    handler: "AppHandler",
+    scope: str,
+    *,
+    require_city: bool = False,
+) -> None:
+    """Shared dispatch body for the three leaderboard routes."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t052_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        _, query = _t052_resolve_path_and_query(handler)
+        limit = _t052_parse_limit(query)
+        city: str | None = None
+        if require_city:
+            city_values = query.get("city") or []
+            city = (city_values[0].strip() if city_values else "") or ""
+            if not city:
+                raise ApiError(
+                    HTTPStatus.BAD_REQUEST,
+                    "missing_city",
+                    "Query parameter 'city' is required.",
+                )
+        with db_connection() as conn:
+            payload = _t052_leaderboards.build_board(
+                conn,
+                scope,
+                account_id=account_id,
+                city=city,
+                limit=limit,
+            )
+        json_response(handler, HTTPStatus.OK, payload)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001 — defence in depth
+        log_event(
+            "error",
+            "leaderboard_failed",
+            scope=scope,
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "leaderboard_unavailable"},
+        )
+
+
+_T052_ORIGINAL_DO_GET = AppHandler.do_GET
+
+
+def _t052_patched_do_get(self: "AppHandler") -> None:
+    raw = getattr(self, "path", "") or ""
+    path = urllib.parse.urlparse(raw).path or ""
+    stripped = path.rstrip("/")
+    if path == _T052_WEEKLY_PATH or stripped == _T052_WEEKLY_PATH:
+        _t052_handle_board(self, _t052_leaderboards.SCOPE_WEEKLY)
+        return
+    if path == _T052_FRIENDS_PATH or stripped == _T052_FRIENDS_PATH:
+        _t052_handle_board(self, _t052_leaderboards.SCOPE_BY_FRIENDS)
+        return
+    if path == _T052_BY_CITY_PATH or stripped == _T052_BY_CITY_PATH:
+        _t052_handle_board(self, _t052_leaderboards.SCOPE_BY_CITY, require_city=True)
+        return
+    _T052_ORIGINAL_DO_GET(self)
+
+
+AppHandler.do_GET = _t052_patched_do_get  # type: ignore[assignment]
+AppHandler._t052_installed = True  # type: ignore[attr-defined]
+# ============================================================================
+# end T-052 leaderboards route hook
+# ============================================================================
+
+
+# ============================================================================
+# T-051 — Avatar + cosmetics route hook installer
+# ============================================================================
+# Wires three routes onto AppHandler:
+#   GET  /api/avatars              -> catalog + per-account unlock state
+#   POST /api/avatars/equip        -> set currently-equipped avatar
+#   POST /api/avatars/unlock       -> attempt to unlock a specific avatar
+#
+# Installed at the current EOF (after the T-046 hook, which is the last
+# block on the develop tip — T-070-final added no core.py wiring). The
+# patch wraps the prior do_GET / do_POST chain and delegates to it on
+# every non-avatar request, so behaviour for existing routes is
+# unchanged.
+#
+# The hook is inlined here (rather than imported via
+# :mod:`server_app.routes.avatars`) for the same reason as
+# T-031 / T-034 / T-046 / T-053 / T-054: at import time the
+# ``server_app.routes`` package eagerly pulls in modules that reference
+# symbols defined later in this file. The :mod:`routes.avatars` module
+# remains the canonical re-export + audit owner.
+# ----------------------------------------------------------------------------
+
+from server_app.services import avatars as _t051_avatar_service  # noqa: E402
+
+
+_T051_LIST_PATH = "/api/avatars"
+_T051_EQUIP_PATH = "/api/avatars/equip"
+_T051_UNLOCK_PATH = "/api/avatars/unlock"
+
+
+def _t051_resolve_path(handler: "AppHandler") -> str:
+    raw = getattr(handler, "path", "") or ""
+    return urllib.parse.urlparse(raw).path or ""
+
+
+def _t051_account_id(session: dict) -> str:
+    return (session.get("account") or {}).get("id") or ""
+
+
+def _t051_billing_state(account_id: str, user_role: str) -> dict[str, Any]:
+    """Pull the billing state used by the premium gate.
+
+    Mirrors :mod:`server_app.services.entitlements`: read the
+    ``BillingStore`` snapshot, then layer the institutional-seat
+    signal on top so the same precedence (subscription ≡ seat) is
+    available to the avatar gate without re-implementing the lookup.
+    """
+
+    try:
+        store = get_billing_store()
+        state = dict(store.get_state(account_id, user_role=user_role) or {})
+    except Exception:  # noqa: BLE001 - never crash the gate on store errors
+        state = {}
+    try:
+        from server_app.services.institutional import account_has_active_seat
+        if account_has_active_seat(account_id):
+            state["has_active_seat"] = True
+    except Exception:  # noqa: BLE001 - log + degrade to non-seat
+        pass
+    return state
+
+
+def _t051_parse_paid_filter(handler: "AppHandler") -> bool | None:
+    """Map the ``?tier=paid``/``?tier=unpaid`` query into the service flag.
+
+    Accepts ``paid`` / ``premium`` for the paid-only view and ``unpaid``
+    / ``free_or_xp`` for the unpaid-only view. Any other value (or no
+    value) returns ``None`` — the service then emits the full catalog.
+    """
+
+    raw = getattr(handler, "path", "") or ""
+    try:
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(raw).query)
+    except ValueError:
+        return None
+    tier = (query.get("tier") or [""])[0].strip().lower()
+    if tier in {"paid", "premium"}:
+        return True
+    if tier in {"unpaid", "free", "free_or_xp", "xp"}:
+        return False
+    return None
+
+
+def _t051_handle_list(handler: "AppHandler") -> None:
+    """``GET /api/avatars`` — list catalog avatars with unlock state."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t051_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        role = account_role(session)
+        billing_state = _t051_billing_state(account_id, role)
+        only_paid_tier = _t051_parse_paid_filter(handler)
+        with db_connection() as conn:
+            items = _t051_avatar_service.list_unlocked(
+                conn,
+                account_id,
+                billing_state=billing_state,
+                only_paid_tier=only_paid_tier,
+            )
+            equipped = _t051_avatar_service.get_equipped(conn, account_id)
+        json_response(
+            handler,
+            HTTPStatus.OK,
+            {
+                "items": items,
+                "equipped": equipped,
+                "count": len(items),
+            },
+        )
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001 - defence in depth
+        log_event(
+            "error",
+            "avatars_list_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "avatars_unavailable"},
+        )
+
+
+def _t051_handle_equip(handler: "AppHandler") -> None:
+    """``POST /api/avatars/equip`` — set the currently-equipped avatar."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t051_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        try:
+            body = safe_read_json(handler)
+        except ValueError as error:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": str(error)},
+            )
+            return
+        if not isinstance(body, dict):
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body"},
+            )
+            return
+        avatar_id = str(body.get("avatar_id") or "").strip()
+        if not avatar_id:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": "avatar_id is required"},
+            )
+            return
+        role = account_role(session)
+        billing_state = _t051_billing_state(account_id, role)
+        with db_connection() as conn:
+            try:
+                equipped = _t051_avatar_service.equip_avatar(
+                    conn,
+                    account_id,
+                    avatar_id,
+                    billing_state=billing_state,
+                )
+            except _t051_avatar_service.AvatarNotFoundError as error:
+                json_response(
+                    handler,
+                    HTTPStatus.NOT_FOUND,
+                    {"error": "avatar_not_found", "detail": str(error)},
+                )
+                return
+            except _t051_avatar_service.AvatarLockedError as error:
+                json_response(
+                    handler,
+                    HTTPStatus.FORBIDDEN,
+                    {
+                        "error": "avatar_locked",
+                        "avatar_id": error.avatar_id,
+                        "reason": error.reason,
+                        "required": error.required,
+                    },
+                )
+                return
+        json_response(handler, HTTPStatus.OK, {"equipped": equipped})
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001 - defence in depth
+        log_event(
+            "error",
+            "avatars_equip_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "avatars_unavailable"},
+        )
+
+
+def _t051_handle_unlock(handler: "AppHandler") -> None:
+    """``POST /api/avatars/unlock`` — best-effort unlock by id."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t051_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        try:
+            body = safe_read_json(handler)
+        except ValueError as error:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": str(error)},
+            )
+            return
+        if not isinstance(body, dict):
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body"},
+            )
+            return
+        avatar_id = str(body.get("avatar_id") or "").strip()
+        if not avatar_id:
+            json_response(
+                handler,
+                HTTPStatus.BAD_REQUEST,
+                {"error": "invalid_body", "detail": "avatar_id is required"},
+            )
+            return
+        role = account_role(session)
+        billing_state = _t051_billing_state(account_id, role)
+        with db_connection() as conn:
+            try:
+                unlock = _t051_avatar_service.unlock_avatar(
+                    conn,
+                    account_id,
+                    avatar_id,
+                    billing_state=billing_state,
+                )
+            except _t051_avatar_service.AvatarNotFoundError as error:
+                json_response(
+                    handler,
+                    HTTPStatus.NOT_FOUND,
+                    {"error": "avatar_not_found", "detail": str(error)},
+                )
+                return
+            except _t051_avatar_service.AvatarLockedError as error:
+                json_response(
+                    handler,
+                    HTTPStatus.FORBIDDEN,
+                    {
+                        "error": "avatar_locked",
+                        "avatar_id": error.avatar_id,
+                        "reason": error.reason,
+                        "required": error.required,
+                    },
+                )
+                return
+        json_response(handler, HTTPStatus.OK, {"unlock": unlock})
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001 - defence in depth
+        log_event(
+            "error",
+            "avatars_unlock_failed",
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "avatars_unavailable"},
+        )
+
+
+_T051_ORIGINAL_DO_GET = AppHandler.do_GET
+_T051_ORIGINAL_DO_POST = AppHandler.do_POST
+
+
+def _t051_patched_do_get(self: "AppHandler") -> None:
+    path = _t051_resolve_path(self)
+    if path == _T051_LIST_PATH or path.rstrip("/") == _T051_LIST_PATH:
+        _t051_handle_list(self)
+        return
+    _T051_ORIGINAL_DO_GET(self)
+
+
+def _t051_patched_do_post(self: "AppHandler") -> None:
+    path = _t051_resolve_path(self)
+    if path == _T051_EQUIP_PATH or path.rstrip("/") == _T051_EQUIP_PATH:
+        _t051_handle_equip(self)
+        return
+    if path == _T051_UNLOCK_PATH or path.rstrip("/") == _T051_UNLOCK_PATH:
+        _t051_handle_unlock(self)
+        return
+    _T051_ORIGINAL_DO_POST(self)
+
+
+AppHandler.do_GET = _t051_patched_do_get  # type: ignore[assignment]
+AppHandler.do_POST = _t051_patched_do_post  # type: ignore[assignment]
+AppHandler._t051_installed = True  # type: ignore[attr-defined]
+
+# Best-effort: pre-warm the catalog cache so the first request doesn't
+# pay the directory scan. Failures are silently ignored — the lazy
+# loader retries on each request.
+try:
+    _t051_avatar_service.load_catalog()
+except Exception:  # noqa: BLE001
+    pass
+# ============================================================================
+# end T-051 avatar + cosmetics route hook
+# ============================================================================
+
+# ============================================================================
 # T-036 Vue 3 + TypeScript SPA static handler (mounted at /v2/)
 # ============================================================================
 # Serves the built apps/web-v2/dist/ assets under /v2/ via a tail-of-file
@@ -9471,7 +9582,6 @@ _t046_install_voice_score_route()
 # ============================================================================
 # end T-046 voice scoring route hook
 # ============================================================================
-
 
 
 
