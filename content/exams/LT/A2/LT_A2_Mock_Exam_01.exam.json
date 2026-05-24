@@ -1,0 +1,385 @@
+{
+  "schema_version": "1.0",
+  "version": "2026.05.0",
+  "exam_id": "lt-a2-01",
+  "slug": "lt-a2-01",
+  "title": "Lietuvių A2 bandomasis egzaminas 01 — Kasdienis bendravimas",
+  "level": "A2",
+  "language": "lt",
+  "status": "draft",
+  "content_version": 1,
+  "is_immutable": false,
+  "source": {
+    "markdown_path": "content/exams/LT/A2/LT_A2_Mock_Exam_01.md",
+    "attachment_root": "content/exams/LT/A2/audio"
+  },
+  "workflow": {
+    "status_values": ["draft", "review", "published", "archived"],
+    "immutable_statuses": ["published", "archived"],
+    "current_status": "draft"
+  },
+  "scoring": {
+    "total_points": 60,
+    "skill_points": {
+      "listening": 15,
+      "reading": 15,
+      "writing": 15,
+      "speaking": 15
+    },
+    "minimum_per_skill": 9,
+    "task_point_allocation": {
+      "listening": {"task1": 6, "task2": 5, "task3": 4},
+      "reading":   {"task1": 6, "task2": 5, "task3": 4},
+      "writing":   {"task1": 5, "task2": 4, "task3": 6},
+      "speaking":  {"task1": 5, "task2": 5, "task3": 5}
+    },
+    "pass_rule": {
+      "minimum_per_skill": 9,
+      "total_points": 60,
+      "description": "Lithuanian A2 pass rule: at least 9/15 in every skill (CEFR A2, same threshold as Latvian A2)."
+    }
+  },
+  "assets": {
+    "audio": [
+      "content/exams/LT/A2/audio/lt_a2_01_klausymas_1.mp3",
+      "content/exams/LT/A2/audio/lt_a2_01_klausymas_2.mp3",
+      "content/exams/LT/A2/audio/lt_a2_01_klausymas_3.mp3",
+      "content/exams/LT/A2/audio/lt_a2_01_kalbejimas_1.mp3"
+    ]
+  },
+  "sections": [
+    {
+      "skill": "listening",
+      "title": "Klausymo užduotys",
+      "points_max": 15,
+      "minutes": 30,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1 užduotis — Skelbimas stotyje",
+          "type": "listening_multiple_choice",
+          "scoring_mode": "objective",
+          "points_max": 6,
+          "instruction": "PLACEHOLDER — Klausykitės skelbimo stotyje. Pasirinkite teisingą atsakymą. Garso įrašas skambės du kartus.",
+          "audio_assets": [
+            {"path": "content/exams/LT/A2/audio/lt_a2_01_klausymas_1.mp3", "label": "Skelbimas stotyje", "kind": "audio"}
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "multiple_choice",
+              "prompt": "PLACEHOLDER — Į kurią stotį važiuoja traukinys?",
+              "options": [
+                {"label": "a", "text": "Vilnius"},
+                {"label": "b", "text": "Kaunas"},
+                {"label": "c", "text": "Klaipėda"}
+              ],
+              "correct_answers": ["a"]
+            },
+            {
+              "number": 2,
+              "kind": "multiple_choice",
+              "prompt": "PLACEHOLDER — Kada išvyksta traukinys?",
+              "options": [
+                {"label": "a", "text": "9:15"},
+                {"label": "b", "text": "10:30"},
+                {"label": "c", "text": "11:45"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 3,
+              "kind": "multiple_choice",
+              "prompt": "PLACEHOLDER — Iš kurio perono?",
+              "options": [
+                {"label": "a", "text": "1 peronas"},
+                {"label": "b", "text": "2 peronas"},
+                {"label": "c", "text": "3 peronas"}
+              ],
+              "correct_answers": ["c"]
+            },
+            {
+              "number": 4,
+              "kind": "multiple_choice",
+              "prompt": "PLACEHOLDER — Kiek kainuoja bilietas?",
+              "options": [
+                {"label": "a", "text": "5 eurai"},
+                {"label": "b", "text": "8 eurai"},
+                {"label": "c", "text": "12 eurų"}
+              ],
+              "correct_answers": ["b"]
+            },
+            {
+              "number": 5,
+              "kind": "multiple_choice",
+              "prompt": "PLACEHOLDER — Ar bilietą galima nusipirkti internetu?",
+              "options": [
+                {"label": "a", "text": "Taip"},
+                {"label": "b", "text": "Ne"},
+                {"label": "c", "text": "Neaišku"}
+              ],
+              "correct_answers": ["a"]
+            },
+            {
+              "number": 6,
+              "kind": "multiple_choice",
+              "prompt": "PLACEHOLDER — Kiek vagonų turi traukinys?",
+              "options": [
+                {"label": "a", "text": "4"},
+                {"label": "b", "text": "6"},
+                {"label": "c", "text": "8"}
+              ],
+              "correct_answers": ["b"]
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2 užduotis — Pokalbis parduotuvėje",
+          "type": "listening_true_false",
+          "scoring_mode": "objective",
+          "points_max": 5,
+          "instruction": "PLACEHOLDER — Klausykitės pokalbio parduotuvėje. Pažymėkite, ar teiginiai teisingi (taip) ar klaidingi (ne).",
+          "audio_assets": [
+            {"path": "content/exams/LT/A2/audio/lt_a2_01_klausymas_2.mp3", "label": "Pokalbis parduotuvėje", "kind": "audio"}
+          ],
+          "questions": [
+            {"number": 1, "kind": "true_false", "prompt": "PLACEHOLDER — Klientas perka pieną.", "correct_answers": ["taip"]},
+            {"number": 2, "kind": "true_false", "prompt": "PLACEHOLDER — Duona kainuoja 2 eurus.", "correct_answers": ["ne"]},
+            {"number": 3, "kind": "true_false", "prompt": "PLACEHOLDER — Parduotuvė dirba iki 22 val.", "correct_answers": ["taip"]},
+            {"number": 4, "kind": "true_false", "prompt": "PLACEHOLDER — Klientas moka grynais.", "correct_answers": ["ne"]},
+            {"number": 5, "kind": "true_false", "prompt": "PLACEHOLDER — Pardavėja siūlo nuolaidą.", "correct_answers": ["taip"]}
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3 užduotis — Trumpi pranešimai",
+          "type": "listening_gap_fill",
+          "scoring_mode": "objective",
+          "points_max": 4,
+          "instruction": "PLACEHOLDER — Klausykitės keturių trumpų pranešimų. Užrašykite trūkstamą informaciją.",
+          "audio_assets": [
+            {"path": "content/exams/LT/A2/audio/lt_a2_01_klausymas_3.mp3", "label": "Trumpi pranešimai", "kind": "audio"}
+          ],
+          "questions": [
+            {"number": 1, "kind": "gap_fill", "prompt": "PLACEHOLDER — Susitikimo data: _____", "correct_answers": ["balandžio 12 d."]},
+            {"number": 2, "kind": "gap_fill", "prompt": "PLACEHOLDER — Pradžia: _____", "correct_answers": ["18:00"]},
+            {"number": 3, "kind": "gap_fill", "prompt": "PLACEHOLDER — Vieta: _____", "correct_answers": ["Gedimino g. 5"]},
+            {"number": 4, "kind": "gap_fill", "prompt": "PLACEHOLDER — Telefonas: _____", "correct_answers": ["+370 600 12345"]}
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "reading",
+      "title": "Skaitymo užduotys",
+      "points_max": 15,
+      "minutes": 25,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1 užduotis — Skelbimas",
+          "type": "reading_multiple_choice",
+          "scoring_mode": "objective",
+          "points_max": 6,
+          "instruction": "PLACEHOLDER — Perskaitykite skelbimą ir atsakykite į klausimus.",
+          "questions": [
+            {"number": 1, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Kas siūloma skelbime?", "options": [{"label": "a", "text": "Butas nuomai"}, {"label": "b", "text": "Darbas"}, {"label": "c", "text": "Automobilis"}], "correct_answers": ["a"]},
+            {"number": 2, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Kiek kambarių?", "options": [{"label": "a", "text": "1"}, {"label": "b", "text": "2"}, {"label": "c", "text": "3"}], "correct_answers": ["b"]},
+            {"number": 3, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Kuriame mieste?", "options": [{"label": "a", "text": "Vilnius"}, {"label": "b", "text": "Kaunas"}, {"label": "c", "text": "Šiauliai"}], "correct_answers": ["a"]},
+            {"number": 4, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Mėnesinė kaina?", "options": [{"label": "a", "text": "300 €"}, {"label": "b", "text": "450 €"}, {"label": "c", "text": "600 €"}], "correct_answers": ["b"]},
+            {"number": 5, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Ar yra balkonas?", "options": [{"label": "a", "text": "Taip"}, {"label": "b", "text": "Ne"}, {"label": "c", "text": "Nenurodyta"}], "correct_answers": ["a"]},
+            {"number": 6, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Su kuo susisiekti?", "options": [{"label": "a", "text": "Telefonas"}, {"label": "b", "text": "El. paštas"}, {"label": "c", "text": "Abu"}], "correct_answers": ["c"]}
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2 užduotis — Trumpi tekstai ir antraštės",
+          "type": "reading_matching",
+          "scoring_mode": "objective",
+          "points_max": 5,
+          "instruction": "PLACEHOLDER — Suporuokite penkias antraštes su tinkamais tekstais.",
+          "questions": [
+            {"number": 1, "kind": "matching", "prompt": "PLACEHOLDER — Tekstas 1 → antraštė?", "correct_answers": ["A"]},
+            {"number": 2, "kind": "matching", "prompt": "PLACEHOLDER — Tekstas 2 → antraštė?", "correct_answers": ["C"]},
+            {"number": 3, "kind": "matching", "prompt": "PLACEHOLDER — Tekstas 3 → antraštė?", "correct_answers": ["E"]},
+            {"number": 4, "kind": "matching", "prompt": "PLACEHOLDER — Tekstas 4 → antraštė?", "correct_answers": ["B"]},
+            {"number": 5, "kind": "matching", "prompt": "PLACEHOLDER — Tekstas 5 → antraštė?", "correct_answers": ["D"]}
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3 užduotis — Trumpa žinia",
+          "type": "reading_text_choice",
+          "scoring_mode": "objective",
+          "points_max": 4,
+          "instruction": "PLACEHOLDER — Perskaitykite žinią ir atsakykite į keturis klausimus.",
+          "questions": [
+            {"number": 1, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Kas rašo žinią?", "options": [{"label": "a", "text": "Mokytojas"}, {"label": "b", "text": "Mama"}, {"label": "c", "text": "Draugas"}], "correct_answers": ["b"]},
+            {"number": 2, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Apie ką žinia?", "options": [{"label": "a", "text": "Apie kelionę"}, {"label": "b", "text": "Apie pietus"}, {"label": "c", "text": "Apie pirkinius"}], "correct_answers": ["c"]},
+            {"number": 3, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Ką reikia nupirkti?", "options": [{"label": "a", "text": "Duoną"}, {"label": "b", "text": "Pieną"}, {"label": "c", "text": "Sūrį"}], "correct_answers": ["a"]},
+            {"number": 4, "kind": "multiple_choice", "prompt": "PLACEHOLDER — Kada grįš mama?", "options": [{"label": "a", "text": "Po 1 val."}, {"label": "b", "text": "Po 2 val."}, {"label": "c", "text": "Po 3 val."}], "correct_answers": ["b"]}
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "writing",
+      "title": "Rašymo užduotys",
+      "points_max": 15,
+      "minutes": 30,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1 užduotis — Trumpa žinutė",
+          "type": "writing_short_message",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "PLACEHOLDER — Parašykite draugui trumpą SMS žinutę (apie 30–40 žodžių). Praneškite, kad atvyksite vėliau, ir paaiškinkite kodėl.",
+          "requirements": [
+            "PLACEHOLDER — 30–40 žodžių",
+            "PLACEHOLDER — pasveikinimas",
+            "PLACEHOLDER — atsiprašymas",
+            "PLACEHOLDER — priežastis"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "PLACEHOLDER — Parašykite SMS žinutę pagal nurodymus.",
+              "minimum_words": 30
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2 užduotis — Linksniavimo užduotis",
+          "type": "writing_inflection",
+          "scoring_mode": "objective",
+          "points_max": 4,
+          "instruction": "PLACEHOLDER — Įrašykite žodžius reikiama linksnio forma.",
+          "questions": [
+            {"number": 1, "kind": "inflection", "prompt": "PLACEHOLDER — Aš einu į _____ (parduotuvė).", "lemma": "parduotuvė", "correct_answers": ["parduotuvę"]},
+            {"number": 2, "kind": "inflection", "prompt": "PLACEHOLDER — Vakar kalbėjau su _____ (mokytojas).", "lemma": "mokytojas", "correct_answers": ["mokytoju"]},
+            {"number": 3, "kind": "inflection", "prompt": "PLACEHOLDER — Mes gyvename _____ (Vilnius).", "lemma": "Vilnius", "correct_answers": ["Vilniuje"]},
+            {"number": 4, "kind": "inflection", "prompt": "PLACEHOLDER — Knyga yra ant _____ (stalas).", "lemma": "stalas", "correct_answers": ["stalo"]}
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3 užduotis — Asmeninis laiškas",
+          "type": "writing_personal_letter",
+          "scoring_mode": "subjective",
+          "points_max": 6,
+          "instruction": "PLACEHOLDER — Parašykite draugui laišką (apie 60–80 žodžių). Papasakokite apie savo savaitgalį: ką veikėte, kur buvote, kas patiko labiausiai.",
+          "requirements": [
+            "PLACEHOLDER — 60–80 žodžių",
+            "PLACEHOLDER — pasisveikinimas ir atsisveikinimas",
+            "PLACEHOLDER — bent trys veiklos",
+            "PLACEHOLDER — vienas asmeninis vertinimas"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "PLACEHOLDER — Parašykite laišką pagal nurodymus.",
+              "minimum_words": 60
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "speaking",
+      "title": "Kalbėjimo užduotys",
+      "points_max": 15,
+      "minutes": 15,
+      "tasks": [
+        {
+          "task_key": "task1",
+          "title": "1 užduotis — Monologas apie save",
+          "type": "speaking_monologue",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "PLACEHOLDER — Papasakokite apie save: vardas, amžius, šeima, kur gyvenate, ką dirbate ar studijuojate. Kalbėkite apie 1–2 minutes.",
+          "audio_assets": [
+            {"path": "content/exams/LT/A2/audio/lt_a2_01_kalbejimas_1.mp3", "label": "Egzaminuotojo klausimai (monologas)", "kind": "audio"}
+          ],
+          "requirements": [
+            "PLACEHOLDER — bent 1 min. kalbos",
+            "PLACEHOLDER — bent 5 sakiniai",
+            "PLACEHOLDER — vardas ir amžius",
+            "PLACEHOLDER — šeima ar darbas"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "PLACEHOLDER — Papasakokite apie save pagal nurodymus."
+            }
+          ]
+        },
+        {
+          "task_key": "task2",
+          "title": "2 užduotis — Dialogas: pirkinys parduotuvėje",
+          "type": "speaking_dialogue",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "PLACEHOLDER — Atlikite dialogą: nusipirkite vaisių parduotuvėje. Pasisveikinkite, paklauskite kainos, sumokėkite, atsisveikinkite.",
+          "requirements": [
+            "PLACEHOLDER — pilni sakiniai",
+            "PLACEHOLDER — bent 2 klausimai",
+            "PLACEHOLDER — pasisveikinimas ir atsisveikinimas",
+            "PLACEHOLDER — mandagi kalba"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "PLACEHOLDER — Atlikite pirkimo dialogą su egzaminuotoju."
+            }
+          ]
+        },
+        {
+          "task_key": "task3",
+          "title": "3 užduotis — Paveikslėlio aprašymas",
+          "type": "speaking_picture_description",
+          "scoring_mode": "subjective",
+          "points_max": 5,
+          "instruction": "PLACEHOLDER — Apžiūrėkite paveikslėlį ir jį aprašykite. Pasakykite, kas vaizduojama, ką žmonės daro, kur tai vyksta. Kalbėkite apie 1–2 minutes.",
+          "requirements": [
+            "PLACEHOLDER — bent 5 sakiniai",
+            "PLACEHOLDER — žmonės ir veiksmai",
+            "PLACEHOLDER — vieta",
+            "PLACEHOLDER — vienas asmeninis komentaras"
+          ],
+          "questions": [
+            {
+              "number": 1,
+              "kind": "subjective",
+              "prompt": "PLACEHOLDER — Apibūdinkite paveikslėlį pagal nurodymus."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "answer_key": {
+    "listening": {
+      "task1": ["a", "b", "c", "b", "a", "b"],
+      "task2": ["taip", "ne", "taip", "ne", "taip"],
+      "task3": ["balandžio 12 d.", "18:00", "Gedimino g. 5", "+370 600 12345"]
+    },
+    "reading": {
+      "task1": ["a", "b", "a", "b", "a", "c"],
+      "task2": ["A", "C", "E", "B", "D"],
+      "task3": ["b", "c", "a", "b"]
+    },
+    "writing": {
+      "task2": ["parduotuvę", "mokytoju", "Vilniuje", "stalo"]
+    }
+  },
+  "references": {
+    "note": "T-062 PLACEHOLDER manifest. Content is a schema-valid scaffold for the Lithuanian A2 fork. Real exam text + audio is produced in follow-up tickets — listening transcripts and writing model answers are intentionally not included yet."
+  }
+}
