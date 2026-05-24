@@ -8766,6 +8766,147 @@ except Exception:  # noqa: BLE001 — never crash import if DB is unavailable
 
 
 # ============================================================================
+# T-052 — Leaderboards route hook installer
+# ============================================================================
+# Wires three read-only endpoints onto AppHandler:
+#   GET  /api/leaderboards/weekly      -> top N this week
+#   GET  /api/leaderboards/friends     -> top N among caller's friends
+#   GET  /api/leaderboards/by-city     -> top N filtered by ?city=
+#
+# All three read from T-034's xp_log table and pass through a 5-minute
+# in-process cache (see services.leaderboards.CACHE_TTL_SECONDS). The
+# response payload is privacy-safe: each entry exposes only the opaque
+# account_id, the learner-chosen users.display_name (or an anonymized
+# "Learner-<first6>" fallback) and the XP total. We never surface
+# accounts.email or profiles.full_name on a leaderboard.
+#
+# Installed BEFORE the T-036 v2 SPA static handler so T-036 remains the
+# outermost ``do_GET`` wrapper (the structural invariant enforced by
+# ``tests/server/test_v2_static_route.py``).
+#
+# The hook is inlined here (rather than imported via
+# :mod:`server_app.routes.leaderboards`) for the same reason as T-031 /
+# T-034 / T-053: at import time the ``server_app.routes`` package eagerly
+# pulls in modules that reference symbols defined later in this file.
+# The :mod:`routes.leaderboards` module remains the canonical re-export
+# point used by the modularization audit and by external imports.
+# ----------------------------------------------------------------------------
+
+from server_app.services import leaderboards as _t052_leaderboards  # noqa: E402
+
+
+_T052_WEEKLY_PATH = "/api/leaderboards/weekly"
+_T052_FRIENDS_PATH = "/api/leaderboards/friends"
+_T052_BY_CITY_PATH = "/api/leaderboards/by-city"
+
+
+def _t052_resolve_path_and_query(handler: "AppHandler") -> tuple[str, dict[str, list[str]]]:
+    raw = getattr(handler, "path", "") or ""
+    parsed = urllib.parse.urlparse(raw)
+    return parsed.path or "", urllib.parse.parse_qs(parsed.query or "")
+
+
+def _t052_account_id(session: dict) -> str:
+    return (session.get("account") or {}).get("id") or ""
+
+
+def _t052_parse_limit(query: dict[str, list[str]]) -> int:
+    raw_values = query.get("limit") or []
+    if not raw_values:
+        return _t052_leaderboards.DEFAULT_LIMIT
+    try:
+        value = int(raw_values[0])
+    except (TypeError, ValueError):
+        return _t052_leaderboards.DEFAULT_LIMIT
+    if value <= 0:
+        return _t052_leaderboards.DEFAULT_LIMIT
+    return min(value, _t052_leaderboards.MAX_LIMIT)
+
+
+def _t052_handle_board(
+    handler: "AppHandler",
+    scope: str,
+    *,
+    require_city: bool = False,
+) -> None:
+    """Shared dispatch body for the three leaderboard routes."""
+
+    try:
+        session = require_session(handler)
+        account_id = _t052_account_id(session)
+        if not account_id:
+            json_response(
+                handler,
+                HTTPStatus.UNAUTHORIZED,
+                {"error": "Authentication required."},
+            )
+            return
+        _, query = _t052_resolve_path_and_query(handler)
+        limit = _t052_parse_limit(query)
+        city: str | None = None
+        if require_city:
+            city_values = query.get("city") or []
+            city = (city_values[0].strip() if city_values else "") or ""
+            if not city:
+                raise ApiError(
+                    HTTPStatus.BAD_REQUEST,
+                    "missing_city",
+                    "Query parameter 'city' is required.",
+                )
+        with db_connection() as conn:
+            payload = _t052_leaderboards.build_board(
+                conn,
+                scope,
+                account_id=account_id,
+                city=city,
+                limit=limit,
+            )
+        json_response(handler, HTTPStatus.OK, payload)
+    except PermissionError as error:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+    except ApiError as error:
+        api_error_response(handler, error)
+    except Exception as error:  # noqa: BLE001 — defence in depth
+        log_event(
+            "error",
+            "leaderboard_failed",
+            scope=scope,
+            error=type(error).__name__,
+        )
+        json_response(
+            handler,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            {"error": "leaderboard_unavailable"},
+        )
+
+
+_T052_ORIGINAL_DO_GET = AppHandler.do_GET
+
+
+def _t052_patched_do_get(self: "AppHandler") -> None:
+    raw = getattr(self, "path", "") or ""
+    path = urllib.parse.urlparse(raw).path or ""
+    stripped = path.rstrip("/")
+    if path == _T052_WEEKLY_PATH or stripped == _T052_WEEKLY_PATH:
+        _t052_handle_board(self, _t052_leaderboards.SCOPE_WEEKLY)
+        return
+    if path == _T052_FRIENDS_PATH or stripped == _T052_FRIENDS_PATH:
+        _t052_handle_board(self, _t052_leaderboards.SCOPE_BY_FRIENDS)
+        return
+    if path == _T052_BY_CITY_PATH or stripped == _T052_BY_CITY_PATH:
+        _t052_handle_board(self, _t052_leaderboards.SCOPE_BY_CITY, require_city=True)
+        return
+    _T052_ORIGINAL_DO_GET(self)
+
+
+AppHandler.do_GET = _t052_patched_do_get  # type: ignore[assignment]
+AppHandler._t052_installed = True  # type: ignore[attr-defined]
+# ============================================================================
+# end T-052 leaderboards route hook
+# ============================================================================
+
+
+# ============================================================================
 # T-036 Vue 3 + TypeScript SPA static handler (mounted at /v2/)
 # ============================================================================
 # Serves the built apps/web-v2/dist/ assets under /v2/ via a tail-of-file

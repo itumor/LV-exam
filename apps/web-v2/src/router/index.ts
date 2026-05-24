@@ -3,6 +3,7 @@ import HomeView from "../views/HomeView.vue";
 import ReadinessView from "../views/ReadinessView.vue";
 import AttemptsView from "../views/AttemptsView.vue";
 import TutorDashboardView from "../views/TutorDashboardView.vue";
+import LeaderboardsView from "../views/LeaderboardsView.vue";
 
 // The SPA is mounted under `/v2/` by the Python server (see core.py T-036
 // static handler). vue-router's history base must match so deep links such as
@@ -17,6 +18,9 @@ export const router = createRouter({
     // membership; the link surfaces in the nav for every user but
     // calling the API as a non-tutor returns 403.
     { path: "/tutor", name: "tutor", component: TutorDashboardView },
+    // T-052 leaderboards (weekly / friends / by-city) — server-side
+    // privacy filter strips PII; the view renders only display_name + XP.
+    { path: "/leaderboards", name: "leaderboards", component: LeaderboardsView },
     { path: "/:pathMatch(.*)*", redirect: { name: "home" } },
   ],
 });
