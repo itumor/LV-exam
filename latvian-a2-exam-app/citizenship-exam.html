@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="lv" data-bs-theme="light">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Naturalizācijas eksāmens — Latvijas pilsonības tests (T-071)</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%239e1b32'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-size='18' font-family='Georgia' font-weight='700' fill='white'%3ENAT%3C/text%3E%3C/svg%3E">
+    <meta name="theme-color" content="#9e1b32">
+    <meta name="description" content="Latvijas naturalizācijas (pilsonības) eksāmena simulators — vēsture, Satversme, valodas zināšanu minimums. T-071.">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+      body { background: #f8f7f5; }
+      .nat-appbar { background: #9e1b32; color: #fff; padding: 12px 16px; }
+      .nat-brand { font-weight: 700; letter-spacing: 0.3px; }
+      .nat-section { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+      .nat-section h2 { color: #9e1b32; border-bottom: 2px solid #9e1b32; padding-bottom: 6px; }
+      .nat-q { padding: 12px 0; border-bottom: 1px solid #eee; }
+      .nat-q:last-child { border-bottom: none; }
+      .nat-q .nat-prompt { font-weight: 500; margin-bottom: 8px; }
+      .nat-passage { background: #faf8f4; border-left: 4px solid #9e1b32; padding: 12px 16px; margin-bottom: 12px; font-style: italic; }
+      .nat-result-card { background: #fff; border-radius: 10px; padding: 24px; margin-top: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+      .nat-result-card.pass { border-top: 6px solid #2e7d32; }
+      .nat-result-card.fail { border-top: 6px solid #c62828; }
+      .nat-result-status { font-size: 1.6rem; font-weight: 700; }
+      .nat-result-status.pass { color: #2e7d32; }
+      .nat-result-status.fail { color: #c62828; }
+      .nat-score-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+      .nat-score-row:last-child { border-bottom: none; }
+      .nat-score-row.pass-row { color: #2e7d32; font-weight: 600; }
+      .nat-score-row.fail-row { color: #c62828; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <header class="nat-appbar">
+      <div class="container-xxl d-flex align-items-center justify-content-between">
+        <div class="nat-brand">Naturalizācijas eksāmena simulators</div>
+        <a href="/latvian-a2-exam-app/" class="btn btn-sm btn-outline-light">← Atpakaļ uz A2 simulatoru</a>
+      </div>
+    </header>
+
+    <main class="container-xxl py-4">
+      <section class="nat-section" id="nat-intro">
+        <h2>Par eksāmenu</h2>
+        <p>
+          Latvijas naturalizācijas eksāmens sastāv no <strong>trim daļām</strong>:
+          vēsture (10 jautājumi), Satversme (10 jautājumi) un latviešu valodas
+          zināšanu minimums (15 punkti).
+        </p>
+        <p>
+          <strong>Sekmīgi nokārtot var, ja:</strong>
+        </p>
+        <ul>
+          <li>Vēsture + Satversme kopā ≥ <strong>12 / 20</strong> punkti, <em>UN</em></li>
+          <li>Valoda ≥ <strong>9 / 15</strong> punkti.</li>
+        </ul>
+        <p class="text-muted">
+          Ja kāda no abām robežām netiek sasniegta, eksāmens netiek nokārtots
+          — pat ja kopējais punktu skaits ir augsts. Šī ir <strong>divsekciju
+          robežas</strong> noteikuma būtība (T-071).
+        </p>
+      </section>
+
+      <div id="nat-loading" class="nat-section text-center text-muted">
+        Iekrauj eksāmenu…
+      </div>
+
+      <form id="nat-exam-form" style="display:none;">
+        <section class="nat-section" id="nat-history-section">
+          <h2>I. Latvijas vēsture <span class="text-muted">(10 punkti)</span></h2>
+          <div id="nat-history-questions"></div>
+        </section>
+
+        <section class="nat-section" id="nat-constitution-section">
+          <h2>II. Latvijas Satversme un valsts iekārta <span class="text-muted">(10 punkti)</span></h2>
+          <div id="nat-constitution-questions"></div>
+        </section>
+
+        <section class="nat-section" id="nat-language-section">
+          <h2>III. Latviešu valodas zināšanu minimums <span class="text-muted">(15 punkti)</span></h2>
+          <div id="nat-language-tasks"></div>
+        </section>
+
+        <div class="text-center mb-4">
+          <button type="submit" class="btn btn-lg" style="background:#9e1b32;color:#fff;">
+            Iesniegt eksāmenu
+          </button>
+        </div>
+      </form>
+
+      <div id="nat-result" style="display:none;"></div>
+    </main>
+
+    <script src="citizenship-exam.js"></script>
+  </body>
+</html>

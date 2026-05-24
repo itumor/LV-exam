@@ -679,7 +679,29 @@ def built_in_exam_catalog() -> list[dict[str, Any]]:
         }
         for index in range(1, 4)
     ]
-    return a2 + b1
+    # T-071: Naturalizācijas (citizenship) exam pack. Single published exam
+    # whose canonical manifest lives at content/exams/NAT/NAT_Exam_*.exam.json.
+    # Unlike CEFR exams, the citizenship exam uses a dual-section pass rule:
+    # history+constitution combined >= 12 AND language >= 9 (see
+    # server_app.services.citizenship_scoring).
+    nat = [
+        {
+            "id": f"nat-{str(index).zfill(2)}",
+            "title": f"Naturalizācijas eksāmens {str(index).zfill(2)}",
+            "description": "Built-in Latvian citizenship (naturalisation) exam (T-071).",
+            "content_version": 1,
+            "status": "published",
+            "manifest": {
+                "level": "CITIZENSHIP",
+                "markdownPath": f"/content/exams/NAT/NAT_Exam_{str(index).zfill(2)}.md",
+                "sourcePath": f"content/exams/NAT/NAT_Exam_{str(index).zfill(2)}.md",
+                "attachmentRoot": "/content/exams/NAT/audio/",
+                "manifestPath": f"content/exams/NAT/NAT_Exam_{str(index).zfill(2)}.exam.json",
+            },
+        }
+        for index in range(1, 2)
+    ]
+    return a2 + b1 + nat
 
 
 class ApiError(Exception):
