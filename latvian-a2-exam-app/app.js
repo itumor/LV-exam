@@ -444,7 +444,7 @@ async function loadDashboard() {
    if (!response.ok) {
      throw new Error(payload.error || `Dashboard request failed with HTTP ${response.status}`);
    }
-   
+
    // Fetch analytics data
    try {
      const analyticsResponse = await fetch("/api/attempts/analytics", { credentials: "same-origin" });
@@ -457,7 +457,22 @@ async function loadDashboard() {
      console.warn("Failed to load analytics:", error);
      payload.analytics = {};
    }
-   
+
+   // T-030 — fetch the per-skill readiness rollup (9/15 logic + badges)
+   // so the dashboard can render the readiness tile alongside the
+   // existing analytics chart. Soft-fails so a flaky readiness endpoint
+   // never blocks the rest of the dashboard.
+   try {
+     const readinessResponse = await fetch("/api/readiness", { credentials: "same-origin" });
+     const readinessPayload = await readinessResponse.json();
+     if (readinessResponse.ok) {
+       payload.readiness = readinessPayload;
+     }
+   } catch (error) {
+     console.warn("Failed to load readiness:", error);
+     payload.readiness = null;
+   }
+
    state.auth.account = payload.account || state.auth.account;
    state.auth.profile = payload.profile || state.auth.profile;
    state.auth.dashboard = payload;
@@ -912,6 +927,83 @@ function renderAuth() {
   }
 }
 
+// T-030 — A2 readiness dashboard tile.
+//
+// Renders the four canonical A2 skills (listening/reading/writing/speaking)
+// as horizontal bars filled to ``avg_score / 15``, badged with the
+// traffic-light colour returned by ``/api/readiness``. The 9/15 pass
+// threshold is drawn as a thin marker line so the learner can see at a
+// glance which skills clear the naturalisation rule.
+//
+// The shape mirrors ``server_app/services/readiness.py``:
+//   { skills: [{skill, avg_score, predicted_pass, badge, sample_size}],
+//     overall_pass_predicted, last_updated }
+const READINESS_SKILL_LABELS = {
+  listening: "Listening",
+  reading: "Reading",
+  writing: "Writing",
+  speaking: "Speaking"
+};
+const READINESS_PASS_THRESHOLD = 9;
+const READINESS_MAX_POINTS = 15;
+
+function renderReadinessTile(readiness) {
+  if (!readiness || !Array.isArray(readiness.skills) || readiness.skills.length === 0) {
+    return `
+      <article class="dashboard-card readiness empty" data-testid="readiness-tile">
+        <h3>A2 readiness</h3>
+        <p class="dashboard-subtitle">Complete an exam to see your per-skill readiness.</p>
+      </article>
+    `;
+  }
+  const overallLabel = readiness.overall_pass_predicted
+    ? "On track to pass"
+    : "Not yet predicted to pass";
+  const overallClass = readiness.overall_pass_predicted ? "pass" : "fail";
+  const rows = readiness.skills.map(entry => {
+    const label = READINESS_SKILL_LABELS[entry.skill] || entry.skill;
+    const score = typeof entry.avg_score === "number" ? entry.avg_score : 0;
+    const pct = Math.max(0, Math.min(100, (score / READINESS_MAX_POINTS) * 100));
+    const badge = entry.badge || "red";
+    const sample = entry.sample_size ?? 0;
+    const scoreText = sample > 0 && entry.avg_score !== null
+      ? `${score.toFixed(1)} / ${READINESS_MAX_POINTS}`
+      : `— / ${READINESS_MAX_POINTS}`;
+    return `
+      <li class="readiness-row readiness-${escapeHtml(badge)}" data-skill="${escapeHtml(entry.skill)}">
+        <div class="readiness-row-head">
+          <span class="readiness-skill">${escapeHtml(label)}</span>
+          <span class="readiness-badge readiness-badge-${escapeHtml(badge)}" title="Risk: ${escapeHtml(badge)}">
+            ${escapeHtml(badge.toUpperCase())}
+          </span>
+        </div>
+        <div class="readiness-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${READINESS_MAX_POINTS}" aria-valuenow="${escapeHtml(score)}">
+          <div class="readiness-bar-fill readiness-bar-${escapeHtml(badge)}" style="width: ${pct.toFixed(1)}%;"></div>
+          <span class="readiness-threshold" style="left: ${((READINESS_PASS_THRESHOLD / READINESS_MAX_POINTS) * 100).toFixed(1)}%;" title="9/15 pass threshold"></span>
+        </div>
+        <div class="readiness-row-meta">
+          <span class="readiness-score">${escapeHtml(scoreText)}</span>
+          <span class="readiness-sample">${escapeHtml(sample)} ${sample === 1 ? "attempt" : "attempts"}</span>
+        </div>
+      </li>
+    `;
+  }).join("");
+  const updated = readiness.last_updated
+    ? new Date(readiness.last_updated).toLocaleString()
+    : "—";
+  return `
+    <article class="dashboard-card readiness" data-testid="readiness-tile">
+      <header class="readiness-header">
+        <h3>A2 readiness</h3>
+        <span class="readiness-overall readiness-overall-${escapeHtml(overallClass)}">${escapeHtml(overallLabel)}</span>
+      </header>
+      <p class="dashboard-subtitle">Per-skill predicted pass (9/15 rule). Recent attempts count more than older ones.</p>
+      <ul class="readiness-list">${rows}</ul>
+      <p class="readiness-footer">Last updated: ${escapeHtml(updated)}</p>
+    </article>
+  `;
+}
+
 function renderDashboard() {
    if (!els.dashboardOutput) return;
    if (state.auth.status !== "authenticated") {
@@ -929,6 +1021,8 @@ function renderDashboard() {
    const attempts = Array.isArray(dashboard.attempts) ? dashboard.attempts : [];
    const profile = state.auth.profile || dashboard.profile || {};
    const latestScore = summary.latest_score ?? "—";
+   // T-030 — readiness tile (per-skill 9/15 + traffic-light badges).
+   const readinessTile = renderReadinessTile(dashboard.readiness);
    const skillCards = Object.entries(summary.skill_progress || {}).map(([skill, values]) => `
      <article class="dashboard-stat">
        <span>${escapeHtml(skill)}</span>
@@ -1000,6 +1094,7 @@ function renderDashboard() {
          <div class="dashboard-metric"><span>Subscription</span><strong>${escapeHtml(summary.subscription_status || "free")}</strong></div>
          <div class="dashboard-metric"><span>Protected access</span><strong>${state.auth.status === "authenticated" ? "On" : "Off"}</strong></div>
        </article>
+       ${readinessTile}
 <article class="dashboard-card">
           <h3>Skill progress</h3>
           <div class="dashboard-stats-grid">${skillCards || "<p>No attempts saved yet.</p>"}</div>
