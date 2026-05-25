@@ -1,0 +1,24 @@
+{
+  "collector": "backup_drills",
+  "control_refs": [
+    "A1.3",
+    "CC7.5",
+    "PI1.5"
+  ],
+  "generated_at": "2026-05-25T08:15:36.543414+00:00",
+  "window_days": 90,
+  "drill_total": 1,
+  "drill_success": 0,
+  "drill_failure": 1,
+  "drill_success_rate": 0.0,
+  "last_failure": {
+    "sha": "827ebecd4b08672426032380b1f630a80eaa00eb",
+    "url": "https://github.com/itumor/LV-exam/actions/runs/26388017518",
+    "createdAt": "2026-05-25T07:04:01Z"
+  },
+  "procedure_last_review": "2026-05-23",
+  "r2_object_count": null,
+  "r2_latest_object_age_hours": null,
+  "r2_stale_snapshot": null,
+  "r2_lister_present": false
+}
