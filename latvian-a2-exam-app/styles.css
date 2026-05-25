@@ -1,32 +1,48 @@
+/* Valsts redesign palette — ported from apps/exam-redesign/theme.css.
+   Variable names preserved so the 6500+ lines below resolve unchanged;
+   only values are re-pointed to the new carmine + navy on cream system. */
 :root {
   color-scheme: light;
-  --paper: #eef2f4;
+  --paper: #fbf6ec;
   --panel: #ffffff;
-  --ink: #18201d;
-  --muted: #66706a;
-  --line: #d6dde2;
-  --teal: #146b63;
-  --teal-dark: #0e4e48;
-  --brick: #a5402d;
-  --amber: #d89b22;
-  --blue: #315f8f;
-  --shadow: 0 18px 45px rgba(31, 39, 35, 0.11);
+  --ink: #18130a;
+  --muted: #6c6452;
+  --line: #ddd1b7;
+  --teal: #9e1b32;
+  --teal-dark: #7a1426;
+  --brick: #9e1b32;
+  --amber: #b87026;
+  --blue: #1a2a4a;
+  --shadow: 0 18px 50px rgba(20, 16, 8, 0.12), 0 6px 12px rgba(20, 16, 8, 0.06);
+
+  --surface: #fbf6ec;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #fcfaf5;
+  --surface-container: #f4ecdc;
+  --surface-container-high: #ece2c9;
+  --on-surface: #18130a;
+  --on-surface-variant: #3a3424;
+  --outline: #6c6452;
+  --outline-variant: #ddd1b7;
+  --primary: #1a2a4a;
+  --primary-container: #9e1b32;
+  --error: #9a1c1c;
+
+  --font-display: "Lora", Georgia, "Times New Roman", serif;
+  --font-body: "Public Sans", Avenir Next, Aptos, Segoe UI, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --focus-ring: 0 0 0 3px color-mix(in oklab, var(--primary-container) 35%, transparent);
 }
 
-/* Stitch official exam skin */
-:root {
-  --surface: #f6faff;
-  --surface-container-lowest: #ffffff;
-  --surface-container-low: #ecf5fe;
-  --surface-container: #e6eff8;
-  --surface-container-high: #e0e9f2;
-  --on-surface: #141d23;
-  --on-surface-variant: #43474f;
-  --outline: #737780;
-  --outline-variant: #c3c6d1;
-  --primary: #001e40;
-  --primary-container: #003366;
-  --error: #ba1a1a;
+h1, h2, h3, .exam-brand-title {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 4px;
 }
 
 body {
@@ -4269,27 +4285,28 @@ body {
   }
 }
 
-/* Unified official design system: final layer for every app surface. */
+/* Unified official design system: final layer for every app surface.
+   Re-pointed to redesign Valsts palette — matches the top-of-file root block. */
 :root {
-  --surface: #f4f8fc;
+  --surface: #fbf6ec;
   --surface-container-lowest: #ffffff;
-  --surface-container-low: #edf4fb;
-  --surface-container: #e4edf6;
-  --surface-container-high: #d8e4ef;
-  --on-surface: #111b24;
-  --on-surface-variant: #4b5662;
-  --outline: #7a8490;
-  --outline-variant: #c2ccd7;
-  --primary: #001e40;
-  --primary-container: #063967;
-  --success: #146b63;
-  --warning: #9b6400;
-  --error: #ba1a1a;
-  --error-container: #fff2f0;
-  --radius-control: 4px;
-  --radius-panel: 12px;
+  --surface-container-low: #fcfaf5;
+  --surface-container: #f4ecdc;
+  --surface-container-high: #ece2c9;
+  --on-surface: #18130a;
+  --on-surface-variant: #3a3424;
+  --outline: #6c6452;
+  --outline-variant: #ddd1b7;
+  --primary: #1a2a4a;
+  --primary-container: #9e1b32;
+  --success: #2d6448;
+  --warning: #b87026;
+  --error: #9a1c1c;
+  --error-container: #f7e1da;
+  --radius-control: 6px;
+  --radius-panel: 14px;
   --app-width: 1024px;
-  --focus-ring: 0 0 0 3px rgba(0, 30, 64, 0.18);
+  --focus-ring: 0 0 0 3px color-mix(in oklab, #9e1b32 35%, transparent);
 }
 
 body {
@@ -6006,7 +6023,7 @@ body[data-flow-screen="candidate"] .workspace {
   padding: 0.75rem;
   background-color: var(--surface-container-low, #ecf5fe);
   border-radius: 4px;
-  border-left: 3px solid var(--teal, #146b63);
+  border-left: 3px solid var(--teal, #9e1b32);
   font-size: 0.9rem;
 }
 
@@ -6480,8 +6497,8 @@ body[data-flow-screen="candidate"] .workspace {
   right: 1rem;
   bottom: 1rem;
   z-index: 1080;
-  background: #146b63;
-  color: #fffdf8;
+  background: #9e1b32;
+  color: #fbf4e6;
   padding: 0.75rem 1rem;
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);

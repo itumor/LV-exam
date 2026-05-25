@@ -3165,8 +3165,8 @@ function initProgressChart(trendsData) {
          {
            label: 'Total Score',
            data: totalScores,
-           borderColor: '#146b63',
-           backgroundColor: 'rgba(20, 107, 99, 0.1)',
+           borderColor: '#9e1b32',
+           backgroundColor: 'rgba(158, 27, 50, 0.1)',
            tension: 0.1,
            fill: true,
            yAxisID: 'y-total'

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Latvian A2 Exam Simulator">
-  <rect width="64" height="64" rx="12" fill="#146b63"/>
-  <text x="32" y="40" text-anchor="middle" font-size="24" font-family="Georgia, serif" font-weight="700" fill="#fffdf8">A2</text>
+  <rect width="64" height="64" rx="12" fill="#9e1b32"/>
+  <text x="32" y="44" text-anchor="middle" font-size="34" font-family="Georgia, serif" font-weight="700" fill="#fbf4e6">A2</text>
 </svg>
