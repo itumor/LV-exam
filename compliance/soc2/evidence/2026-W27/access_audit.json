@@ -1,0 +1,20 @@
+{
+  "collector": "access_audit",
+  "schema_version": 1,
+  "control_refs": [
+    "CC6.1",
+    "CC6.2",
+    "CC6.3",
+    "CC7.2"
+  ],
+  "generated_at": "2026-06-29T08:53:42.337175+00:00",
+  "window_days": 90,
+  "since": "2026-03-31",
+  "events_by_type": {},
+  "events_by_day": {},
+  "joiner_count": 0,
+  "leaver_count": 0,
+  "failed_login_count": 0,
+  "unique_actor_count": 0,
+  "table_present": false
+}
