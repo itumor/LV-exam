@@ -12,7 +12,7 @@
     "install:v2": "npm --prefix apps/web-v2 install"
   },
   "devDependencies": {
-    "@commitlint/cli": "^19.5.0",
+    "@commitlint/cli": "^21.2.1",
     "@commitlint/config-conventional": "^19.5.0",
     "@playwright/test": "^1.60.0",
     "lefthook": "^1.7.22"
