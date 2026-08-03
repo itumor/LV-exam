@@ -1,0 +1,67 @@
+{
+  "collector": "ci_runs",
+  "control_refs": [
+    "CC4.1",
+    "CC7.1",
+    "CC8.1"
+  ],
+  "generated_at": "2026-08-03T06:54:38.177737+00:00",
+  "window_days": 7,
+  "since": "2026-07-27T06:54:38Z",
+  "repo": "itumor/LV-exam",
+  "branches": [
+    "develop",
+    "main"
+  ],
+  "total_runs": 100,
+  "workflows": {
+    "Backup restore drill": {
+      "total": 1,
+      "success": 0,
+      "failure": 1,
+      "cancelled": 0,
+      "other": 0,
+      "last_failure": {
+        "sha": "827ebecd4b08672426032380b1f630a80eaa00eb",
+        "url": "https://github.com/itumor/LV-exam/actions/runs/30789305337",
+        "createdAt": "2026-08-03T06:10:21Z"
+      }
+    },
+    "Region health (multi-region warm standby)": {
+      "total": 97,
+      "success": 0,
+      "failure": 97,
+      "cancelled": 0,
+      "other": 0,
+      "last_failure": {
+        "sha": "827ebecd4b08672426032380b1f630a80eaa00eb",
+        "url": "https://github.com/itumor/LV-exam/actions/runs/30785274319",
+        "createdAt": "2026-08-03T04:45:05Z"
+      }
+    },
+    "SOC 2 evidence collection": {
+      "total": 1,
+      "success": 0,
+      "failure": 0,
+      "cancelled": 0,
+      "other": 1,
+      "last_failure": null
+    },
+    "npm_and_yarn in /. - Update #1490386661": {
+      "total": 1,
+      "success": 1,
+      "failure": 0,
+      "cancelled": 0,
+      "other": 0,
+      "last_failure": null
+    }
+  },
+  "required_workflows_seen": [
+    "Backup restore drill"
+  ],
+  "required_workflows_missing": [
+    "CI \u2014 PR",
+    "CI \u2014 develop",
+    "CI \u2014 release"
+  ]
+}
