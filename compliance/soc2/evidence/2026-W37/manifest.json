@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-09-07T08:50:03.942438+00:00",
+  "iso_week": "2026-W37",
+  "collectors": {
+    "ci_runs": {
+      "status": "ok",
+      "error": null,
+      "path": "compliance/soc2/evidence/2026-W37/ci_runs.json"
+    },
+    "backup_drills": {
+      "status": "ok",
+      "error": null,
+      "path": "compliance/soc2/evidence/2026-W37/backup_drills.json"
+    },
+    "access_audit": {
+      "status": "ok",
+      "error": null,
+      "path": "compliance/soc2/evidence/2026-W37/access_audit.json"
+    }
+  },
+  "ok_count": 3,
+  "error_count": 0
+}
