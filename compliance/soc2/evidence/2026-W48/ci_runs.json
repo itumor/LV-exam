@@ -1,0 +1,59 @@
+{
+  "collector": "ci_runs",
+  "control_refs": [
+    "CC4.1",
+    "CC7.1",
+    "CC8.1"
+  ],
+  "generated_at": "2026-11-23T13:57:01.143917+00:00",
+  "window_days": 7,
+  "since": "2026-11-16T13:57:01Z",
+  "repo": "itumor/LV-exam",
+  "branches": [
+    "develop",
+    "main"
+  ],
+  "total_runs": 26,
+  "workflows": {
+    "Backup restore drill": {
+      "total": 1,
+      "success": 0,
+      "failure": 1,
+      "cancelled": 0,
+      "other": 0,
+      "last_failure": {
+        "sha": "827ebecd4b08672426032380b1f630a80eaa00eb",
+        "url": "https://github.com/itumor/LV-exam/actions/runs/45165777674",
+        "createdAt": "2026-11-23T11:30:11Z"
+      }
+    },
+    "Region health (multi-region warm standby)": {
+      "total": 24,
+      "success": 0,
+      "failure": 24,
+      "cancelled": 0,
+      "other": 0,
+      "last_failure": {
+        "sha": "827ebecd4b08672426032380b1f630a80eaa00eb",
+        "url": "https://github.com/itumor/LV-exam/actions/runs/45163096299",
+        "createdAt": "2026-11-23T11:12:44Z"
+      }
+    },
+    "SOC 2 evidence collection": {
+      "total": 1,
+      "success": 0,
+      "failure": 0,
+      "cancelled": 0,
+      "other": 1,
+      "last_failure": null
+    }
+  },
+  "required_workflows_seen": [
+    "Backup restore drill"
+  ],
+  "required_workflows_missing": [
+    "CI \u2014 PR",
+    "CI \u2014 develop",
+    "CI \u2014 release"
+  ]
+}
